@@ -19,6 +19,9 @@ import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.activity.OnBackPressedCallback
 
 class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
@@ -42,15 +45,32 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        val root = findViewById<View>(android.R.id.content)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
 
         statusText = findViewById(R.id.statusText)
         val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
         val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
         val helpScreen = findViewById<android.view.View>(R.id.helpScreen)
+        val navigationCallback = object : OnBackPressedCallback(false) {
+            override fun handleOnBackPressed() {
+                homeScreen.visibility = View.VISIBLE
+                settingsScreen.visibility = View.GONE
+                helpScreen.visibility = View.GONE
+                isEnabled = false
+            }
+        }
+        onBackPressedDispatcher.addCallback(this, navigationCallback)
         fun showScreen(screen: android.view.View) {
             homeScreen.visibility = if (screen === homeScreen) View.VISIBLE else View.GONE
             settingsScreen.visibility = if (screen === settingsScreen) View.VISIBLE else View.GONE
             helpScreen.visibility = if (screen === helpScreen) View.VISIBLE else View.GONE
+            navigationCallback.isEnabled = screen !== homeScreen
         }
         findViewById<android.view.View>(R.id.settingsButton).setOnClickListener { showScreen(settingsScreen) }
         findViewById<android.view.View>(R.id.helpButton).setOnClickListener { showScreen(helpScreen) }
