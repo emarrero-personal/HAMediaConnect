@@ -75,6 +75,13 @@
             android:text="Start connection after reboot" />
 
         <Button
+            android:id="@+id/oauthButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Sign in with Home Assistant (OAuth)" />
+
+        <Button
             android:id="@+id/saveStartButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
