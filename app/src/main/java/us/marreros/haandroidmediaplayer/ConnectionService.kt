@@ -22,6 +22,8 @@ class ConnectionService : Service() {
     private var reconnectFuture: ScheduledFuture<*>? = null
     private var client: HaWebSocketClient? = null
     private var stopped = false
+    private var generation = 0L
+    private var retrySeconds = 5L
 
     override fun onCreate() {
         super.onCreate()
@@ -42,6 +44,10 @@ class ConnectionService : Service() {
     }
 
     private fun connect() {
+        if (stopped) return
+        reconnectFuture?.cancel(false)
+        reconnectFuture = null
+        val attempt = ++generation
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
         val secure = SecureTokenStore(this)
@@ -57,7 +63,8 @@ class ConnectionService : Service() {
                 prefs.edit().putLong("oauth_expiry",
                     System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
             } catch (_: Exception) {
-                updateStatus("OAuth refresh failed; sign in again")
+                updateStatus("Token refresh unavailable; retrying")
+                scheduleReconnect()
                 return
             }
         }
@@ -69,7 +76,6 @@ class ConnectionService : Service() {
             return
         }
 
-        reconnectFuture?.cancel(false)
         client?.close()
         client = HaWebSocketClient(
             baseUrl = baseUrl,
@@ -77,18 +83,25 @@ class ConnectionService : Service() {
             deviceId = deviceId,
             deviceName = prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL,
             onStatus = { status ->
-                updateStatus(status)
-                if ((status.startsWith("Disconnected") || status == "Authentication failed") && !stopped) scheduleReconnect()
+                scheduler.execute {
+                    if (stopped || attempt != generation) return@execute
+                    updateStatus(status)
+                    if (status == "Connected") retrySeconds = 5L
+                    else if (status.startsWith("Disconnected") || status == "Authentication failed" || status.startsWith("Registration rejected") || status.startsWith("Subscription rejected")) scheduleReconnect()
+                }
             },
             onCommand = { command -> dispatchCommand(command) }
         ).also { it.connect() }
     }
 
     private fun scheduleReconnect() {
-        reconnectFuture?.cancel(false)
+        if (stopped || (reconnectFuture != null && !reconnectFuture!!.isDone)) return
+        val delay = retrySeconds
+        retrySeconds = (retrySeconds * 2).coerceAtMost(60L)
         reconnectFuture = scheduler.schedule({
+            reconnectFuture = null
             if (!stopped) connect()
-        }, 10, TimeUnit.SECONDS)
+        }, delay, TimeUnit.SECONDS)
     }
 
     private fun dispatchCommand(command: HaCommand) {
@@ -167,6 +180,7 @@ class ConnectionService : Service() {
 
     override fun onDestroy() {
         stopped = true
+        generation++
         PlayerStateBus.listener = null
         reconnectFuture?.cancel(true)
         client?.close()
