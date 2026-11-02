@@ -6,5 +6,6 @@ data class HaCommand(
     val title: String? = null,
     val contentType: String? = null,
     val volume: Float? = null,
-    val position: Long? = null
+    val position: Long? = null,
+    val announce: Boolean = false
 )
