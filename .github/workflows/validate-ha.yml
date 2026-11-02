@@ -24,4 +24,4 @@ jobs:
       - name: Install test runner
         run: python -m pip install pytest voluptuous
       - name: Run isolated registry tests
-        run: python -m pytest -q tests/test_registry.py tests/test_websocket_api.py
+        run: python -m pytest -q tests/test_registry.py tests/test_websocket_api.py tests/test_media_player.py
