@@ -1,0 +1,32 @@
+name: Build HAMediaConnect APK
+
+on:
+  push:
+    branches:
+      - feature/v0.2-oauth-media-player
+  workflow_dispatch:
+
+jobs:
+  android-debug-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 37
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - name: Build debug APK
+        run: bash ./gradlew --no-daemon assembleDebug
+      - name: Name APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk HAMediaConnect-v0.9.0-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HAMediaConnect-v0.9.0-debug
+          path: HAMediaConnect-v0.9.0-debug.apk
+          if-no-files-found: error
+          retention-days: 30
