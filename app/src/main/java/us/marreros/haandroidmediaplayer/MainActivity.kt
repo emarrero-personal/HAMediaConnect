@@ -10,6 +10,9 @@ import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
+import android.widget.LinearLayout
+import android.view.View
+import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -38,6 +41,16 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
+        val settingsPanel = findViewById<LinearLayout>(R.id.settingsPanel)
+        findViewById<Button>(R.id.settingsButton).setOnClickListener {
+            settingsPanel.visibility = if (settingsPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+        findViewById<Button>(R.id.helpButton).setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("Getting started with HAMediaConnect")
+                .setMessage("1. Open Connection settings and enter your Home Assistant URL.\n\n2. For HTTPS, select Sign in with Home Assistant (OAuth). For a local HTTP instance, paste a long-lived access token from your Home Assistant profile and tap Save & Start.\n\n3. Once connected, use the HAMediaConnect media player entity in Home Assistant to play audio or send TTS announcements.\n\nTip: Keep your access token private. Never share it in screenshots or logs.")
+                .setPositiveButton("Got it", null).show()
+        }
         urlInput = findViewById(R.id.urlInput)
         tokenInput = findViewById(R.id.tokenInput)
         nameInput = findViewById(R.id.nameInput)
