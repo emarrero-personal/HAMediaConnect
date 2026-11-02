@@ -1,10 +1,9 @@
 """Home Assistant media player entities backed by registered Android devices."""
 from __future__ import annotations
 
-from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature, MediaType
+from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature, MediaType, MediaPlayerState
 from homeassistant.core import callback
 from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN
 from .websocket_api import REGISTRY_KEY
@@ -69,7 +68,7 @@ class AndroidMediaPlayer(MediaPlayerEntity):
     @property
     def state(self):
         player = self.registry.players.get(self.device_id)
-        return player.state.get("state", "idle") if player else "unavailable"
+        return player.state.get("state", MediaPlayerState.IDLE) if player else None
 
     @property
     def volume_level(self):
