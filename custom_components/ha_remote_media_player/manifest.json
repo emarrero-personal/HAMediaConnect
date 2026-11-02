@@ -7,6 +7,7 @@
   "codeowners": [],
   "dependencies": [
     "http",
+    "media_source",
     "websocket_api"
   ],
   "config_flow": true,
