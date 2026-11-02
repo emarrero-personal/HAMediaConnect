@@ -75,6 +75,7 @@ class ConnectionService : Service() {
             baseUrl = baseUrl,
             token = token,
             deviceId = deviceId,
+            deviceName = prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL,
             onStatus = { status ->
                 updateStatus(status)
                 if ((status.startsWith("Disconnected") || status == "Authentication failed") && !stopped) scheduleReconnect()
