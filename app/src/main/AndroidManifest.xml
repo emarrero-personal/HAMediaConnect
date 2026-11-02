@@ -13,8 +13,8 @@
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:label="@string/app_name"
-        android:icon="@drawable/launcher_mascot"
-        android:roundIcon="@drawable/launcher_mascot"
+        android:icon="@drawable/mascot_guitar"
+        android:roundIcon="@drawable/mascot_guitar"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.HAAndroidMediaPlayer">
