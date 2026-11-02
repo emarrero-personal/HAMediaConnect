@@ -20,6 +20,7 @@ class PlaybackService : MediaSessionService() {
         const val EXTRA_CONTENT_TYPE = "content_type"
         const val EXTRA_VOLUME = "volume"
         const val EXTRA_POSITION = "position"
+        const val EXTRA_ANNOUNCE = "announce"
 
         const val CMD_PLAY_MEDIA = "play_media"
         const val CMD_PLAY = "play"
@@ -34,6 +35,16 @@ class PlaybackService : MediaSessionService() {
     private val handler = Handler(Looper.getMainLooper())
     private var currentUrl: String? = null
     private var currentTitle: String? = null
+    private data class SavedMedia(
+        val item: MediaItem,
+        val positionMs: Long,
+        val wasPlaying: Boolean,
+        val url: String?,
+        val title: String?
+    )
+    private var savedMedia: SavedMedia? = null
+    private var announcing = false
+    private var announcementReady = false
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -46,9 +57,17 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         player = ExoPlayer.Builder(this).build()
         player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) = publishState()
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (announcing && playbackState == Player.STATE_READY) announcementReady = true
+                if (announcing && announcementReady && playbackState == Player.STATE_ENDED) {
+                    restoreMedia()
+                }
+                publishState()
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) = publishState()
-            override fun onPlayerError(error: PlaybackException) = publishState("error")
+            override fun onPlayerError(error: PlaybackException) {
+                if (announcing) restoreMedia() else publishState("error")
+            }
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
                 currentTitle = mediaMetadata.title?.toString() ?: currentTitle
                 publishState()
@@ -64,11 +83,15 @@ class PlaybackService : MediaSessionService() {
         when (intent?.action) {
             CMD_PLAY_MEDIA -> playMedia(
                 intent.getStringExtra(EXTRA_URL),
-                intent.getStringExtra(EXTRA_TITLE)
+                intent.getStringExtra(EXTRA_TITLE),
+                intent.getBooleanExtra(EXTRA_ANNOUNCE, false)
             )
             CMD_PLAY -> player.play()
             CMD_PAUSE -> player.pause()
             CMD_STOP -> {
+                announcing = false
+                announcementReady = false
+                savedMedia = null
                 player.stop()
                 player.clearMediaItems()
                 currentUrl = null
@@ -85,8 +108,27 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    private fun playMedia(url: String?, title: String?) {
+    private fun playMedia(url: String?, title: String?, announce: Boolean) {
         if (url.isNullOrBlank()) return
+        if (announce) {
+            if (!announcing && player.mediaItemCount > 0) {
+                player.currentMediaItem?.let {
+                    savedMedia = SavedMedia(
+                        it,
+                        player.currentPosition.coerceAtLeast(0L),
+                        player.playWhenReady,
+                        currentUrl,
+                        currentTitle
+                    )
+                }
+            }
+            announcing = true
+            announcementReady = false
+        } else {
+            announcing = false
+            announcementReady = false
+            savedMedia = null
+        }
         currentUrl = url
         currentTitle = title
         val metadata = MediaMetadata.Builder()
@@ -99,6 +141,25 @@ class PlaybackService : MediaSessionService() {
         player.setMediaItem(item)
         player.prepare()
         player.play()
+    }
+
+    private fun restoreMedia() {
+        val previous = savedMedia
+        announcing = false
+        announcementReady = false
+        savedMedia = null
+        if (previous == null) {
+            currentUrl = null
+            currentTitle = null
+            player.clearMediaItems()
+        } else {
+            currentUrl = previous.url
+            currentTitle = previous.title
+            player.setMediaItem(previous.item, previous.positionMs)
+            player.prepare()
+            if (previous.wasPlaying) player.play() else player.pause()
+        }
+        publishState()
     }
 
     private fun setSystemVolume(level: Float) {
