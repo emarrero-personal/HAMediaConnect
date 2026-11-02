@@ -20,6 +20,18 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Install Android SDK 37
         run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+      - name: Run unit tests and enforce 95% coverage
+        run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
+      - name: Upload unit test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAMediaConnect-test-and-coverage-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/reports/jacoco/appCodeCoverageReport/
+            app/build/reports/jacoco/appCodeCoverageReport/appCodeCoverageReport.xml
+          if-no-files-found: warn
       - name: Build debug APK
         run: bash ./gradlew --no-daemon assembleDebug
       - name: Name APK
