@@ -1,7 +1,9 @@
 """Home Assistant media player entities backed by registered Android devices."""
 from __future__ import annotations
 
+from homeassistant.components import media_source
 from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature, MediaType, MediaPlayerState
+from homeassistant.components.media_player.browse_media import async_process_play_media_url
 from homeassistant.core import callback
 from homeassistant.helpers.entity import DeviceInfo
 
@@ -122,4 +124,19 @@ class AndroidMediaPlayer(MediaPlayerEntity):
         self._send("volume_mute", is_volume_muted=mute)
 
     async def async_play_media(self, media_type: MediaType | str, media_id: str, **kwargs):
-        self._send("play_media", media_content_type=str(media_type), media_content_id=media_id)
+        """Resolve HA media sources (including TTS) before sending audio to Android."""
+        if media_source.is_media_source_id(media_id):
+            item = await media_source.async_resolve_media(
+                self.hass, media_id, target_media_player=self.entity_id
+            )
+            media_id = item.url
+            media_type = item.mime_type
+
+        # HA-generated media URLs may be relative (e.g. /api/tts_proxy/...).
+        # Android must receive an absolute URL, not a media-source URI.
+        media_id = async_process_play_media_url(self.hass, media_id)
+        self._send(
+            "play_media",
+            media_content_type=str(media_type),
+            media_content_id=media_id,
+        )
