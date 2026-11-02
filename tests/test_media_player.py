@@ -122,7 +122,7 @@ def test_direct_audio_url(platform):
     asyncio.run(entity.async_play_media("music", "https://example.com/music.mp3"))
     registry.dispatch.assert_called_once_with(
         "pixel", {"action": "play_media", "media_content_type": "music",
-                  "media_content_id": "https://example.com/music.mp3"}
+                  "media_content_id": "https://example.com/music.mp3", "announce": False}
     )
 
 
@@ -142,5 +142,5 @@ def test_tts_media_source_resolved_before_dispatch(platform):
     asyncio.run(entity.async_play_media("music", "media-source://tts/test"))
     registry.dispatch.assert_called_once_with(
         "pixel", {"action": "play_media", "media_content_type": "audio/mpeg",
-                  "media_content_id": "https://ha.example/api/tts_proxy/test.mp3"}
+                  "media_content_id": "https://ha.example/api/tts_proxy/test.mp3", "announce": True}
     )
