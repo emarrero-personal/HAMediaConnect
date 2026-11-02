@@ -4,9 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
 class AppPrefsTest {
  @Test fun createsAndPersistsDeviceId() {
   val context:Context=RuntimeEnvironment.getApplication()
