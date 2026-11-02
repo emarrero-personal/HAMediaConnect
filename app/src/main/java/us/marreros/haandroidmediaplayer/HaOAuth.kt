@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 class HaOAuth(private val baseUrl: String) {
     companion object {
         // Must be a real, publicly accessible HTTPS client-identifier page before production release.
-        const val CLIENT_ID = "https://github.com/emarrero-personal/HARemoteMediaPlayer"
+        const val CLIENT_ID = "https://emarrero-personal.github.io/HARemoteMediaPlayer/"
         const val REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
         private val rng = SecureRandom()
         fun randomUrlSafe(bytes: Int): String = ByteArray(bytes).also(rng::nextBytes)
