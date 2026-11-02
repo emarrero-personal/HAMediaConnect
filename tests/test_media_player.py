@@ -22,7 +22,13 @@ def platform(monkeypatch):
     module("homeassistant").__path__ = []
     module("homeassistant.core").callback = lambda f: f
     module("homeassistant.components").__path__ = []
+    media_source = module("homeassistant.components.media_source")
+    media_source.is_media_source_id = lambda value: value.startswith("media-source://")
+    media_source.async_resolve_media = Mock()
     media = module("homeassistant.components.media_player")
+    media.__path__ = []
+    browse = module("homeassistant.components.media_player.browse_media")
+    browse.async_process_play_media_url = lambda hass, url: "https://ha.example" + url if url.startswith("/") else url
     from enum import Enum, IntFlag
 
     class Features(IntFlag):
@@ -105,3 +111,36 @@ def test_platform_registration_and_listener_cleanup(platform):
     listeners["ha_remote_media_player_registered"](event)
     add.assert_called_once()
     entry.async_on_unload.assert_called_once()
+
+
+def test_direct_audio_url(platform):
+    registry = Mock()
+    registry.players = {"pixel": Mock(name="Pixel", state={})}
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    entity.entity_id = "media_player.pixel"
+    asyncio.run(entity.async_play_media("music", "https://example.com/music.mp3"))
+    registry.dispatch.assert_called_once_with(
+        "pixel", {"action": "play_media", "media_content_type": "music",
+                  "media_content_id": "https://example.com/music.mp3"}
+    )
+
+
+def test_tts_media_source_resolved_before_dispatch(platform):
+    import sys
+    source = sys.modules["homeassistant.components.media_source"]
+    async def resolve(hass, media_id, target_media_player):
+        assert media_id == "media-source://tts/test"
+        assert target_media_player == "media_player.pixel"
+        return types.SimpleNamespace(url="/api/tts_proxy/test.mp3", mime_type="audio/mpeg")
+    source.async_resolve_media = resolve
+    registry = Mock()
+    registry.players = {"pixel": Mock(name="Pixel", state={})}
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    entity.entity_id = "media_player.pixel"
+    asyncio.run(entity.async_play_media("music", "media-source://tts/test"))
+    registry.dispatch.assert_called_once_with(
+        "pixel", {"action": "play_media", "media_content_type": "audio/mpeg",
+                  "media_content_id": "https://ha.example/api/tts_proxy/test.mp3"}
+    )
