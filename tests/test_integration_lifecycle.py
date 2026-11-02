@@ -4,7 +4,7 @@ import importlib.util
 import sys
 import types
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 import pytest
 
@@ -69,6 +69,8 @@ def test_setup_and_entry_lifecycle(modules):
     assert "ha_remote_media_player_registry" in hass.data
     hass.http.register_view.assert_called_once()
     ws.async_register_websocket_commands.assert_called_once_with(hass)
+    hass.config_entries.async_forward_entry_setups = AsyncMock()
+    hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     entry = Mock()
     assert asyncio.run(integration.async_setup_entry(hass, entry)) is True
     hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(entry, ["media_player"])
