@@ -80,10 +80,12 @@ async def ws_subscribe(hass, connection, msg):
     def unsubscribe():
         if player.send_command is send:
             player.send_command = None
+            hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": player.device_id})
 
     player.send_command = send
     connection.subscriptions[msg["id"]] = unsubscribe
     connection.send_result(msg["id"])
+    hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": player.device_id})
 
 
 @callback
