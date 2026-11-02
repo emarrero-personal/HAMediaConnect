@@ -8,7 +8,7 @@
 
 HAMediaConnect consists of an Android app and a companion Home Assistant custom integration. Once connected, the Android device appears as a native `media_player` entity in Home Assistant, so you can play audio, control playback and volume, and deliver text-to-speech (TTS) announcements from scripts, automations, and the Home Assistant interface.
 
-> **Development status:** v0.2 feature branch, under active development. The Android UI and integration are being tested; features and installation steps may change. This repository retains its historical name, `HARemoteMediaPlayer`, for compatibility.
+> **Development status:** Android app v0.9.0 on the v0.2 feature branch, under active development. The Android UI and integration are being tested; features and installation steps may change. This repository retains its historical name, `HARemoteMediaPlayer`, for compatibility.
 
 ## What it can do
 
@@ -33,12 +33,21 @@ HAMediaConnect consists of an Android app and a companion Home Assistant custom 
 
 The integration is required: it registers the Android device and exposes it as a native Home Assistant media player.
 
-### 2. Install the Android app
+### 2. Install the Android app (APK sideload)
 
-1. Open the repository in Android Studio.
-2. Install the required Android SDK and sync Gradle. Use JDK 17 and an Android 10+ device (API 29 or newer).
-3. Run the `app` configuration on your phone, tablet, or emulator. There is not yet a published release APK.
-4. Open **HAMediaConnect** and tap the **gear** to open Connection Settings.
+Once a build artifact is available, download `HAMediaConnect-v0.9.0-debug.apk` from the GitHub Actions run for this branch. **Do not download APKs from unofficial mirrors.** The debug APK is intended for testing, not for Play Store publication.
+
+1. On your Android 10+ phone or tablet, download the APK from the project's GitHub Actions build artifacts (or transfer the APK from your computer).
+2. Open the APK from **Files** or **Downloads**. If Android blocks installation, tap **Settings** when prompted and enable **Allow from this source** for the specific app you used to open it (such as Files or your browser).
+3. Return to the installer, tap **Install**, and then **Open**.
+4. Disable **Allow from this source** again after installation if you don't expect to sideload more apps.
+5. Open **HAMediaConnect**, tap the **gear**, and configure your Home Assistant connection.
+
+**Updates:** A debug APK must be signed with the **same signing key** as your previously installed version to update it in place. Different developers' debug APKs usually have different keys. If Android reports an incompatible package or signature, uninstalling the old app will also remove its stored login/settings; plan to reconnect afterward.
+
+**Alternative: build locally.** Open the repository in Android Studio with JDK 17 and the required SDK, sync Gradle, and run `./gradlew assembleDebug`. The APK will be at `app/build/outputs/apk/debug/app-debug.apk`. Install it via Android Studio or `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
+
+**Availability:** The APK download link should only be advertised after a successful build. GitHub Actions artifacts may require GitHub sign-in and expire after their retention period.
 
 ### 3. Connect
 
