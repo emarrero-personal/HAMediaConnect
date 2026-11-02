@@ -162,7 +162,7 @@ class ConnectionService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-            .setContentTitle("HA Android Media Player")
+            .setContentTitle("HAMediaConnect")
             .setContentText(status)
             .setContentIntent(pending)
             .setOngoing(true)
