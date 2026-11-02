@@ -41,7 +41,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class AndroidMediaPlayer(MediaPlayerEntity):
     """A controllable Android audio endpoint."""
 
-    _attr_has_entity_name = True
+    _attr_has_entity_name = False
     _attr_name = None
     _attr_supported_features = SUPPORTED
 
@@ -49,6 +49,12 @@ class AndroidMediaPlayer(MediaPlayerEntity):
         self.registry = registry
         self.device_id = device_id
         self._attr_unique_id = f"{DOMAIN}_{device_id}"
+
+    @property
+    def name(self):
+        """Expose the registered device's friendly name."""
+        player = self.registry.players.get(self.device_id)
+        return player.name if player else self.device_id
 
     @property
     def device_info(self):
