@@ -1,205 +1,88 @@
-# HA Android Media Player
+<p align="center">
+  <img src="docs/mascot.svg" alt="HAMediaConnect Android guitarist mascot" width="210">
+</p>
 
-A small standalone Android app that turns an Android phone, tablet, or wall panel into an audio endpoint controlled by Home Assistant.
+<h1 align="center">HAMediaConnect</h1>
 
-**Version:** 0.1.0 MVP scaffold
+<p align="center"><strong>Turn an Android phone or tablet into a Home Assistant audio player and announcement endpoint.</strong></p>
 
-## What works in this MVP
+HAMediaConnect consists of an Android app and a companion Home Assistant custom integration. Once connected, the Android device appears as a native `media_player` entity in Home Assistant, so you can play audio, control playback and volume, and deliver text-to-speech (TTS) announcements from scripts, automations, and the Home Assistant interface.
 
-- Connects directly to Home Assistant's `/api/websocket` endpoint.
-- Authenticates with a Home Assistant long-lived access token.
-- Maintains a persistent foreground connection service with automatic reconnect.
-- Subscribes to `ha_android_media_player_command` events.
-- Plays arbitrary HTTP/HTTPS audio using AndroidX Media3 / ExoPlayer.
-- Supports play, pause, stop, seek, and system media volume.
-- Runs playback through a proper Android `MediaSessionService`.
-- Publishes playback state through `ha_android_media_player_state` events.
-- Can restart its connection service after device reboot.
+> **Development status:** v0.2 feature branch, under active development. The Android UI and integration are being tested; features and installation steps may change. This repository retains its historical name, `HARemoteMediaPlayer`, for compatibility.
 
-This deliberately does **not** create a native `media_player` entity yet. The companion Home Assistant custom integration will translate normal `media_player` actions to/from this event protocol. Keeping that adapter out of the Android app makes the transport independently testable.
+## What it can do
 
-## Current toolchain
+- Play HTTP/HTTPS audio on an Android device using Media3 / ExoPlayer.
+- Control play, pause, stop, volume and mute through Home Assistant.
+- Play Home Assistant-generated TTS and media-source content through the companion integration.
+- Resume app-managed audio at its prior position after an announcement.
+- Mix announcements with audio from other Android apps when Android audio behavior permits.
+- Suppress Home Assistant announcements while Android Do Not Disturb is enabled.
+- Reconnect after temporary network interruptions.
+- Authenticate using OAuth over HTTPS (recommended), or a long-lived access token for trusted local HTTP networks.
+- Optionally reconnect after device reboot.
 
-The project targets current stable Android tooling as of August 2026:
+## Getting started
 
-- Android Gradle Plugin 9.3.0
-- Gradle 9.5.0
-- JDK 17
-- compileSdk / targetSdk 37
-- minSdk 29 (Android 10)
-- AndroidX Media3 1.11.0
-- Kotlin supplied by AGP 9 built-in Kotlin support
+### 1. Install the Home Assistant integration
 
-The Gradle wrapper **JAR is not bundled** because the build environment that produced this ZIP had no network access to download it. On a machine with internet access, run:
-
-```bash
-./bootstrap-gradle-wrapper.sh
-```
-
-That downloads Gradle 9.5.0 once and generates the standard wrapper JAR. If you already have Gradle installed, `gradle wrapper --gradle-version 9.5.0` does the same thing.
-
-## Install the Home Assistant integration
-
-Before using HAMediaConnect as a Home Assistant media player, install its companion custom integration:
-
-1. Download this repository or clone it locally.
-2. Copy `custom_components/ha_remote_media_player` into your Home Assistant configuration directory at `/config/custom_components/ha_remote_media_player`.
+1. Download or clone this repository.
+2. Copy the **contents** of `custom_components/ha_remote_media_player/` to `/config/custom_components/ha_remote_media_player/` on your Home Assistant instance.
 3. Restart Home Assistant.
-4. In **Settings → Devices & services**, add **HA Remote Media Player** if it is offered through the integration's config flow. Otherwise check Home Assistant logs and the integration's setup documentation.
-5. In HAMediaConnect on Android, open **Settings**, enter your Home Assistant URL, choose OAuth for HTTPS or a long-lived access token for a trusted local HTTP network, and connect.
-6. Find the registered media player entity in Home Assistant.
+4. Open **Settings → Devices & services → Add integration**, search for **HA Remote Media Player**, and complete the configuration flow.
 
-Do not expose a token-based HTTP connection to the public internet.
+The integration is required: it registers the Android device and exposes it as a native Home Assistant media player.
 
-## Build
+### 2. Install the Android app
 
-1. Open the project directory in Android Studio.
-2. Let Android Studio install Android SDK 37 / Build Tools if requested.
-3. Sync Gradle.
-4. Run the `app` configuration on an Android 10+ device.
+1. Open the repository in Android Studio.
+2. Install the required Android SDK and sync Gradle. Use JDK 17 and an Android 10+ device (API 29 or newer).
+3. Run the `app` configuration on your phone, tablet, or emulator. There is not yet a published release APK.
+4. Open **HAMediaConnect** and tap the **gear** to open Connection Settings.
 
-For a dedicated tablet, disable battery optimization for the app after installation. Android's foreground-service rules continue to evolve, so reliability across OEMs is one of the main things this MVP is intended to test.
+### 3. Connect
 
-## Configure
+1. Enter your Home Assistant base URL, for example `https://example.ui.nabu.casa` or `http://homeassistant.local:8123`.
+2. Choose one authentication method:
+   - **OAuth:** Recommended for an HTTPS-accessible Home Assistant instance. Tap **Sign in with Home Assistant** and authorize the app.
+   - **Long-lived access token:** Useful on trusted local networks when your instance is available only over HTTP. Generate a token from your Home Assistant user profile, paste it into the app, and tap **Save & connect**.
+3. Set a friendly device name, and optionally enable start on boot.
+4. Wait until the dashboard reports **Connected**.
 
-In the app enter:
+**Security:** HTTP does not encrypt tokens or playback URLs in transit. Never expose a token-based HTTP connection directly to the public internet. Prefer HTTPS whenever possible.
 
-- **Home Assistant URL:** for example `https://homeassistant.example.com`
-- **Long-lived access token:** create one from your Home Assistant user profile.
-- **Device name:** e.g. `Kitchen Tablet`
-- Optionally enable **Start connection after reboot**.
+### 4. Play something
 
-Press **Save & Start**.
+In Home Assistant, find the new `media_player` entity under **Settings → Devices & services → HA Remote Media Player**. Use the media player controls, call `media_player.play_media` with a playable audio URL, or target the entity from a TTS automation.
 
-The screen shows a generated device UUID. Commands can target that UUID or `*`.
-
-> Security note: v0.1 stores the token in app-private SharedPreferences. Android sandboxing prevents other normal apps from reading it, but a future release should move the credential to Keystore-backed encrypted storage and replace manual tokens with OAuth/pairing.
-
-## Test from Home Assistant
-
-The Android app listens for this event:
-
-`ha_android_media_player_command`
-
-You can fire it from **Developer Tools → Events**, or from an automation/script using a fire-event action.
-
-### Play media
+Example Home Assistant action:
 
 ```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: play_media
-  url: "https://example.com/audio.mp3"
-  title: "Test audio"
+action: media_player.play_media
+target:
+  entity_id: media_player.your_android_device
+data:
+  media_content_type: music
+  media_content_id: https://example.com/audio.mp3
 ```
 
-Target all connected Android players with:
+Replace the example entity ID and URL with your own.
 
-```yaml
-target: "*"
-```
+## Troubleshooting
 
-### Pause
+- **No media player entity:** Verify the custom integration is installed, configured, and loaded, and that the Android app reports Connected.
+- **OAuth sign-in unavailable:** Check that the URL starts with `https://` and is reachable from the Android device.
+- **Local HTTP setup:** Use the long-lived-token method and ensure the device can reach Home Assistant on the LAN.
+- **No sound:** Check Android media volume, mute state, Do Not Disturb for announcements, and that the audio URL is accessible from Android.
+- **Connection drops:** Check Wi-Fi connectivity and Android battery optimization restrictions. The app attempts reconnection.
 
-```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: pause
-```
+## Documentation
 
-### Resume
+- [Developer guide — architecture, WebSocket protocol, commands and state](docs/DEVELOPERS.md)
+- [Third-party licenses and attribution review](THIRD_PARTY_NOTICES.md)
 
-```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: play
-```
+## Open-source licensing
 
-### Stop
+The project intends to use **GPL-3.0-or-later** to keep redistributed improvements available to the community. A final license file and complete distribution notices are still being prepared; do not assume the project has been formally licensed until those files are present. Third-party components retain their own licenses.
 
-```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: stop
-```
-
-### Set volume
-
-Volume is normalized from `0.0` to `1.0` and changes Android's `STREAM_MUSIC` system volume.
-
-```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: set_volume
-  volume: 0.65
-```
-
-### Seek
-
-Position is milliseconds.
-
-```yaml
-event: ha_android_media_player_command
-event_data:
-  target: "YOUR-DEVICE-UUID"
-  command: seek
-  position: 30000
-```
-
-## State events
-
-The app publishes `ha_android_media_player_state` events shaped like:
-
-```json
-{
-  "device_id": "4e2f...",
-  "name": "Kitchen Tablet",
-  "state": "playing",
-  "volume_level": 0.65,
-  "position_ms": 12873,
-  "duration_ms": 98321,
-  "media_title": "Test audio",
-  "media_content_id": "https://example.com/audio.mp3",
-  "connected": true,
-  "app_version": "0.1.0"
-}
-```
-
-Possible MVP states are `idle`, `buffering`, `playing`, `paused`, and `error`.
-
-## Protocol notes
-
-Home Assistant's WebSocket API is used only with documented commands:
-
-- `auth`
-- `subscribe_events`
-- `fire_event`
-
-This means the Android transport can be tested without installing custom Home Assistant code.
-
-The next project should be a HACS-compatible custom integration that:
-
-1. Discovers players from their state/hello events.
-2. Creates a `media_player` entity per device.
-3. Implements `play_media`, play, pause, stop, seek, and volume.
-4. Resolves Home Assistant `media-source://` content to an HTTP/signed URL before sending it to Android.
-5. Marks devices unavailable when their heartbeat expires.
-
-## Known MVP limitations
-
-- Long-lived token instead of OAuth/pairing.
-- Token is app-private but not yet Keystore-encrypted.
-- No native HA `media_player` entity yet.
-- Connection and playback live in separate services; a future version should harden process/boot recovery further.
-- No media browsing, queue, album art, TTS-specific convenience layer, Bluetooth output chooser, or per-app volume.
-- `set_volume` controls Android's global music-stream volume.
-- Foreground `specialUse` service is practical for sideloading/dedicated panels but would require policy review before Play Store distribution.
-
-## License
-
-Prototype project. Add your preferred OSS license before publishing.
+The HAMediaConnect name and mascot artwork are separate branding assets; their reuse terms should be specified before public release.
