@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="sharedpref" path="oauth_secrets.xml" />
+    <exclude domain="sharedpref" path="ha_android_media_player.xml" />
+</full-backup-content>
