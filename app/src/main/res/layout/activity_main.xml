@@ -13,7 +13,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="HA Android Media Player"
+            android:text="🎸 HAMediaConnect"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -25,6 +25,9 @@
             android:text="Disconnected"
             android:textSize="16sp" />
 
+        <Button android:id="@+id/settingsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="⚙ Connection settings" />
+        <Button android:id="@+id/helpButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Help &amp; getting started" />
+        <LinearLayout android:id="@+id/settingsPanel" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -95,6 +98,7 @@
             android:layout_marginTop="8dp"
             android:text="Stop" />
 
+        </LinearLayout>
         <TextView
             android:id="@+id/deviceIdText"
             android:layout_width="match_parent"
@@ -107,7 +111,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="MVP protocol: listens for ha_android_media_player_command events and publishes ha_android_media_player_state events. See README.md for test payloads."
+            android:text="Ready to receive music and announcements from Home Assistant."
             android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>
