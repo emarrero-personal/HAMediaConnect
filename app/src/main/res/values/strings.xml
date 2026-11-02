@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">HA Android Media Player</string>
+    <string name="connection_channel_name">Home Assistant connection</string>
+    <string name="connection_channel_description">Keeps the Android media player reachable from Home Assistant.</string>
+</resources>
