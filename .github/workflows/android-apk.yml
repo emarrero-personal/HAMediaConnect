@@ -19,8 +19,10 @@ jobs:
           java-version: '17'
       - name: Install Android SDK 37
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-37" "build-tools;37.0.0"
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER" || { echo "Android SDK command-line tools missing"; exit 1; }
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37" "build-tools;37.0.0"
       - name: Run unit tests and enforce 95% coverage
         run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
       - name: Upload unit test and coverage reports
