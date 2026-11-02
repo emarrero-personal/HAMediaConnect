@@ -1,0 +1,32 @@
+name: Publish OAuth client ID page
+on:
+  push:
+    branches: [feature/v0.2-oauth-media-player]
+    paths:
+      - 'oauth-site/**'
+      - '.github/workflows/oauth-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: oauth-pages
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: oauth-site
+      - id: deployment
+        uses: actions/deploy-pages@v4
