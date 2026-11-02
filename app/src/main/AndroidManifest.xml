@@ -12,6 +12,7 @@
         android:allowBackup="true"
         android:label="HA Android Media Player"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
         android:theme="@style/Theme.HAAndroidMediaPlayer">
 
         <activity
