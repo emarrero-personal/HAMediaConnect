@@ -8,6 +8,7 @@ object PlayerStateBus {
 data class PlayerSnapshot(
     val state: String,
     val volume: Float,
+    val muted: Boolean,
     val positionMs: Long,
     val durationMs: Long,
     val title: String?,

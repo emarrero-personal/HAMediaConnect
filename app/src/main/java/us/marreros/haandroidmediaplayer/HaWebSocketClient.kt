@@ -14,6 +14,7 @@ class HaWebSocketClient(
     private val baseUrl: String,
     private val token: String,
     private val deviceId: String,
+    private val deviceName: String,
     private val onStatus: (String) -> Unit,
     private val onCommand: (HaCommand) -> Unit
 ) {
@@ -31,9 +32,15 @@ class HaWebSocketClient(
         .build()
     private var socket: WebSocket? = null
     private var authenticated = false
+    private var subscribed = false
+    private var subscriptionId = -1
+    private var registrationId = -1
 
     fun connect() {
         authenticated = false
+        subscribed = false
+        subscriptionId = -1
+        registrationId = -1
         val wsUrl = toWebSocketUrl(baseUrl)
         onStatus("Connecting…")
         socket = client.newWebSocket(Request.Builder().url(wsUrl).build(), Listener())
@@ -41,17 +48,25 @@ class HaWebSocketClient(
 
     fun close() {
         authenticated = false
+        subscribed = false
         socket?.close(1000, "Service stopping")
         socket = null
     }
 
     fun fireState(eventData: JSONObject) {
-        if (!authenticated) return
+        if (!authenticated || !subscribed) return
+        val state = JSONObject().put("state", eventData.optString("state", "idle").let { if (it == "error") "idle" else it })
+            .put("volume_level", eventData.optDouble("volume_level", 0.5))
+            .put("is_volume_muted", eventData.optBoolean("is_volume_muted", false))
+        for (key in listOf("media_title", "media_content_id")) {
+            val value = eventData.optString(key, "")
+            if (value.isNotBlank() && value != "null") state.put(key, value)
+        }
         val msg = JSONObject()
             .put("id", ids.getAndIncrement())
-            .put("type", "fire_event")
-            .put("event_type", STATE_EVENT)
-            .put("event_data", eventData)
+            .put("type", "ha_remote_media_player/state")
+            .put("device_id", deviceId)
+            .put("state", state)
         socket?.send(msg.toString())
     }
 
@@ -72,17 +87,38 @@ class HaWebSocketClient(
                     }
                     "auth_ok" -> {
                         authenticated = true
-                        subscribe(webSocket)
-                        onStatus("Connected")
+                        register(webSocket)
+                        onStatus("Authenticated; registering…")
                     }
                     "auth_invalid" -> {
                         authenticated = false
+                        subscribed = false
                         onStatus("Authentication failed")
                     }
-                    "event" -> handleEvent(json)
+                    "event" -> if (subscribed && json.optInt("id") == subscriptionId) handleNativeEvent(json)
                     "result" -> {
-                        if (!json.optBoolean("success", true)) {
-                            Log.w(TAG, "HA command failed: $text")
+                        val id = json.optInt("id", -1)
+                        val success = json.optBoolean("success", false)
+                        if (id == registrationId) {
+                            if (success) {
+                                subscribe(webSocket)
+                                onStatus("Registered; subscribing…")
+                            } else {
+                                onStatus("Registration rejected: ${json.optJSONObject("error")?.optString("code")}")
+                            }
+                        } else if (id == subscriptionId) {
+                            subscribed = success
+                            if (success) {
+                                onStatus("Connected")
+                            } else {
+                                val error = json.optJSONObject("error")
+                                val code = error?.optString("code", "unknown") ?: "unknown"
+                                onStatus("Subscription rejected: $code")
+                                Log.w(TAG, "Command subscription rejected: $code")
+                            }
+                        } else if (!success) {
+                            val code = json.optJSONObject("error")?.optString("code", "unknown") ?: "unknown"
+                            Log.w(TAG, "HA command failed (id=$id): $code")
                         }
                     }
                 }
@@ -93,41 +129,55 @@ class HaWebSocketClient(
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             authenticated = false
+            subscribed = false
             onStatus("Disconnected: ${t.message ?: "network error"}")
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             authenticated = false
+            subscribed = false
             onStatus("Disconnected")
         }
     }
 
+    private fun register(webSocket: WebSocket) {
+        registrationId = ids.getAndIncrement()
+        webSocket.send(JSONObject()
+            .put("id", registrationId)
+            .put("type", "ha_remote_media_player/register")
+            .put("device_id", deviceId)
+            .put("name", deviceName)
+            .toString())
+    }
+
     private fun subscribe(webSocket: WebSocket) {
+        subscriptionId = ids.getAndIncrement()
         val msg = JSONObject()
-            .put("id", ids.getAndIncrement())
-            .put("type", "subscribe_events")
-            .put("event_type", COMMAND_EVENT)
+            .put("id", subscriptionId)
+            .put("type", "ha_remote_media_player/subscribe_commands")
+            .put("device_id", deviceId)
         webSocket.send(msg.toString())
     }
 
-    private fun handleEvent(root: JSONObject) {
-        val event = root.optJSONObject("event") ?: return
-        val data = event.optJSONObject("data") ?: return
-        val target = data.optString("target", "*")
-        if (target != "*" && target != deviceId) return
-
-        val cmd = data.optString("command")
-        if (cmd.isBlank()) return
-        onCommand(
-            HaCommand(
-                command = cmd,
-                url = data.optString("url").takeIf { it.isNotBlank() },
-                title = data.optString("title").takeIf { it.isNotBlank() },
-                contentType = data.optString("content_type").takeIf { it.isNotBlank() },
-                volume = if (data.has("volume")) data.optDouble("volume").toFloat() else null,
-                position = if (data.has("position")) data.optLong("position") else null
-            )
-        )
+    private fun handleNativeEvent(root: JSONObject) {
+        val data = root.optJSONObject("event") ?: return
+        val action = data.optString("action")
+        val mapped = when (action) {
+            "volume_set" -> PlaybackService.CMD_SET_VOLUME
+            "volume_mute" -> PlaybackService.CMD_MUTE
+            "play", "pause", "stop", "play_media" -> action
+            else -> return
+        }
+        onCommand(HaCommand(
+            command = mapped,
+            url = data.optString("media_content_id").takeIf { it.isNotBlank() },
+            title = data.optString("media_title").takeIf { it.isNotBlank() },
+            contentType = data.optString("media_content_type").takeIf { it.isNotBlank() },
+            volume = if (data.has("volume_level")) data.optDouble("volume_level").toFloat() else null,
+            position = null,
+            muted = if (data.has("is_volume_muted")) data.optBoolean("is_volume_muted") else null,
+            announce = data.optBoolean("announce", false)
+        ))
     }
 
     private fun toWebSocketUrl(base: String): String {

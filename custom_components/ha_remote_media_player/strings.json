@@ -1,0 +1,14 @@
+{
+  "title": "HA Remote Media Player",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up HA Remote Media Player",
+        "description": "Install the OAuth client identification endpoint. Android player registration will be available in a future update."
+      }
+    },
+    "abort": {
+      "already_configured": "HA Remote Media Player is already configured."
+    }
+  }
+}

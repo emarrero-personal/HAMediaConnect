@@ -22,13 +22,15 @@ class ConnectionService : Service() {
     private var reconnectFuture: ScheduledFuture<*>? = null
     private var client: HaWebSocketClient? = null
     private var stopped = false
+    private var generation = 0L
+    private var retrySeconds = 5L
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
         PlayerStateBus.listener = { snapshot ->
             publishPlayerState(
-                snapshot.state, snapshot.volume, snapshot.positionMs, snapshot.durationMs,
+                snapshot.state, snapshot.volume, snapshot.muted, snapshot.positionMs, snapshot.durationMs,
                 snapshot.title, snapshot.contentId
             )
         }
@@ -37,40 +39,70 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopped = false
-        connect()
+        scheduler.execute { connect() }
         return START_STICKY
     }
 
     private fun connect() {
+        if (stopped) return
+        reconnectFuture?.cancel(false)
+        reconnectFuture = null
+        val attempt = ++generation
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
-        val token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
+        val secure = SecureTokenStore(this)
+        val tokenMode = secure.get("auth_method") == "token"
+        var token = if (tokenMode) secure.get("long_lived_token").orEmpty() else secure.get("access_token").orEmpty()
+        val refreshToken = if (tokenMode) null else secure.get("refresh_token")
+        if (!refreshToken.isNullOrBlank() && baseUrl.startsWith("https://") &&
+            (token.isBlank() || System.currentTimeMillis() >= prefs.getLong("oauth_expiry", 0) - 60_000)) {
+            try {
+                val refreshed = HaOAuth(baseUrl).refresh(refreshToken)
+                token = refreshed.getString("access_token")
+                secure.put("access_token", token)
+                if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
+                prefs.edit().putLong("oauth_expiry",
+                    System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
+            } catch (_: Exception) {
+                updateStatus("Token refresh unavailable; retrying")
+                scheduleReconnect()
+                return
+            }
+        }
+        if (token.isBlank() && !tokenMode) token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
         val deviceId = AppPrefs.ensureDeviceId(this)
         if (baseUrl.isBlank() || token.isBlank()) {
-            updateStatus("Configure URL and token")
+            updateStatus("Configure URL and sign in")
             stopSelf()
             return
         }
 
-        reconnectFuture?.cancel(false)
         client?.close()
         client = HaWebSocketClient(
             baseUrl = baseUrl,
             token = token,
             deviceId = deviceId,
+            deviceName = prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL,
             onStatus = { status ->
-                updateStatus(status)
-                if (status.startsWith("Disconnected") && !stopped) scheduleReconnect()
+                scheduler.execute {
+                    if (stopped || attempt != generation) return@execute
+                    updateStatus(status)
+                    if (status == "Connected") retrySeconds = 5L
+                    else if (status.startsWith("Disconnected") || status == "Authentication failed" || status.startsWith("Registration rejected") || status.startsWith("Subscription rejected")) scheduleReconnect()
+                }
             },
             onCommand = { command -> dispatchCommand(command) }
         ).also { it.connect() }
     }
 
     private fun scheduleReconnect() {
-        reconnectFuture?.cancel(false)
+        if (stopped || (reconnectFuture != null && !reconnectFuture!!.isDone)) return
+        val delay = retrySeconds
+        retrySeconds = (retrySeconds * 2).coerceAtMost(60L)
         reconnectFuture = scheduler.schedule({
+            reconnectFuture = null
             if (!stopped) connect()
-        }, 10, TimeUnit.SECONDS)
+        }, delay, TimeUnit.SECONDS)
     }
 
     private fun dispatchCommand(command: HaCommand) {
@@ -81,6 +113,8 @@ class ConnectionService : Service() {
             command.contentType?.let { putExtra(PlaybackService.EXTRA_CONTENT_TYPE, it) }
             command.volume?.let { putExtra(PlaybackService.EXTRA_VOLUME, it) }
             command.position?.let { putExtra(PlaybackService.EXTRA_POSITION, it) }
+            putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
+            command.muted?.let { putExtra(PlaybackService.EXTRA_MUTED, it) }
         }
         startService(intent)
     }
@@ -94,6 +128,7 @@ class ConnectionService : Service() {
     fun publishPlayerState(
         state: String,
         volume: Float,
+        muted: Boolean,
         positionMs: Long,
         durationMs: Long,
         title: String?,
@@ -105,6 +140,7 @@ class ConnectionService : Service() {
             .put("name", prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL))
             .put("state", state)
             .put("volume_level", volume)
+            .put("is_volume_muted", muted)
             .put("position_ms", positionMs)
             .put("duration_ms", durationMs)
             .put("media_title", title ?: JSONObject.NULL)
@@ -127,7 +163,7 @@ class ConnectionService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-            .setContentTitle("HA Android Media Player")
+            .setContentTitle("HAMediaConnect")
             .setContentText(status)
             .setContentIntent(pending)
             .setOngoing(true)
@@ -148,6 +184,7 @@ class ConnectionService : Service() {
 
     override fun onDestroy() {
         stopped = true
+        generation++
         PlayerStateBus.listener = null
         reconnectFuture?.cancel(true)
         client?.close()
