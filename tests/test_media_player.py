@@ -144,3 +144,64 @@ def test_tts_media_source_resolved_before_dispatch(platform):
         "pixel", {"action": "play_media", "media_content_type": "audio/mpeg",
                   "media_content_id": "https://ha.example/api/tts_proxy/test.mp3", "announce": True}
     )
+
+
+def test_entity_metadata_state_and_transport_commands(platform):
+    player = Mock()
+    player.name = "Kitchen"
+    player.state = {
+        "state": "playing", "volume_level": 0.25, "is_volume_muted": True,
+        "media_title": "Morning News", "media_content_id": "https://example.com/news.mp3",
+    }
+    player.send_command = Mock()
+    registry = Mock()
+    registry.players = {"kitchen": player}
+    entity = platform.AndroidMediaPlayer(registry, "kitchen")
+    assert entity.device_info["identifiers"] == {("ha_remote_media_player", "kitchen")}
+    assert entity.state == "playing"
+    assert entity.is_volume_muted is True
+    assert entity.media_title == "Morning News"
+    assert entity.media_content_id == "https://example.com/news.mp3"
+    asyncio.run(entity.async_media_play())
+    asyncio.run(entity.async_media_stop())
+    asyncio.run(entity.async_set_volume_level(0.4))
+    asyncio.run(entity.async_mute_volume(False))
+    assert [call.args[1] for call in registry.dispatch.call_args_list] == [
+        {"action": "play"}, {"action": "stop"},
+        {"action": "volume_set", "volume_level": 0.4},
+        {"action": "volume_mute", "is_volume_muted": False},
+    ]
+    del registry.players["kitchen"]
+    assert entity.name == "kitchen"
+    assert entity.state is None
+
+
+def test_entity_state_event_listener_filters_devices(platform):
+    registry = Mock()
+    registry.players = {"kitchen": Mock(name="Kitchen", state={})}
+    entity = platform.AndroidMediaPlayer(registry, "kitchen")
+    entity.hass = Mock()
+    callbacks = {}
+    entity.hass.bus.async_listen.side_effect = lambda topic, cb: callbacks.setdefault(topic, cb) or Mock()
+    entity.async_write_ha_state = Mock()
+    asyncio.run(entity.async_added_to_hass())
+    assert "ha_remote_media_player_state" in callbacks
+    assert "ha_remote_media_player_registered" in callbacks
+    other = Mock()
+    other.data = {"device_id": "other"}
+    callbacks["ha_remote_media_player_state"](other)
+    entity.async_write_ha_state.assert_not_called()
+    own = Mock()
+    own.data = {"device_id": "kitchen"}
+    callbacks["ha_remote_media_player_state"](own)
+    entity.async_write_ha_state.assert_called_once()
+
+
+def test_announcement_flag_for_direct_media(platform):
+    registry = Mock()
+    registry.players = {"kitchen": Mock(name="Kitchen", state={})}
+    entity = platform.AndroidMediaPlayer(registry, "kitchen")
+    entity.hass = Mock()
+    entity.entity_id = "media_player.kitchen"
+    asyncio.run(entity.async_play_media("music", "https://example.com/a.mp3", announce=True))
+    assert registry.dispatch.call_args.args[1]["announce"] is True
