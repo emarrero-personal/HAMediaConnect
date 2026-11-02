@@ -13,8 +13,7 @@ import java.util.concurrent.TimeUnit
 /** Home Assistant authorization-code + PKCE client. Never invoke token exchange on the UI thread. */
 class HaOAuth(private val baseUrl: String) {
     companion object {
-        // Must be a real, publicly accessible HTTPS client-identifier page before production release.
-        const val CLIENT_ID = "https://emarrero-personal.github.io/HARemoteMediaPlayer/"
+        const val CLIENT_PATH = "/api/ha_remote_media_player/oauth-client"
         const val REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
         private val rng = SecureRandom()
         fun randomUrlSafe(bytes: Int): String = ByteArray(bytes).also(rng::nextBytes)
@@ -25,6 +24,8 @@ class HaOAuth(private val baseUrl: String) {
         )
     }
 
+    private val clientId: String = baseUrl.trimEnd('/') + CLIENT_PATH
+
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
         .callTimeout(25, TimeUnit.SECONDS).build()
 
@@ -33,7 +34,7 @@ class HaOAuth(private val baseUrl: String) {
     fun authorizationUrl(state: String, verifier: String): Uri =
         Uri.parse("${baseUrl.trimEnd('/')}/auth/authorize").buildUpon()
             .appendQueryParameter("response_type", "code")
-            .appendQueryParameter("client_id", CLIENT_ID)
+            .appendQueryParameter("client_id", clientId)
             .appendQueryParameter("redirect_uri", REDIRECT_URI)
             .appendQueryParameter("state", state)
             .appendQueryParameter("code_challenge", challenge(verifier))
@@ -42,13 +43,13 @@ class HaOAuth(private val baseUrl: String) {
 
     fun exchange(code: String, verifier: String): JSONObject = tokenRequest(
         FormBody.Builder().add("grant_type", "authorization_code")
-            .add("code", code).add("client_id", CLIENT_ID)
+            .add("code", code).add("client_id", clientId)
             .add("redirect_uri", REDIRECT_URI).add("code_verifier", verifier).build()
     )
 
     fun refresh(refreshToken: String): JSONObject = tokenRequest(
         FormBody.Builder().add("grant_type", "refresh_token")
-            .add("client_id", CLIENT_ID).add("refresh_token", refreshToken).build()
+            .add("client_id", clientId).add("refresh_token", refreshToken).build()
     )
 
     private fun tokenRequest(body: FormBody): JSONObject {
