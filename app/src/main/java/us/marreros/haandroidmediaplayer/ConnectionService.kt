@@ -51,8 +51,9 @@ class ConnectionService : Service() {
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
         val secure = SecureTokenStore(this)
-        var token = secure.get("access_token").orEmpty()
-        val refreshToken = secure.get("refresh_token")
+        val tokenMode = secure.get("auth_method") == "token"
+        var token = if (tokenMode) secure.get("long_lived_token").orEmpty() else secure.get("access_token").orEmpty()
+        val refreshToken = if (tokenMode) null else secure.get("refresh_token")
         if (!refreshToken.isNullOrBlank() && baseUrl.startsWith("https://") &&
             (token.isBlank() || System.currentTimeMillis() >= prefs.getLong("oauth_expiry", 0) - 60_000)) {
             try {
@@ -68,7 +69,7 @@ class ConnectionService : Service() {
                 return
             }
         }
-        if (token.isBlank()) token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
+        if (token.isBlank() && !tokenMode) token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
         val deviceId = AppPrefs.ensureDeviceId(this)
         if (baseUrl.isBlank() || token.isBlank()) {
             updateStatus("Configure URL and sign in")
