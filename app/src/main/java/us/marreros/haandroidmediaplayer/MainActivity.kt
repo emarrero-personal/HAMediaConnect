@@ -74,8 +74,8 @@ class MainActivity : AppCompatActivity() {
         val prefs = AppPrefs.prefs(this)
         val deviceId = AppPrefs.ensureDeviceId(this)
         urlInput.setText(prefs.getString(AppPrefs.KEY_URL, ""))
-        tokenInput.setText(prefs.getString(AppPrefs.KEY_TOKEN, ""))
-        if (prefs.getString(AppPrefs.KEY_TOKEN, "").orEmpty().isNotBlank() && SecureTokenStore(this).get("refresh_token").isNullOrBlank()) tokenChoice.isChecked = true
+        tokenInput.setText(SecureTokenStore(this).get("long_lived_token") ?: prefs.getString(AppPrefs.KEY_TOKEN, ""))
+        if (SecureTokenStore(this).get("auth_method") == "token" || (prefs.getString(AppPrefs.KEY_TOKEN, "").orEmpty().isNotBlank() && SecureTokenStore(this).get("refresh_token").isNullOrBlank())) tokenChoice.isChecked = true
         nameInput.setText(prefs.getString(AppPrefs.KEY_NAME, Build.MODEL))
         startOnBootCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)
         statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
@@ -87,10 +87,18 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.saveStartButton).setOnClickListener {
             val url = urlInput.text.toString().trim().trimEnd('/')
             val token = tokenInput.text.toString().trim()
+            if (tokenChoice.isChecked && token.isBlank()) {
+                tokenInput.error = "Enter a long-lived access token"
+                return@setOnClickListener
+            }
+            if (tokenChoice.isChecked) SecureTokenStore(this).apply {
+                put("long_lived_token", token)
+                put("auth_method", "token")
+            }
             val name = nameInput.text.toString().trim().ifBlank { Build.MODEL }
             prefs.edit()
                 .putString(AppPrefs.KEY_URL, url)
-                .putString(AppPrefs.KEY_TOKEN, token)
+                .remove(AppPrefs.KEY_TOKEN)
                 .putString(AppPrefs.KEY_NAME, name)
                 .putBoolean(AppPrefs.KEY_START_BOOT, startOnBootCheck.isChecked)
                 .apply()
@@ -155,6 +163,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val tokens = HaOAuth(url).exchange(code, verifier)
                 val store = SecureTokenStore(this)
+                store.put("auth_method", "oauth")
                 store.put("access_token", tokens.getString("access_token"))
                 store.put("refresh_token", tokens.getString("refresh_token"))
                 prefs.edit().putLong("oauth_expiry",
