@@ -12,7 +12,9 @@
         android:allowBackup="true"
         android:fullBackupContent="@xml/backup_rules"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:label="HA Android Media Player"
+        android:label="@string/app_name"
+        android:icon="@drawable/launcher_mascot"
+        android:roundIcon="@drawable/launcher_mascot"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.HAAndroidMediaPlayer">
