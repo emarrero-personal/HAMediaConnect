@@ -87,3 +87,56 @@ def test_subscribe_deliver_and_disconnect(ws_module):
     conn.send_event.assert_called_once_with(4, {"action": "pause"})
     conn.subscriptions[4]()
     assert not registry.dispatch("pixel", {"action": "pause"})
+
+
+def test_state_update_and_missing_device(ws_module):
+    hass = Mock()
+    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
+    registry = hass.data[ws_module.REGISTRY_KEY]
+    registry.register("pixel", "Pixel", "owner")
+    conn = Mock()
+    conn.user.id = "owner"
+    asyncio.run(ws_module.ws_state(hass, conn, {
+        "id": 6, "device_id": "pixel", "state": {"state": "playing"}
+    }))
+    assert registry.players["pixel"].state["state"] == "playing"
+    conn.send_result.assert_called_once_with(6)
+    asyncio.run(ws_module.ws_state(hass, conn, {
+        "id": 7, "device_id": "missing", "state": {"state": "paused"}
+    }))
+    conn.send_error.assert_called_once_with(
+        7, "not_found", "Device not registered to this user"
+    )
+
+
+def test_duplicate_subscriber_and_unsubscribe_identity(ws_module):
+    hass = Mock()
+    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
+    registry = hass.data[ws_module.REGISTRY_KEY]
+    player = registry.register("pixel", "Pixel", "owner")
+    conn = Mock()
+    conn.user.id = "owner"
+    conn.subscriptions = {}
+    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 8, "device_id": "pixel"}))
+    original = player.send_command
+    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 9, "device_id": "pixel"}))
+    conn.send_error.assert_called_once_with(
+        9, "already_connected", "Device has an active command subscriber"
+    )
+    replacement = Mock()
+    player.send_command = replacement
+    conn.subscriptions[8]()
+    assert player.send_command is replacement
+    player.send_command = original
+    conn.subscriptions[8]()
+    assert player.send_command is None
+
+
+def test_register_websocket_handlers(ws_module):
+    hass = Mock()
+    websocket = sys.modules["homeassistant.components.websocket_api"]
+    ws_module.async_register_websocket_commands(hass)
+    assert websocket.async_register_command.call_count == 3
+    assert [call.args[1] for call in websocket.async_register_command.call_args_list] == [
+        ws_module.ws_register, ws_module.ws_state, ws_module.ws_subscribe
+    ]
