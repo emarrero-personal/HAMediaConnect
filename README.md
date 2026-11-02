@@ -38,6 +38,19 @@ The Gradle wrapper **JAR is not bundled** because the build environment that pro
 
 That downloads Gradle 9.5.0 once and generates the standard wrapper JAR. If you already have Gradle installed, `gradle wrapper --gradle-version 9.5.0` does the same thing.
 
+## Install the Home Assistant integration
+
+Before using HAMediaConnect as a Home Assistant media player, install its companion custom integration:
+
+1. Download this repository or clone it locally.
+2. Copy `custom_components/ha_remote_media_player` into your Home Assistant configuration directory at `/config/custom_components/ha_remote_media_player`.
+3. Restart Home Assistant.
+4. In **Settings → Devices & services**, add **HA Remote Media Player** if it is offered through the integration's config flow. Otherwise check Home Assistant logs and the integration's setup documentation.
+5. In HAMediaConnect on Android, open **Settings**, enter your Home Assistant URL, choose OAuth for HTTPS or a long-lived access token for a trusted local HTTP network, and connect.
+6. Find the registered media player entity in Home Assistant.
+
+Do not expose a token-based HTTP connection to the public internet.
+
 ## Build
 
 1. Open the project directory in Android Studio.
