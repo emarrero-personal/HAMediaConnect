@@ -31,9 +31,13 @@ class HaWebSocketClient(
         .build()
     private var socket: WebSocket? = null
     private var authenticated = false
+    private var subscribed = false
+    private var subscriptionId = -1
 
     fun connect() {
         authenticated = false
+        subscribed = false
+        subscriptionId = -1
         val wsUrl = toWebSocketUrl(baseUrl)
         onStatus("Connecting…")
         socket = client.newWebSocket(Request.Builder().url(wsUrl).build(), Listener())
@@ -41,12 +45,13 @@ class HaWebSocketClient(
 
     fun close() {
         authenticated = false
+        subscribed = false
         socket?.close(1000, "Service stopping")
         socket = null
     }
 
     fun fireState(eventData: JSONObject) {
-        if (!authenticated) return
+        if (!authenticated || !subscribed) return
         val msg = JSONObject()
             .put("id", ids.getAndIncrement())
             .put("type", "fire_event")
@@ -73,16 +78,30 @@ class HaWebSocketClient(
                     "auth_ok" -> {
                         authenticated = true
                         subscribe(webSocket)
-                        onStatus("Connected")
+                        onStatus("Authenticated; subscribing…")
                     }
                     "auth_invalid" -> {
                         authenticated = false
+                        subscribed = false
                         onStatus("Authentication failed")
                     }
-                    "event" -> handleEvent(json)
+                    "event" -> if (subscribed) handleEvent(json)
                     "result" -> {
-                        if (!json.optBoolean("success", true)) {
-                            Log.w(TAG, "HA command failed: $text")
+                        val id = json.optInt("id", -1)
+                        val success = json.optBoolean("success", false)
+                        if (id == subscriptionId) {
+                            subscribed = success
+                            if (success) {
+                                onStatus("Connected")
+                            } else {
+                                val error = json.optJSONObject("error")
+                                val code = error?.optString("code", "unknown") ?: "unknown"
+                                onStatus("Subscription rejected: $code")
+                                Log.w(TAG, "Command subscription rejected: $code")
+                            }
+                        } else if (!success) {
+                            val code = json.optJSONObject("error")?.optString("code", "unknown") ?: "unknown"
+                            Log.w(TAG, "HA command failed (id=$id): $code")
                         }
                     }
                 }
@@ -93,18 +112,21 @@ class HaWebSocketClient(
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
             authenticated = false
+            subscribed = false
             onStatus("Disconnected: ${t.message ?: "network error"}")
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
             authenticated = false
+            subscribed = false
             onStatus("Disconnected")
         }
     }
 
     private fun subscribe(webSocket: WebSocket) {
+        subscriptionId = ids.getAndIncrement()
         val msg = JSONObject()
-            .put("id", ids.getAndIncrement())
+            .put("id", subscriptionId)
             .put("type", "subscribe_events")
             .put("event_type", COMMAND_EVENT)
         webSocket.send(msg.toString())
