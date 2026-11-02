@@ -5,7 +5,10 @@
   "documentation": "https://github.com/emarrero-personal/HARemoteMediaPlayer",
   "issue_tracker": "https://github.com/emarrero-personal/HARemoteMediaPlayer/issues",
   "codeowners": [],
-  "dependencies": ["http"],
+  "dependencies": [
+    "http",
+    "websocket_api"
+  ],
   "config_flow": true,
   "iot_class": "local_push"
 }
