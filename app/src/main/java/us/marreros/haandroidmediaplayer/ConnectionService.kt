@@ -99,6 +99,7 @@ class ConnectionService : Service() {
             command.contentType?.let { putExtra(PlaybackService.EXTRA_CONTENT_TYPE, it) }
             command.volume?.let { putExtra(PlaybackService.EXTRA_VOLUME, it) }
             command.position?.let { putExtra(PlaybackService.EXTRA_POSITION, it) }
+            putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
         }
         startService(intent)
     }
