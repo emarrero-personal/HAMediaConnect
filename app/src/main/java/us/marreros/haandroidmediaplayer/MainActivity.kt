@@ -2,6 +2,7 @@ package us.marreros.haandroidmediaplayer
 
 import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import java.util.concurrent.Executors
 import android.os.Build
@@ -56,6 +57,14 @@ class MainActivity : AppCompatActivity() {
         findViewById<android.view.View>(R.id.gettingStartedCard).setOnClickListener { showScreen(helpScreen) }
         findViewById<android.view.View>(R.id.settingsBack).setOnClickListener { showScreen(homeScreen) }
         findViewById<android.view.View>(R.id.helpBack).setOnClickListener { showScreen(homeScreen) }
+        findViewById<View>(R.id.authHelpLink).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("OAuth or long-lived token?")
+                .setMessage("OAuth is recommended when Home Assistant is available over HTTPS. It uses account sign-in and refreshable credentials. A long-lived access token works for local HTTP installations without HTTPS. HTTP does not encrypt your token in transit: use it only on a trusted local network, never over the public internet.")
+                .setPositiveButton("Close", null).show()
+        }
+        findViewById<View>(R.id.integrationInstallLink).setOnClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emarrero-personal/HARemoteMediaPlayer#install-the-home-assistant-integration")))
+        }
         val oauthChoice = findViewById<RadioButton>(R.id.oauthChoice)
         val tokenChoice = findViewById<RadioButton>(R.id.tokenChoice)
         val oauthButton = findViewById<Button>(R.id.oauthButton)
