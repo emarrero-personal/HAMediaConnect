@@ -2,8 +2,8 @@
   "domain": "ha_remote_media_player",
   "name": "HA Remote Media Player",
   "version": "0.2.0",
-  "documentation": "https://github.com/emarrero-personal/HARemoteMediaPlayer",
-  "issue_tracker": "https://github.com/emarrero-personal/HARemoteMediaPlayer/issues",
+  "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
+  "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
   "codeowners": [],
   "dependencies": [
     "http",
