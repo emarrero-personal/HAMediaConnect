@@ -26,12 +26,28 @@ HAMediaConnect consists of an Android app and a companion Home Assistant custom 
 
 ### 1. Install the Home Assistant integration
 
-1. Download or clone this repository.
+The companion integration is required to expose your Android device as a Home Assistant media player.
+
+#### Option A: HACS (recommended)
+
+1. Install [HACS](https://www.hacs.xyz/docs/use/) if you haven't already.
+2. In Home Assistant, open **HACS → three-dot menu → Custom repositories** (the location of this menu can vary with HACS version).
+3. Paste the repository URL: `https://github.com/emarrero-personal/HARemoteMediaPlayer`.
+4. Select **Integration** as the repository type and add it.
+5. Find **HA Remote Media Player** in HACS, open it, and choose **Download**.
+6. Restart Home Assistant.
+7. Open **Settings → Devices & services → Add integration**, search for **HA Remote Media Player**, and complete the configuration flow.
+
+**Development branch note:** The v0.9 Android changes and current companion integration are on `feature/v0.2-oauth-media-player`, not `main`. HACS custom-repository installs generally track the repository's default branch or published releases; they do **not** automatically install this feature branch. Until the branch is merged or released, use the manual installation below to obtain the matching integration code.
+
+#### Option B: Manual installation (current feature branch)
+
+1. Open the [feature branch](https://github.com/emarrero-personal/HARemoteMediaPlayer/tree/feature/v0.2-oauth-media-player) and download its ZIP, or clone and check out that branch.
 2. Copy the **contents** of `custom_components/ha_remote_media_player/` to `/config/custom_components/ha_remote_media_player/` on your Home Assistant instance.
 3. Restart Home Assistant.
 4. Open **Settings → Devices & services → Add integration**, search for **HA Remote Media Player**, and complete the configuration flow.
 
-The integration is required: it registers the Android device and exposes it as a native Home Assistant media player.
+If HACS does not recognize the repository or no integration is available for download, use the manual installation until the project is published in a HACS-compatible release.
 
 ### 2. Install the Android app (APK sideload)
 
