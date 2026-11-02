@@ -173,7 +173,8 @@ class HaWebSocketClient(
             title = data.optString("media_title").takeIf { it.isNotBlank() },
             contentType = data.optString("media_content_type").takeIf { it.isNotBlank() },
             volume = if (data.has("volume_level")) data.optDouble("volume_level").toFloat() else null,
-            position = null
+            position = null,
+            announce = data.optBoolean("announce", false)
         ))
     }
 
