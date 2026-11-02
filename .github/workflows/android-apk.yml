@@ -6,6 +6,10 @@ on:
       - feature/v0.2-oauth-media-player
   workflow_dispatch:
 
+concurrency:
+  group: hamediaconnect-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   android-debug-apk:
     runs-on: ubuntu-latest
