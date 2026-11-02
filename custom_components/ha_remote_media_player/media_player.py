@@ -139,4 +139,5 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             "play_media",
             media_content_type=str(media_type),
             media_content_id=media_id,
+            announce=bool(kwargs.get("announce", False)),
         )
