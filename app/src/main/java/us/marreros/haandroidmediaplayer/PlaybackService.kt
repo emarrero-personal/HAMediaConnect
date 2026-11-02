@@ -1,8 +1,12 @@
 package us.marreros.haandroidmediaplayer
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.IntentFilter
 import android.content.Intent
 import android.media.AudioManager
+import android.app.NotificationManager
+import androidx.core.content.ContextCompat
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -50,6 +54,19 @@ class PlaybackService : MediaSessionService() {
     private var announcing = false
     private var announcementReady = false
     private var muted = false
+    private val dndReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (isDndActive() && announcing) {
+                Log.i(TAG, "DND enabled; ending announcement and restoring media")
+                restoreMedia()
+            }
+        }
+    }
+
+    private fun isDndActive(): Boolean {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        return manager.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL
+    }
 
     private val ticker = object : Runnable {
         override fun run() {
@@ -80,6 +97,9 @@ class PlaybackService : MediaSessionService() {
             }
         })
         mediaSession = MediaSession.Builder(this, player).build()
+        ContextCompat.registerReceiver(this, dndReceiver,
+            IntentFilter(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED)
         handler.post(ticker)
     }
 
@@ -123,6 +143,10 @@ class PlaybackService : MediaSessionService() {
 
     private fun playMedia(url: String?, title: String?, announce: Boolean) {
         if (url.isNullOrBlank()) return
+        if (announce && isDndActive()) {
+            Log.i(TAG, "Suppressing announcement while DND is active")
+            return
+        }
         Log.i(TAG, "playMedia announce=$announce items=${player.mediaItemCount}")
         if (announce) {
             if (!announcing && player.mediaItemCount > 0) {
@@ -213,6 +237,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
+        unregisterReceiver(dndReceiver)
         mediaSession.release()
         player.release()
         super.onDestroy()
