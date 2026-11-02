@@ -1,22 +1,28 @@
-"""HA Remote Media Player integration bootstrap.
-
-This initial milestone serves a public, static OAuth client identification page.
-Native media_player entities and authenticated WebSocket commands follow later.
-"""
+"""Home Assistant integration for Android remote media players."""
 from homeassistant.core import HomeAssistant
 
-DOMAIN = "ha_remote_media_player"
+from .const import DOMAIN
+from .oauth_view import OAuthClientView
+from .registry import PlayerRegistry
+from .websocket_api import REGISTRY_KEY, async_register_websocket_commands
+
+PLATFORMS = ["media_player"]
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """Register the public OAuth client identification endpoint."""
-    from .oauth_view import OAuthClientView
+    """Register OAuth page and authenticated WebSocket commands."""
+    hass.data[REGISTRY_KEY] = PlayerRegistry(hass)
     hass.http.register_view(OAuthClientView())
+    async_register_websocket_commands(hass)
     return True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
-    """Initialize the configured integration; OAuth view registered by async_setup."""
+    """Load native media player entities."""
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
+
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
-    """Unload integration entry (no platforms registered yet)."""
-    return True
+    """Unload native entities."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
