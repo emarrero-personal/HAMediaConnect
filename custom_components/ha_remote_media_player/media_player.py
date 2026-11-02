@@ -125,6 +125,7 @@ class AndroidMediaPlayer(MediaPlayerEntity):
 
     async def async_play_media(self, media_type: MediaType | str, media_id: str, **kwargs):
         """Resolve HA media sources (including TTS) before sending audio to Android."""
+        is_tts = media_id.startswith('media-source://tts/')
         if media_source.is_media_source_id(media_id):
             item = await media_source.async_resolve_media(
                 self.hass, media_id, target_media_player=self.entity_id
@@ -139,5 +140,5 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             "play_media",
             media_content_type=str(media_type),
             media_content_id=media_id,
-            announce=bool(kwargs.get("announce", False)),
+            announce=is_tts or bool(kwargs.get("announce", False)),
         )
