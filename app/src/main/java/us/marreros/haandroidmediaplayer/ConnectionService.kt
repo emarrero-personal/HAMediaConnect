@@ -37,17 +37,34 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopped = false
-        connect()
+        scheduler.execute { connect() }
         return START_STICKY
     }
 
     private fun connect() {
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
-        val token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
+        val secure = SecureTokenStore(this)
+        var token = secure.get("access_token").orEmpty()
+        val refreshToken = secure.get("refresh_token")
+        if (!refreshToken.isNullOrBlank() && baseUrl.startsWith("https://") &&
+            (token.isBlank() || System.currentTimeMillis() >= prefs.getLong("oauth_expiry", 0) - 60_000)) {
+            try {
+                val refreshed = HaOAuth(baseUrl).refresh(refreshToken)
+                token = refreshed.getString("access_token")
+                secure.put("access_token", token)
+                if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
+                prefs.edit().putLong("oauth_expiry",
+                    System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
+            } catch (_: Exception) {
+                updateStatus("OAuth refresh failed; sign in again")
+                return
+            }
+        }
+        if (token.isBlank()) token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
         val deviceId = AppPrefs.ensureDeviceId(this)
         if (baseUrl.isBlank() || token.isBlank()) {
-            updateStatus("Configure URL and token")
+            updateStatus("Configure URL and sign in")
             stopSelf()
             return
         }
@@ -60,7 +77,7 @@ class ConnectionService : Service() {
             deviceId = deviceId,
             onStatus = { status ->
                 updateStatus(status)
-                if (status.startsWith("Disconnected") && !stopped) scheduleReconnect()
+                if ((status.startsWith("Disconnected") || status == "Authentication failed") && !stopped) scheduleReconnect()
             },
             onCommand = { command -> dispatchCommand(command) }
         ).also { it.connect() }
