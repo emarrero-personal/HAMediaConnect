@@ -11,6 +11,8 @@ import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.LinearLayout
+import android.widget.RadioGroup
+import android.widget.RadioButton
 import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,15 +43,27 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         statusText = findViewById(R.id.statusText)
-        val settingsPanel = findViewById<LinearLayout>(R.id.settingsPanel)
-        findViewById<Button>(R.id.settingsButton).setOnClickListener {
-            settingsPanel.visibility = if (settingsPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
+        val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
+        val helpScreen = findViewById<android.view.View>(R.id.helpScreen)
+        fun showScreen(screen: android.view.View) {
+            homeScreen.visibility = if (screen === homeScreen) View.VISIBLE else View.GONE
+            settingsScreen.visibility = if (screen === settingsScreen) View.VISIBLE else View.GONE
+            helpScreen.visibility = if (screen === helpScreen) View.VISIBLE else View.GONE
         }
-        findViewById<Button>(R.id.helpButton).setOnClickListener {
-            AlertDialog.Builder(this)
-                .setTitle("Getting started with HAMediaConnect")
-                .setMessage("1. Open Connection settings and enter your Home Assistant URL.\n\n2. For HTTPS, select Sign in with Home Assistant (OAuth). For a local HTTP instance, paste a long-lived access token from your Home Assistant profile and tap Save & Start.\n\n3. Once connected, use the HAMediaConnect media player entity in Home Assistant to play audio or send TTS announcements.\n\nTip: Keep your access token private. Never share it in screenshots or logs.")
-                .setPositiveButton("Got it", null).show()
+        findViewById<android.view.View>(R.id.settingsButton).setOnClickListener { showScreen(settingsScreen) }
+        findViewById<android.view.View>(R.id.helpButton).setOnClickListener { showScreen(helpScreen) }
+        findViewById<android.view.View>(R.id.gettingStartedCard).setOnClickListener { showScreen(helpScreen) }
+        findViewById<android.view.View>(R.id.settingsBack).setOnClickListener { showScreen(homeScreen) }
+        findViewById<android.view.View>(R.id.helpBack).setOnClickListener { showScreen(homeScreen) }
+        val oauthChoice = findViewById<RadioButton>(R.id.oauthChoice)
+        val tokenChoice = findViewById<RadioButton>(R.id.tokenChoice)
+        val oauthButton = findViewById<Button>(R.id.oauthButton)
+        val tokenField = findViewById<EditText>(R.id.tokenInput)
+        findViewById<RadioGroup>(R.id.authMethodGroup).setOnCheckedChangeListener { _, checkedId ->
+            val useToken = checkedId == R.id.tokenChoice
+            tokenField.visibility = if (useToken) View.VISIBLE else View.GONE
+            oauthButton.visibility = if (useToken) View.GONE else View.VISIBLE
         }
         urlInput = findViewById(R.id.urlInput)
         tokenInput = findViewById(R.id.tokenInput)
@@ -61,6 +75,7 @@ class MainActivity : AppCompatActivity() {
         val deviceId = AppPrefs.ensureDeviceId(this)
         urlInput.setText(prefs.getString(AppPrefs.KEY_URL, ""))
         tokenInput.setText(prefs.getString(AppPrefs.KEY_TOKEN, ""))
+        if (prefs.getString(AppPrefs.KEY_TOKEN, "").orEmpty().isNotBlank() && SecureTokenStore(this).get("refresh_token").isNullOrBlank()) tokenChoice.isChecked = true
         nameInput.setText(prefs.getString(AppPrefs.KEY_NAME, Build.MODEL))
         startOnBootCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)
         statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
