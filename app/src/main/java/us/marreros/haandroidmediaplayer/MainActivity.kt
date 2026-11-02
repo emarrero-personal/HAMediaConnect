@@ -2,6 +2,8 @@ package us.marreros.haandroidmediaplayer
 
 import android.Manifest
 import android.content.Intent
+import androidx.browser.customtabs.CustomTabsIntent
+import java.util.concurrent.Executors
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
@@ -14,6 +16,7 @@ import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
+    private val oauthExecutor = Executors.newSingleThreadExecutor()
     private lateinit var urlInput: EditText
     private lateinit var tokenInput: EditText
     private lateinit var nameInput: EditText
@@ -50,6 +53,8 @@ class MainActivity : AppCompatActivity() {
         statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
         deviceIdText.text = "Device ID: $deviceId"
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        findViewById<Button>(R.id.oauthButton).setOnClickListener { startOAuth() }
+        handleOAuthCallback(intent)
 
         findViewById<Button>(R.id.saveStartButton).setOnClickListener {
             val url = urlInput.text.toString().trim().trimEnd('/')
@@ -73,6 +78,70 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleOAuthCallback(intent)
+    }
+
+    private fun startOAuth() {
+        val url = urlInput.text.toString().trim().trimEnd('/')
+        if (!url.startsWith("https://")) {
+            statusText.text = "OAuth requires HTTPS (Nabu Casa URL supported)"
+            return
+        }
+        val state = HaOAuth.randomUrlSafe(24)
+        val verifier = HaOAuth.randomUrlSafe(48)
+        AppPrefs.prefs(this).edit()
+            .putString(AppPrefs.KEY_URL, url)
+            .putString("oauth_pending_state", state)
+            .putString("oauth_pending_verifier", verifier)
+            .putLong("oauth_pending_at", System.currentTimeMillis()).apply()
+        CustomTabsIntent.Builder().build().launchUrl(this, HaOAuth(url).authorizationUrl(state, verifier))
+    }
+
+    private fun handleOAuthCallback(intent: Intent?) {
+        val uri = intent?.data ?: return
+        if (uri.scheme != "haandroidmediaplayer" || uri.host != "oauth" || uri.path != "/callback") return
+        intent.data = null
+        val prefs = AppPrefs.prefs(this)
+        val state = prefs.getString("oauth_pending_state", null)
+        val verifier = prefs.getString("oauth_pending_verifier", null)
+        val issued = prefs.getLong("oauth_pending_at", 0)
+        prefs.edit().remove("oauth_pending_state").remove("oauth_pending_verifier")
+            .remove("oauth_pending_at").apply()
+        if (state == null || verifier == null || issued <= 0 ||
+            System.currentTimeMillis() - issued !in 0..600000 ||
+            uri.getQueryParameter("state") != state) {
+            statusText.text = "OAuth callback rejected"
+            return
+        }
+        val code = uri.getQueryParameter("code")
+        if (code.isNullOrBlank()) {
+            statusText.text = "OAuth authorization denied"
+            return
+        }
+        statusText.text = "Exchanging authorization code…"
+        val url = prefs.getString(AppPrefs.KEY_URL, "")!!
+        oauthExecutor.execute {
+            try {
+                val tokens = HaOAuth(url).exchange(code, verifier)
+                val store = SecureTokenStore(this)
+                store.put("access_token", tokens.getString("access_token"))
+                store.put("refresh_token", tokens.getString("refresh_token"))
+                prefs.edit().putLong("oauth_expiry",
+                    System.currentTimeMillis() + tokens.optLong("expires_in", 1800) * 1000).apply()
+                runOnUiThread {
+                    statusText.text = "OAuth authenticated"
+                    requestNotificationsIfNeeded()
+                    ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
+                }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "OAuth exchange failed: ${e.message}" }
+            }
+        }
+    }
+
     private fun requestNotificationsIfNeeded() {
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -84,6 +153,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         AppPrefs.prefs(this).unregisterOnSharedPreferenceChangeListener(prefListener)
+        oauthExecutor.shutdown()
         super.onDestroy()
     }
 }
