@@ -30,7 +30,7 @@ class ConnectionService : Service() {
         createChannel()
         PlayerStateBus.listener = { snapshot ->
             publishPlayerState(
-                snapshot.state, snapshot.volume, snapshot.positionMs, snapshot.durationMs,
+                snapshot.state, snapshot.volume, snapshot.muted, snapshot.positionMs, snapshot.durationMs,
                 snapshot.title, snapshot.contentId
             )
         }
@@ -113,6 +113,7 @@ class ConnectionService : Service() {
             command.volume?.let { putExtra(PlaybackService.EXTRA_VOLUME, it) }
             command.position?.let { putExtra(PlaybackService.EXTRA_POSITION, it) }
             putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
+            command.muted?.let { putExtra(PlaybackService.EXTRA_MUTED, it) }
         }
         startService(intent)
     }
@@ -126,6 +127,7 @@ class ConnectionService : Service() {
     fun publishPlayerState(
         state: String,
         volume: Float,
+        muted: Boolean,
         positionMs: Long,
         durationMs: Long,
         title: String?,
@@ -137,6 +139,7 @@ class ConnectionService : Service() {
             .put("name", prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL))
             .put("state", state)
             .put("volume_level", volume)
+            .put("is_volume_muted", muted)
             .put("position_ms", positionMs)
             .put("duration_ms", durationMs)
             .put("media_title", title ?: JSONObject.NULL)
