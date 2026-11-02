@@ -5,6 +5,7 @@ import android.content.Intent
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -15,6 +16,7 @@ import androidx.media3.session.MediaSessionService
 
 class PlaybackService : MediaSessionService() {
     companion object {
+        private const val TAG = "HARemotePlayback"
         const val EXTRA_URL = "url"
         const val EXTRA_TITLE = "title"
         const val EXTRA_CONTENT_TYPE = "content_type"
@@ -58,6 +60,7 @@ class PlaybackService : MediaSessionService() {
         player = ExoPlayer.Builder(this).build()
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
+                Log.d(TAG, "state=$playbackState announcing=$announcing saved=${savedMedia != null}")
                 if (announcing && playbackState == Player.STATE_READY) announcementReady = true
                 if (announcing && announcementReady && playbackState == Player.STATE_ENDED) {
                     restoreMedia()
@@ -110,9 +113,11 @@ class PlaybackService : MediaSessionService() {
 
     private fun playMedia(url: String?, title: String?, announce: Boolean) {
         if (url.isNullOrBlank()) return
+        Log.i(TAG, "playMedia announce=$announce items=${player.mediaItemCount}")
         if (announce) {
             if (!announcing && player.mediaItemCount > 0) {
                 player.currentMediaItem?.let {
+                    Log.i(TAG, "saving position=${player.currentPosition} playing=${player.playWhenReady}")
                     savedMedia = SavedMedia(
                         it,
                         player.currentPosition.coerceAtLeast(0L),
@@ -145,6 +150,7 @@ class PlaybackService : MediaSessionService() {
 
     private fun restoreMedia() {
         val previous = savedMedia
+        Log.i(TAG, "restoreMedia saved=${previous != null}")
         announcing = false
         announcementReady = false
         savedMedia = null
