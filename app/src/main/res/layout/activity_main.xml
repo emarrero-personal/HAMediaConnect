@@ -1,117 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="🎸 HAMediaConnect"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Disconnected"
-            android:textSize="16sp" />
-
-        <Button android:id="@+id/settingsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="⚙ Connection settings" />
-        <Button android:id="@+id/helpButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Help &amp; getting started" />
-        <LinearLayout android:id="@+id/settingsPanel" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:visibility="gone">
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Home Assistant URL" />
-
-        <EditText
-            android:id="@+id/urlInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="https://homeassistant.example.com"
-            android:inputType="textUri"
-            android:singleLine="true" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Long-lived access token" />
-
-        <EditText
-            android:id="@+id/tokenInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Paste token"
-            android:inputType="textPassword"
-            android:singleLine="true" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Device name" />
-
-        <EditText
-            android:id="@+id/nameInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="Kitchen Tablet"
-            android:inputType="textCapWords"
-            android:singleLine="true" />
-
-        <CheckBox
-            android:id="@+id/startOnBootCheck"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Start connection after reboot" />
-
-        <Button
-            android:id="@+id/oauthButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Sign in with Home Assistant (OAuth)" />
-
-        <Button
-            android:id="@+id/saveStartButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="Save &amp; Start" />
-
-        <Button
-            android:id="@+id/stopButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Stop" />
-
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="#F6F5FB">
+    <ScrollView android:id="@+id/homeScreen" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
+            <FrameLayout android:layout_width="match_parent" android:layout_height="390dp" android:background="@drawable/hero_gradient">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:padding="24dp">
+                    <ImageView android:layout_width="164dp" android:layout_height="164dp" android:contentDescription="Android guitarist mascot" android:src="@drawable/mascot_guitar" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="HAMediaConnect" android:textColor="#FFFFFF" android:textSize="32sp" android:textStyle="bold" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="8dp" android:text="Play audio from Home Assistant\non this Android device" android:textColor="#F3EFFF" android:textSize="17sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="top|end" android:orientation="horizontal" android:padding="14dp">
+                    <TextView android:id="@+id/settingsButton" android:layout_width="52dp" android:layout_height="52dp" android:gravity="center" android:text="⚙" android:textColor="#FFFFFF" android:textSize="30sp" android:contentDescription="Settings" />
+                    <TextView android:id="@+id/helpButton" android:layout_width="52dp" android:layout_height="52dp" android:gravity="center" android:text="ⓘ" android:textColor="#FFFFFF" android:textSize="30sp" android:contentDescription="Help and getting started" />
+                </LinearLayout>
+            </FrameLayout>
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="20dp">
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="●  Home Assistant connection" android:textColor="#291C52" android:textStyle="bold" android:textSize="19sp" />
+                    <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Disconnected" android:textColor="#51436D" android:textSize="16sp" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="♫  Playback" android:textColor="#291C52" android:textStyle="bold" android:textSize="21sp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Ready" android:textColor="#51436D" android:textSize="17sp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Waiting for audio from Home Assistant" android:textColor="#655A7A" android:textSize="14sp" />
+                </LinearLayout>
+                <LinearLayout android:id="@+id/gettingStartedCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ⓘ  Getting started" android:textColor="#291C52" android:textStyle="bold" android:textSize="20sp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Use Home Assistant to play music or send a text-to-speech announcement to this device." android:textColor="#51436D" android:textSize="16sp" />
+                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="View setup guide  →" android:textColor="#5123A6" android:textStyle="bold" android:textSize="16sp" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
-        <TextView
-            android:id="@+id/deviceIdText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:textIsSelectable="true"
-            android:textSize="12sp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Ready to receive music and announcements from Home Assistant."
-            android:textSize="13sp" />
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+    <ScrollView android:id="@+id/settingsScreen" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="22dp">
+            <TextView android:id="@+id/settingsBack" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="24dp" android:text="‹   Settings" android:textColor="#21153E" android:textSize="25sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Connection" android:textColor="#5123A6" android:textSize="19sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Connection method" android:textColor="#291C52" android:textSize="17sp" android:textStyle="bold" />
+            <RadioGroup android:id="@+id/authMethodGroup" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/card_surface" android:padding="12dp">
+                <RadioButton android:id="@+id/oauthChoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="OAuth (recommended for HTTPS)" android:checked="true" android:textColor="#291C52" />
+                <RadioButton android:id="@+id/tokenChoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Long-lived access token (local HTTP supported)" android:textColor="#291C52" />
+            </RadioGroup>
+            <LinearLayout android:id="@+id/settingsPanel" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="16dp">
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Home Assistant URL" android:textColor="#291C52" />
+                <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="https://homeassistant.example.com" android:inputType="textUri" android:singleLine="true" />
+                <EditText android:id="@+id/tokenInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Long-lived access token" android:inputType="textPassword" android:singleLine="true" android:visibility="gone" />
+                <EditText android:id="@+id/nameInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Device name" android:inputType="textCapWords" android:singleLine="true" />
+                <CheckBox android:id="@+id/startOnBootCheck" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Start connection after reboot" />
+                <Button android:id="@+id/oauthButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sign in with Home Assistant" />
+                <Button android:id="@+id/saveStartButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Save &amp; connect" />
+                <Button android:id="@+id/stopButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Disconnect" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="Advanced" android:textColor="#5123A6" android:textSize="18sp" android:textStyle="bold" />
+            <TextView android:id="@+id/deviceIdText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="#51436D" android:textIsSelectable="true" android:textSize="12sp" />
+        </LinearLayout>
+    </ScrollView>
+    <ScrollView android:id="@+id/helpScreen" android:layout_width="match_parent" android:layout_height="match_parent" android:visibility="gone">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="22dp">
+            <TextView android:id="@+id/helpBack" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingBottom="24dp" android:text="‹   Help &amp; Getting Started" android:textColor="#21153E" android:textSize="24sp" android:textStyle="bold" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/card_surface" android:gravity="center_vertical" android:orientation="horizontal" android:padding="14dp">
+                <ImageView android:layout_width="76dp" android:layout_height="76dp" android:src="@drawable/mascot_guitar" android:contentDescription="Android guitarist mascot" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="HAMediaConnect\nHome Assistant audio for Android" android:textColor="#291C52" android:textSize="17sp" android:textStyle="bold" />
+            </LinearLayout>
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="Getting Started" android:textColor="#5123A6" android:textSize="20sp" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="❶  Connect to Home Assistant\n\nOpen Settings, enter your Home Assistant URL, and choose OAuth or a long-lived token." android:textColor="#291C52" android:textSize="17sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="❷  Use it from Home Assistant\n\nSelect the HAMediaConnect media player entity to play music, change volume, mute, or send announcements." android:textColor="#291C52" android:textSize="17sp" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="❸  Enjoy\n\nAudio plays on this device, and interrupted music resumes after announcements. Announcements respect Do Not Disturb." android:textColor="#291C52" android:textSize="17sp" />
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>
