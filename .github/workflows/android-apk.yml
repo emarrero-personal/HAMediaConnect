@@ -24,7 +24,24 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" --list --channel=3 | grep -E "platforms;android-37|build-tools;37" || true
           "$SDKMANAGER" --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
-      - name: Run unit tests and enforce 95% coverage
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Python test dependencies
+        run: python -m pip install -r requirements-test.txt
+      - name: Run Python integration unit tests with 90% coverage gate
+        run: python -m pytest tests/ --cov=custom_components/ha_remote_media_player --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov --cov-fail-under=90
+      - name: Upload Python coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HAMediaConnect-python-coverage
+          path: |
+            coverage.xml
+            htmlcov/
+          if-no-files-found: warn
+      - name: Run unit tests and enforce 90% coverage
         run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
       - name: Upload unit test and coverage reports
         if: always()
