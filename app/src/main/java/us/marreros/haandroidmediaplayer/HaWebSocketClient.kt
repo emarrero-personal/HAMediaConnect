@@ -57,6 +57,7 @@ class HaWebSocketClient(
         if (!authenticated || !subscribed) return
         val state = JSONObject().put("state", eventData.optString("state", "idle").let { if (it == "error") "idle" else it })
             .put("volume_level", eventData.optDouble("volume_level", 0.5))
+            .put("is_volume_muted", eventData.optBoolean("is_volume_muted", false))
         for (key in listOf("media_title", "media_content_id")) {
             val value = eventData.optString(key, "")
             if (value.isNotBlank() && value != "null") state.put(key, value)
@@ -163,7 +164,7 @@ class HaWebSocketClient(
         val action = data.optString("action")
         val mapped = when (action) {
             "volume_set" -> PlaybackService.CMD_SET_VOLUME
-            "volume_mute" -> return // Mute support requires a separate Android playback change.
+            "volume_mute" -> PlaybackService.CMD_MUTE
             "play", "pause", "stop", "play_media" -> action
             else -> return
         }
@@ -174,6 +175,7 @@ class HaWebSocketClient(
             contentType = data.optString("media_content_type").takeIf { it.isNotBlank() },
             volume = if (data.has("volume_level")) data.optDouble("volume_level").toFloat() else null,
             position = null,
+            muted = if (data.has("is_volume_muted")) data.optBoolean("is_volume_muted") else null,
             announce = data.optBoolean("announce", false)
         ))
     }
