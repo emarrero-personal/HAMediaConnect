@@ -69,6 +69,22 @@ jobs:
           python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85
       - name: Run Android unit tests and coverage gate
         run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
+      - name: Capture resolved release runtime dependency inventory
+        run: |
+          mkdir -p build/release-compliance
+          bash ./gradlew --no-daemon :app:dependencies --configuration releaseRuntimeClasspath > build/release-compliance/releaseRuntimeClasspath.txt
+          test -s build/release-compliance/releaseRuntimeClasspath.txt
+          if grep -E '(^|[[:space:]])FAILED([[:space:]]|$)' build/release-compliance/releaseRuntimeClasspath.txt; then
+            echo "::error::Unresolved release runtime dependency"
+            exit 1
+          fi
+      - name: Archive release dependency inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-runtime-dependencies-${{ github.ref_name }}
+          path: build/release-compliance/releaseRuntimeClasspath.txt
+          if-no-files-found: error
+
 
   publish:
     name: Sign and publish approved release
