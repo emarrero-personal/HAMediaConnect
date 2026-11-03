@@ -49,6 +49,22 @@ The companion integration is required to expose your Android device as a Home As
 
 If HACS does not recognize the repository or no integration is available for download, use the manual installation until the project is published in a HACS-compatible release.
 
+### Distribution APK (signed release)
+
+Once release signing is configured and a version tag has been published, download the latest signed distribution APK from this **permanent URL**:
+
+**[Download latest HAMediaConnect.apk](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk)**
+
+[View releases](https://github.com/emarrero-personal/HAMediaConnect/releases) · [SHA-256 checksum](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk.sha256)
+
+The [Publish signed distribution APK](.github/workflows/distribution-apk.yml) workflow runs when a version tag such as `v0.9.0` is pushed. It runs Python and Android tests, builds a **release-signed** APK, verifies the APK signature, and publishes `HAMediaConnect.apk` and its checksum to a GitHub Release. The latest-download URL always resolves to the newest non-prerelease release. **It will return 404 until the first successful release is published.** Do not reuse the debug APK as a distribution build.
+
+**One-time maintainer setup:** Create an Android release keystore, keep it backed up securely, and configure these repository Actions secrets: `ANDROID_RELEASE_KEYSTORE_BASE64` (base64 of the binary keystore, with no wrapping), `ANDROID_RELEASE_STORE_PASSWORD`, `ANDROID_RELEASE_KEY_ALIAS`, and `ANDROID_RELEASE_KEY_PASSWORD`. Never commit the keystore or passwords. Keep using the same key for future releases so installed apps can update in place.
+
+Before pushing a release tag, update `versionName` and increment `versionCode` in `app/build.gradle.kts`; ensure the tag matches the version (for example `v0.9.0`). Push the tag from the reviewed `main` commit. The release workflow requires permission to create GitHub Releases (repository Actions workflow permissions must allow it).
+
+**Installation note:** An existing debug-signed APK cannot normally be updated in place by the release-signed APK because the signing certificates differ. Back up connection settings as needed, uninstall the debug build, then install the signed distribution APK.
+
 ### 2. Install the Android app (APK sideload)
 
 Once a build artifact is available, download `HAMediaConnect-v0.9.0-debug.apk` from the GitHub Actions run for this branch. **Do not download APKs from unofficial mirrors.** The debug APK is intended for testing, not for Play Store publication.
