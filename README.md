@@ -102,8 +102,8 @@ If HAMediaConnect works from Home Assistant but is missing in Music Assistant, c
 
 ## Open-source licensing
 
-**Our chosen license for HAMediaConnect is GNU General Public License v3.0 or later (GPL-3.0-or-later).** We chose a copyleft license so that people can use, study, modify, and redistribute the software, including commercially, while distributors of modified versions must make the corresponding source code available under the GPL's terms. The GPL does **not** prohibit commercial use or resale.
+HAMediaConnect is licensed under the **GNU General Public License, version 3 or (at your option) any later version** (**SPDX: GPL-3.0-or-later**). See the complete [LICENSE](LICENSE) text. You may use, study, modify, and redistribute the covered source code, including commercially, subject to the GPL's terms. Distributors must comply with GPL source-code and notice obligations; commercial use is not prohibited.
 
-**Licensing publication status:** The project has selected GPL-3.0-or-later, but the repository still needs the complete `LICENSE` text and any required copyright and third-party notices before we can present the repository as fully licensed and distribution-ready. Until those are added, this statement records our licensing decision rather than replacing a formal license grant. Third-party dependencies remain subject to their own licenses; see [Third-party licenses and attribution review](THIRD_PARTY_NOTICES.md).
+The project-owned source code is offered under GPL-3.0-or-later. Third-party components retain their own copyrights and license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency inventory and outstanding release-attribution verification tasks.
 
-The HAMediaConnect name and mascot artwork are separate branding assets. Their permissions are not automatically granted by the software license and should be documented separately.
+**Branding:** The HAMediaConnect name and mascot are not separately licensed by this statement. No trademark rights are granted by the GPL; copyright licensing of artwork included in the source distribution must be established separately before treating it as reusable branding.
