@@ -18,6 +18,10 @@ The following attributions identify upstream projects, not copyright ownership o
 
 The Kotlin runtime and transitive dependencies packaged into the APK also have their own licenses. Gradle, the Android Gradle plugin, and the Kotlin compiler are build tools and should be evaluated separately from packaged runtime libraries. Apache-2.0 code can be included in GPLv3 projects; retain copyright, license text, and any upstream NOTICE files as applicable. GPL-3.0-only code cannot necessarily be relicensed as GPL-3.0-or-later.
 
+## Mascot and branding provenance
+
+The Android-with-electric-guitar mascot used in `docs/mascot.svg` and `app/src/main/res/drawable/mascot_guitar.xml` was generated using ChatGPT for HAMediaConnect, according to the project maintainer. The maintainer has chosen to distribute it with the project. This records its provenance; it is **not** a claim that AI-generated artwork is necessarily copyrightable, trademark-protected, or exclusive. No trademark registration or exclusive rights are asserted. The software's GPL license should not be interpreted as a separate trademark grant.
+
 ## Release compliance tasks (owners: repository maintainer)
 
 **Release gate:** Complete and verify the items below before distributing the next signed APK. The project license is already established by [LICENSE](LICENSE); these tasks concern dependency attribution and branding, not whether HAMediaConnect itself is GPL-licensed.
@@ -30,7 +34,8 @@ The Kotlin runtime and transitive dependencies packaged into the APK also have t
 - [ ] Review Kotlin runtime and other packaged libraries for license obligations; separately record any relevant build-tool redistribution obligations (Gradle and Android Gradle Plugin are build tools, not necessarily shipped in the APK).
 - [x] Add the full GPLv3 license text in repository-root `LICENSE` and declare `GPL-3.0-or-later` in README.
 - [ ] Add and verify copyright notices for project-owned source and preserve third-party copyright statements in distributed materials.
-- [ ] Document the mascot artwork's provenance and copyright owner; confirm the right to distribute it in the APK and source tree, and specify any separate permissions for logo/branding reuse.
+- [x] Record the mascot's provenance: generated using ChatGPT specifically for HAMediaConnect, as confirmed by the project maintainer. No third-party stock artwork or commissioned artist has been identified.
+- [ ] Confirm that the generation did not incorporate third-party reference artwork requiring separate permission; document the project's branding-use policy. AI-generated artwork may not qualify for copyright protection in every jurisdiction.
 - [ ] Produce an automated license report for the resolved release dependency graph and reconcile it with the notice bundle; archive the report as release evidence.
 - [ ] Verify the source repository at the tagged release contains the complete corresponding source, build scripts, GPL text, and required notices; include a source link with the GitHub Release.
 
