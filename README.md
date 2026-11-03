@@ -93,6 +93,17 @@ data:
 
 Replace the example entity ID and URL with your own.
 
+### 5. Use HAMediaConnect with Music Assistant
+
+Music Assistant does not automatically list every Home Assistant `media_player` entity as a playback destination. To expose HAMediaConnect:
+
+1. Open **Music Assistant → Settings → Player Providers**.
+2. Add the **Home Assistant Media Players** player provider if it is not already installed.
+3. Open that provider's settings and **select the Home Assistant `media_player` entities** you want to expose to Music Assistant (including your HAMediaConnect player).
+4. Save the settings. Your selected players should then be available as Music Assistant playback destinations.
+
+If HAMediaConnect works from Home Assistant but is missing in Music Assistant, check the player selections in the **Home Assistant Media Players** provider first.
+
 ## Troubleshooting
 
 - **No media player entity:** Verify the custom integration is installed, configured, and loaded, and that the Android app reports Connected.
