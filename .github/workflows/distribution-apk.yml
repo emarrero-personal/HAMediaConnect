@@ -8,13 +8,36 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  publish:
+  validate:
+    name: Validate release tag and run tests
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out release source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tag is on protected main
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid release tag"; exit 1; }
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          TAG_COMMIT="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          MAIN_COMMIT="$(git rev-parse refs/remotes/origin/main)"
+          git merge-base --is-ancestor "$TAG_COMMIT" "$MAIN_COMMIT" || {
+            echo "::error::Release tag does not point to a commit on main"
+            exit 1
+          }
+          echo "Verified $RELEASE_TAG at $TAG_COMMIT is on main ($MAIN_COMMIT)"
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -34,6 +57,48 @@ jobs:
           python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85
       - name: Run Android unit tests and coverage gate
         run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
+
+  publish:
+    name: Sign and publish approved release
+    needs: validate
+    runs-on: ubuntu-latest
+    environment:
+      name: production-signing
+    permissions:
+      contents: write
+    steps:
+      - name: Check out verified release source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Revalidate release tag against main
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          git merge-base --is-ancestor "$(git rev-parse "${GITHUB_REF}^{commit}")" refs/remotes/origin/main
+      - name: Refuse to overwrite an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::Release already exists; refusing to overwrite"
+            exit 1
+          fi
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Verify signing secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
@@ -42,7 +107,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
         run: |
           test -n "$KEYSTORE_BASE64" && test -n "$STORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || {
-            echo "::error::Configure the four Android release signing secrets before publishing."
+            echo "::error::Configure the four production-signing environment secrets."
             exit 1
           }
       - name: Decode release signing key
