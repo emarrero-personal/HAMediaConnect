@@ -135,6 +135,8 @@ If HAMediaConnect works from Home Assistant but is missing in Music Assistant, c
 
 ## Open-source licensing
 
-The project intends to use **GPL-3.0-or-later** to keep redistributed improvements available to the community. A final license file and complete distribution notices are still being prepared; do not assume the project has been formally licensed until those files are present. Third-party components retain their own licenses.
+**Our chosen license for HAMediaConnect is GNU General Public License v3.0 or later (GPL-3.0-or-later).** We chose a copyleft license so that people can use, study, modify, and redistribute the software, including commercially, while distributors of modified versions must make the corresponding source code available under the GPL's terms. The GPL does **not** prohibit commercial use or resale.
 
-The HAMediaConnect name and mascot artwork are separate branding assets; their reuse terms should be specified before public release.
+**Licensing publication status:** The project has selected GPL-3.0-or-later, but the repository still needs the complete `LICENSE` text and any required copyright and third-party notices before we can present the repository as fully licensed and distribution-ready. Until those are added, this statement records our licensing decision rather than replacing a formal license grant. Third-party dependencies remain subject to their own licenses; see [Third-party licenses and attribution review](THIRD_PARTY_NOTICES.md).
+
+The HAMediaConnect name and mascot artwork are separate branding assets. Their permissions are not automatically granted by the software license and should be documented separately.
