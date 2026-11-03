@@ -64,7 +64,7 @@ class AndroidMediaPlayer(MediaPlayerEntity):
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=player.name,
-            manufacturer="HARemoteMediaPlayer",
+            manufacturer="HAMediaConnect",
             model="Android Media Player",
         )
 

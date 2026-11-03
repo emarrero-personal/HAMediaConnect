@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-PACKAGE = "custom_components.ha_remote_media_player"
+PACKAGE = "custom_components.hamediaconnect"
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def load_module(monkeypatch):
         core.HomeAssistant = object
         core.callback = lambda fn: fn
         spec = importlib.util.spec_from_file_location(
-            f"{PACKAGE}.{name}", ROOT / "custom_components" / "ha_remote_media_player" / f"{name}.py"
+            f"{PACKAGE}.{name}", ROOT / "custom_components" / "hamediaconnect" / f"{name}.py"
         )
         module = importlib.util.module_from_spec(spec)
         monkeypatch.setitem(sys.modules, spec.name, module)

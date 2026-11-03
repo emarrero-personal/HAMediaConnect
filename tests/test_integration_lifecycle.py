@@ -8,8 +8,8 @@ from unittest.mock import Mock, AsyncMock
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "ha_remote_media_player"
-PKG = "custom_components.ha_remote_media_player"
+ROOT = Path(__file__).resolve().parents[1] / "custom_components" / "hamediaconnect"
+PKG = "custom_components.hamediaconnect"
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def modules(monkeypatch):
     load("const")
     load("registry")
     ws = stub(f"{PKG}.websocket_api")
-    ws.REGISTRY_KEY = "ha_remote_media_player_registry"
+    ws.REGISTRY_KEY = "hamediaconnect_registry"
     ws.async_register_websocket_commands = Mock()
     oauth = load("oauth_view")
     config = load("config_flow")
@@ -66,7 +66,7 @@ def test_setup_and_entry_lifecycle(modules):
     hass = Mock()
     hass.data = {}
     assert asyncio.run(integration.async_setup(hass, {})) is True
-    assert "ha_remote_media_player_registry" in hass.data
+    assert "hamediaconnect_registry" in hass.data
     hass.http.register_view.assert_called_once()
     ws.async_register_websocket_commands.assert_called_once_with(hass)
     hass.config_entries.async_forward_entry_setups = AsyncMock()
@@ -81,12 +81,12 @@ def test_setup_and_entry_lifecycle(modules):
 
 def test_config_flow_form_and_entry(modules):
     _, config, _, _ = modules
-    flow = config.HARemoteMediaPlayerConfigFlow()
+    flow = config.HAMediaConnectConfigFlow()
     assert asyncio.run(flow.async_step_user()) == ("form", {"step_id": "user"})
-    assert flow.unique_id == "ha_remote_media_player"
+    assert flow.unique_id == "hamediaconnect"
     assert flow.checked is True
     assert asyncio.run(flow.async_step_user({})) == (
-        "entry", {"title": "HA Remote Media Player", "data": {}}
+        "entry", {"title": "HAMediaConnect", "data": {}}
     )
 
 

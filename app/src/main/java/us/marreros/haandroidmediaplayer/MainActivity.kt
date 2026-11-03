@@ -83,7 +83,7 @@ class MainActivity : AppCompatActivity() {
                 .setPositiveButton("Close", null).show()
         }
         findViewById<View>(R.id.integrationInstallLink).setOnClickListener {
-            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emarrero-personal/HARemoteMediaPlayer#install-the-home-assistant-integration")))
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emarrero-personal/HAMediaConnect#install-the-home-assistant-integration")))
         }
         val oauthChoice = findViewById<RadioButton>(R.id.oauthChoice)
         val tokenChoice = findViewById<RadioButton>(R.id.tokenChoice)

@@ -3,13 +3,13 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
-CLIENT_PATH = "/api/ha_remote_media_player/oauth-client"
+CLIENT_PATH = "/api/hamediaconnect/oauth-client"
 
 class OAuthClientView(HomeAssistantView):
     """Expose a fixed, unauthenticated HTML document with no user data."""
 
     url = CLIENT_PATH
-    name = "api:ha_remote_media_player:oauth_client"
+    name = "api:hamediaconnect:oauth_client"
     requires_auth = False
     cors_allowed = False
 

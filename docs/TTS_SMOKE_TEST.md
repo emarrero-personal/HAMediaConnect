@@ -1,4 +1,4 @@
-# Text-to-speech smoke test — HA Remote Media Player
+# Text-to-speech smoke test — HAMediaConnect
 
 This change is **Home Assistant-side only**. The working Android OAuth and native playback code are unchanged.
 
@@ -6,7 +6,7 @@ This change is **Home Assistant-side only**. The working Android OAuth and nativ
 
 1. On the feature branch, run `git pull --ff-only` before copying integration files.
 2. Confirm the GitHub Actions validation workflow is green for the latest commit.
-3. Back up the installed `/config/custom_components/ha_remote_media_player` directory.
+3. Back up the installed `/config/custom_components/hamediaconnect` directory.
 4. Copy the updated integration directory into `/config/custom_components/`.
 5. Restart Home Assistant. Reload alone does not guarantee changed Python modules are reimported.
 6. Confirm Android reconnects and the native media player becomes available.

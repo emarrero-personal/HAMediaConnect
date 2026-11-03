@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "custom_components" / "ha_remote_media_player"
+PACKAGE = ROOT / "custom_components" / "hamediaconnect"
 
 
 @pytest.fixture
@@ -59,14 +59,14 @@ def platform(monkeypatch):
     entity.DeviceInfo = dict
     parent = module("custom_components")
     parent.__path__ = [str(ROOT / "custom_components")]
-    package = module("custom_components.ha_remote_media_player")
+    package = module("custom_components.hamediaconnect")
     package.__path__ = [str(PACKAGE)]
-    const = module("custom_components.ha_remote_media_player.const")
-    const.DOMAIN = "ha_remote_media_player"
-    ws = module("custom_components.ha_remote_media_player.websocket_api")
-    ws.REGISTRY_KEY = "ha_remote_media_player_registry"
+    const = module("custom_components.hamediaconnect.const")
+    const.DOMAIN = "hamediaconnect"
+    ws = module("custom_components.hamediaconnect.websocket_api")
+    ws.REGISTRY_KEY = "hamediaconnect_registry"
     spec = importlib.util.spec_from_file_location(
-        "custom_components.ha_remote_media_player.media_player", PACKAGE / "media_player.py"
+        "custom_components.hamediaconnect.media_player", PACKAGE / "media_player.py"
     )
     result = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, result)
@@ -95,7 +95,7 @@ def test_platform_registration_and_listener_cleanup(platform):
     hass = Mock()
     registry = Mock()
     registry.players = {"existing": Mock(name="Existing", state={})}
-    hass.data = {"ha_remote_media_player_registry": registry}
+    hass.data = {"hamediaconnect_registry": registry}
     listeners = {}
     def listen(topic, callback):
         listeners[topic] = callback
@@ -104,13 +104,13 @@ def test_platform_registration_and_listener_cleanup(platform):
     entry = Mock()
     add = Mock()
     asyncio.run(platform.async_setup_entry(hass, entry, add))
-    assert "ha_remote_media_player_registered" in listeners
+    assert "hamediaconnect_registered" in listeners
     add.assert_called_once()
     add.reset_mock()
     event = Mock()
     event.data = {"device_id": "pixel"}
-    listeners["ha_remote_media_player_registered"](event)
-    listeners["ha_remote_media_player_registered"](event)
+    listeners["hamediaconnect_registered"](event)
+    listeners["hamediaconnect_registered"](event)
     add.assert_called_once()
     entry.async_on_unload.assert_called_once()
 
@@ -159,7 +159,7 @@ def test_entity_metadata_state_and_transport_commands(platform):
     registry = Mock()
     registry.players = {"kitchen": player}
     entity = platform.AndroidMediaPlayer(registry, "kitchen")
-    assert entity.device_info["identifiers"] == {("ha_remote_media_player", "kitchen")}
+    assert entity.device_info["identifiers"] == {("hamediaconnect", "kitchen")}
     assert entity.state == "playing"
     assert entity.is_volume_muted is True
     assert entity.media_title == "Morning News"
@@ -187,15 +187,15 @@ def test_entity_state_event_listener_filters_devices(platform):
     entity.hass.bus.async_listen.side_effect = lambda topic, cb: callbacks.setdefault(topic, cb) or Mock()
     entity.async_write_ha_state = Mock()
     asyncio.run(entity.async_added_to_hass())
-    assert "ha_remote_media_player_state" in callbacks
-    assert "ha_remote_media_player_registered" in callbacks
+    assert "hamediaconnect_state" in callbacks
+    assert "hamediaconnect_registered" in callbacks
     other = Mock()
     other.data = {"device_id": "other"}
-    callbacks["ha_remote_media_player_state"](other)
+    callbacks["hamediaconnect_state"](other)
     entity.async_write_ha_state.assert_not_called()
     own = Mock()
     own.data = {"device_id": "kitchen"}
-    callbacks["ha_remote_media_player_state"](own)
+    callbacks["hamediaconnect_state"](own)
     entity.async_write_ha_state.assert_called_once()
 
 

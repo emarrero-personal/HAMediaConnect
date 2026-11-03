@@ -34,18 +34,18 @@ The companion integration is required to expose your Android device as a Home As
 2. In Home Assistant, open **HACS → three-dot menu → Custom repositories** (the location of this menu can vary with HACS version).
 3. Paste the repository URL: `https://github.com/emarrero-personal/HAMediaConnect`.
 4. Select **Integration** as the repository type and add it.
-5. Find **HA Remote Media Player** in HACS, open it, and choose **Download**.
+5. Find **HAMediaConnect** in HACS, open it, and choose **Download**.
 6. Restart Home Assistant.
-7. Open **Settings → Devices & services → Add integration**, search for **HA Remote Media Player**, and complete the configuration flow.
+7. Open **Settings → Devices & services → Add integration**, search for **HAMediaConnect**, and complete the configuration flow.
 
 **Development branch note:** The v0.9 Android changes and current companion integration are on `feature/v0.2-oauth-media-player`, not `main`. HACS custom-repository installs generally track the repository's default branch or published releases; they do **not** automatically install this feature branch. Until the branch is merged or released, use the manual installation below to obtain the matching integration code.
 
 #### Option B: Manual installation (current feature branch)
 
 1. Open the [feature branch](https://github.com/emarrero-personal/HAMediaConnect/tree/feature/v0.2-oauth-media-player) and download its ZIP, or clone and check out that branch.
-2. Copy the **contents** of `custom_components/ha_remote_media_player/` to `/config/custom_components/ha_remote_media_player/` on your Home Assistant instance.
+2. Copy the **contents** of `custom_components/hamediaconnect/` to `/config/custom_components/hamediaconnect/` on your Home Assistant instance.
 3. Restart Home Assistant.
-4. Open **Settings → Devices & services → Add integration**, search for **HA Remote Media Player**, and complete the configuration flow.
+4. Open **Settings → Devices & services → Add integration**, search for **HAMediaConnect**, and complete the configuration flow.
 
 If HACS does not recognize the repository or no integration is available for download, use the manual installation until the project is published in a HACS-compatible release.
 
@@ -78,7 +78,7 @@ Once a build artifact is available, download `HAMediaConnect-v0.9.0-debug.apk` f
 
 ### 4. Play something
 
-In Home Assistant, find the new `media_player` entity under **Settings → Devices & services → HA Remote Media Player**. Use the media player controls, call `media_player.play_media` with a playable audio URL, or target the entity from a TTS automation.
+In Home Assistant, find the new `media_player` entity under **Settings → Devices & services → HAMediaConnect**. Use the media player controls, call `media_player.play_media` with a playable audio URL, or target the entity from a TTS automation.
 
 Example Home Assistant action:
 

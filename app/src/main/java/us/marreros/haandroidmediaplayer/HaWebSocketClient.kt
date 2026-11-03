@@ -64,7 +64,7 @@ class HaWebSocketClient(
         }
         val msg = JSONObject()
             .put("id", ids.getAndIncrement())
-            .put("type", "ha_remote_media_player/state")
+            .put("type", "hamediaconnect/state")
             .put("device_id", deviceId)
             .put("state", state)
         socket?.send(msg.toString())
@@ -144,7 +144,7 @@ class HaWebSocketClient(
         registrationId = ids.getAndIncrement()
         webSocket.send(JSONObject()
             .put("id", registrationId)
-            .put("type", "ha_remote_media_player/register")
+            .put("type", "hamediaconnect/register")
             .put("device_id", deviceId)
             .put("name", deviceName)
             .toString())
@@ -154,7 +154,7 @@ class HaWebSocketClient(
         subscriptionId = ids.getAndIncrement()
         val msg = JSONObject()
             .put("id", subscriptionId)
-            .put("type", "ha_remote_media_player/subscribe_commands")
+            .put("type", "hamediaconnect/subscribe_commands")
             .put("device_id", deviceId)
         webSocket.send(msg.toString())
     }

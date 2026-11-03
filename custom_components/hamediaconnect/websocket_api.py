@@ -22,7 +22,7 @@ def _owned(hass, connection, msg):
 
 
 @websocket_api.websocket_command({
-    vol.Required("type"): "ha_remote_media_player/register",
+    vol.Required("type"): "hamediaconnect/register",
     vol.Required("device_id"): vol.All(str, vol.Length(min=1, max=128)),
     vol.Required("name"): vol.All(str, vol.Length(min=1, max=128)),
 })
@@ -38,7 +38,7 @@ async def ws_register(hass, connection, msg):
 
 
 @websocket_api.websocket_command({
-    vol.Required("type"): "ha_remote_media_player/state",
+    vol.Required("type"): "hamediaconnect/state",
     vol.Required("device_id"): str,
     vol.Required("state"): vol.Schema({
         vol.Optional("state"): vol.In(["off", "idle", "playing", "paused", "buffering", "unavailable"]),
@@ -59,7 +59,7 @@ async def ws_state(hass, connection, msg):
 
 
 @websocket_api.websocket_command({
-    vol.Required("type"): "ha_remote_media_player/subscribe_commands",
+    vol.Required("type"): "hamediaconnect/subscribe_commands",
     vol.Required("device_id"): str,
 })
 @websocket_api.async_response

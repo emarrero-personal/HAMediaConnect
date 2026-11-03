@@ -2,7 +2,7 @@
 from homeassistant import config_entries
 from .const import DOMAIN
 
-class HARemoteMediaPlayerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class HAMediaConnectConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Create the single integration entry; devices are added in later versions."""
 
     VERSION = 1

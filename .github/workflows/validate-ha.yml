@@ -31,7 +31,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-test.txt
       - name: Run Python tests with coverage gate
-        run: python -m pytest tests/ --cov=custom_components/ha_remote_media_player --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=85
+        run: python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=85
       - name: Upload Python coverage
         if: always()
         uses: actions/upload-artifact@v4
