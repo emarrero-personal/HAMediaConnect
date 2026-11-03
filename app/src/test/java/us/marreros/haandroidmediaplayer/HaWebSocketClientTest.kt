@@ -52,9 +52,9 @@ class HaWebSocketClientTest {
         message(listener, socket, "{\"type\":\"auth_required\"}")
         assertEquals("auth", JSONObject(sent[0]).getString("type"))
         message(listener, socket, "{\"type\":\"auth_ok\"}")
-        assertEquals("ha_remote_media_player/register", JSONObject(sent[1]).getString("type"))
+        assertEquals("hamediaconnect/register", JSONObject(sent[1]).getString("type"))
         message(listener, socket, "{\"type\":\"result\",\"id\":1,\"success\":true}")
-        assertEquals("ha_remote_media_player/subscribe_commands", JSONObject(sent[2]).getString("type"))
+        assertEquals("hamediaconnect/subscribe_commands", JSONObject(sent[2]).getString("type"))
         message(listener, socket, "{\"type\":\"result\",\"id\":2,\"success\":true}")
         message(listener, socket, """
             {"type":"event","id":2,"event":{"action":"play_media",

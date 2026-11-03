@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit
 /** Home Assistant authorization-code + PKCE client. Never invoke token exchange on the UI thread. */
 class HaOAuth(private val baseUrl: String) {
     companion object {
-        const val CLIENT_PATH = "/api/ha_remote_media_player/oauth-client"
+        const val CLIENT_PATH = "/api/hamediaconnect/oauth-client"
         const val REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
         private val rng = SecureRandom()
         fun randomUrlSafe(bytes: Int): String = ByteArray(bytes).also(rng::nextBytes)

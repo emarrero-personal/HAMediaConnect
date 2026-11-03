@@ -12,7 +12,7 @@ from unittest.mock import Mock
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-MODULE = ROOT / "custom_components" / "ha_remote_media_player" / "registry.py"
+MODULE = ROOT / "custom_components" / "hamediaconnect" / "registry.py"
 
 
 @pytest.fixture
@@ -26,12 +26,12 @@ def registry_module(monkeypatch):
 
     package = types.ModuleType("custom_components")
     package.__path__ = [str(ROOT / "custom_components")]
-    integration = types.ModuleType("custom_components.ha_remote_media_player")
+    integration = types.ModuleType("custom_components.hamediaconnect")
     integration.__path__ = [str(MODULE.parent)]
     monkeypatch.setitem(sys.modules, "custom_components", package)
-    monkeypatch.setitem(sys.modules, "custom_components.ha_remote_media_player", integration)
+    monkeypatch.setitem(sys.modules, "custom_components.hamediaconnect", integration)
     spec = importlib.util.spec_from_file_location(
-        "custom_components.ha_remote_media_player.registry", MODULE
+        "custom_components.hamediaconnect.registry", MODULE
     )
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, spec.name, module)

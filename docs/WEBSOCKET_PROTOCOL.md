@@ -7,7 +7,7 @@ The Home Assistant integration now exposes three authenticated WebSocket command
 After the standard Home Assistant WebSocket authentication handshake, send:
 
 ```json
-{"id": 10, "type": "ha_remote_media_player/register", "device_id": "android-living-room", "name": "Living Room Android"}
+{"id": 10, "type": "hamediaconnect/register", "device_id": "android-living-room", "name": "Living Room Android"}
 ```
 
 The device ID must be stable across app restarts. A different HA user cannot take over an existing device ID.
@@ -15,7 +15,7 @@ The device ID must be stable across app restarts. A different HA user cannot tak
 ## Subscribe to HA commands
 
 ```json
-{"id": 11, "type": "ha_remote_media_player/subscribe_commands", "device_id": "android-living-room"}
+{"id": 11, "type": "hamediaconnect/subscribe_commands", "device_id": "android-living-room"}
 ```
 
 After the success result, commands arrive as events with `id: 11`, for example:
@@ -29,7 +29,7 @@ The subscription is tied to the authenticated connection. On reconnect, register
 ## Report state
 
 ```json
-{"id": 12, "type": "ha_remote_media_player/state", "device_id": "android-living-room", "state": {"state": "playing", "volume_level": 0.5, "media_title": "Example"}}
+{"id": 12, "type": "hamediaconnect/state", "device_id": "android-living-room", "state": {"state": "playing", "volume_level": 0.5, "media_title": "Example"}}
 ```
 
 Allowed state values: off, idle, playing, paused, buffering, unavailable. Only the owner may update the device.

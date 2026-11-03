@@ -13,7 +13,7 @@ from unittest.mock import Mock
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / "custom_components" / "ha_remote_media_player"
+PACKAGE = ROOT / "custom_components" / "hamediaconnect"
 
 
 @pytest.fixture
@@ -38,14 +38,14 @@ def ws_module(monkeypatch):
         monkeypatch.setitem(sys.modules, key, value)
     parent = types.ModuleType("custom_components")
     parent.__path__ = [str(ROOT / "custom_components")]
-    package = types.ModuleType("custom_components.ha_remote_media_player")
+    package = types.ModuleType("custom_components.hamediaconnect")
     package.__path__ = [str(PACKAGE)]
     monkeypatch.setitem(sys.modules, "custom_components", parent)
-    monkeypatch.setitem(sys.modules, "custom_components.ha_remote_media_player", package)
+    monkeypatch.setitem(sys.modules, "custom_components.hamediaconnect", package)
 
     def load(name):
         spec = importlib.util.spec_from_file_location(
-            "custom_components.ha_remote_media_player." + name, PACKAGE / (name + ".py")
+            "custom_components.hamediaconnect." + name, PACKAGE / (name + ".py")
         )
         module = importlib.util.module_from_spec(spec)
         monkeypatch.setitem(sys.modules, spec.name, module)

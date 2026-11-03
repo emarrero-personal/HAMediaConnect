@@ -4,7 +4,7 @@ asyncio_mode = "auto"
 
 [tool.coverage.run]
 branch = true
-source = ["custom_components/ha_remote_media_player"]
+source = ["custom_components/hamediaconnect"]
 omit = ["*/__pycache__/*"]
 
 [tool.coverage.report]

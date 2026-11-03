@@ -10,14 +10,14 @@ The feature branch now has a Python compilation and isolated registry-test GitHu
 
 ## Safe deployment
 
-1. Back up the existing `/config/custom_components/ha_remote_media_player` directory.
+1. Back up the existing `/config/custom_components/hamediaconnect` directory.
 2. In GitHub, confirm **Validate Home Assistant integration** is green for the feature branch.
-3. Copy the feature branch's `custom_components/ha_remote_media_player` directory over the existing installation.
+3. Copy the feature branch's `custom_components/hamediaconnect` directory over the existing installation.
 4. **Do not** change the working Android app, its OAuth credentials, or Nabu Casa settings.
-5. Restart Home Assistant and inspect logs for `ha_remote_media_player` and `websocket_api` exceptions.
-6. Confirm **Settings → Devices & services → HA Remote Media Player** still loads.
-7. In a private browser, confirm `https://YOUR-INSTANCE.ui.nabu.casa/api/ha_remote_media_player/oauth-client` still responds without login.
-8. A native media player entity is created only after an authenticated WebSocket client calls `ha_remote_media_player/register`. Android does not yet do this.
+5. Restart Home Assistant and inspect logs for `hamediaconnect` and `websocket_api` exceptions.
+6. Confirm **Settings → Devices & services → HAMediaConnect** still loads.
+7. In a private browser, confirm `https://YOUR-INSTANCE.ui.nabu.casa/api/hamediaconnect/oauth-client` still responds without login.
+8. A native media player entity is created only after an authenticated WebSocket client calls `hamediaconnect/register`. Android does not yet do this.
 
 ## Rollback
 

@@ -8,7 +8,7 @@ This document describes the implementation and wire protocol in the **v0.2 featu
 Home Assistant automation / media_player / TTS
                  |
                  v
-custom_components/ha_remote_media_player/
+custom_components/hamediaconnect/
   media_player.py → registry.py → websocket_api.py
                  |
        Home Assistant WebSocket
@@ -70,16 +70,16 @@ OAuth is recommended for HTTPS deployments; long-lived access tokens are support
 After `auth_ok`, the app registers itself:
 
 ```json
-{"id":1,"type":"ha_remote_media_player/register","device_id":"DEVICE_UUID","name":"Kitchen Tablet"}
+{"id":1,"type":"hamediaconnect/register","device_id":"DEVICE_UUID","name":"Kitchen Tablet"}
 ```
 
 After successful registration, it subscribes to commands:
 
 ```json
-{"id":2,"type":"ha_remote_media_player/subscribe_commands","device_id":"DEVICE_UUID"}
+{"id":2,"type":"hamediaconnect/subscribe_commands","device_id":"DEVICE_UUID"}
 ```
 
-Home Assistant delivers commands as WebSocket subscription events. The app reports playback state using `ha_remote_media_player/state`. ConnectionService retries on transient network failures; registration is repeated after reconnection.
+Home Assistant delivers commands as WebSocket subscription events. The app reports playback state using `hamediaconnect/state`. ConnectionService retries on transient network failures; registration is repeated after reconnection.
 
 ## Commands sent to the Android app
 
@@ -148,7 +148,7 @@ Android sends a native WebSocket state message resembling:
 ```json
 {
   "id":3,
-  "type":"ha_remote_media_player/state",
+  "type":"hamediaconnect/state",
   "device_id":"DEVICE_UUID",
   "state":{
     "state":"playing",

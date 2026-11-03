@@ -2,21 +2,21 @@
 
 The Android app uses the Home Assistant instance's own HTTPS origin as its OAuth client ID host. The integration serves a public static page at:
 
-`https://YOUR-INSTANCE.ui.nabu.casa/api/ha_remote_media_player/oauth-client`
+`https://YOUR-INSTANCE.ui.nabu.casa/api/hamediaconnect/oauth-client`
 
 The HTML advertises exactly `haandroidmediaplayer://oauth/callback` using a `<link rel="redirect_uri">` tag. Android derives its client ID from the URL entered on the login screen; there is no GitHub Pages dependency.
 
 ## Install the integration
 
-1. Copy `custom_components/ha_remote_media_player/` into the Home Assistant configuration directory `/config/custom_components/ha_remote_media_player/`.
+1. Copy `custom_components/hamediaconnect/` into the Home Assistant configuration directory `/config/custom_components/hamediaconnect/`.
 2. Add this to `/config/configuration.yaml`:
 
    ```yaml
-   ha_remote_media_player:
+   hamediaconnect:
    ```
 
 3. Run **Developer Tools → YAML → Check configuration**, then restart Home Assistant.
-4. From an **unauthenticated browser/private window**, open the endpoint URL above. It must return HTTP 200 and display the heading **HA Remote Media Player**. View source and verify the `rel="redirect_uri"` link.
+4. From an **unauthenticated browser/private window**, open the endpoint URL above. It must return HTTP 200 and display the heading **HAMediaConnect**. View source and verify the `rel="redirect_uri"` link.
 5. On the Home Assistant host, check that the *same public URL* can be fetched. The OAuth verifier must be able to reach the client ID URL; public accessibility from your phone alone is insufficient. If your HA instance cannot loop back to its Nabu Casa URL, redirect validation may fail.
 6. Pull and rebuild the Android feature branch. Enter the exact Nabu Casa HTTPS origin, not a local HTTP URL. Tap **Sign in with Home Assistant (OAuth)** and start a fresh login.
 
