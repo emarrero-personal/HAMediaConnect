@@ -11,3 +11,12 @@
 .externalNativeBuild
 .cxx
 app/build
+
+# Python bytecode and test artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
