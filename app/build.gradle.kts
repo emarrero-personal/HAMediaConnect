@@ -15,6 +15,27 @@ android {
         versionName = "0.9.0"
     }
 
+    signingConfigs {
+        create("distribution") {
+            val keystorePath = System.getenv("HAMEDIACONNECT_KEYSTORE_PATH")
+            val keystorePassword = System.getenv("HAMEDIACONNECT_KEYSTORE_PASSWORD")
+            val keyAliasValue = System.getenv("HAMEDIACONNECT_KEY_ALIAS")
+            val keyPasswordValue = System.getenv("HAMEDIACONNECT_KEY_PASSWORD")
+            if (listOf(keystorePath, keystorePassword, keyAliasValue, keyPasswordValue).all { !it.isNullOrBlank() }) {
+                storeFile = file(keystorePath!!)
+                storePassword = keystorePassword
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("distribution")
+        }
+    }
+
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
