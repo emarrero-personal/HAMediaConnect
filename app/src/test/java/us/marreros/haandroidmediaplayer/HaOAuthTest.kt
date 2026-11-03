@@ -9,7 +9,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class HaOAuthTest {
  @Test fun challengeMatchesRfc7636() {
-  assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-c", HaOAuth.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
+  assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", HaOAuth.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
  }
  @Test fun randomVerifierIsUrlSafe() {
   val a=HaOAuth.randomUrlSafe(32)

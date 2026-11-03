@@ -132,6 +132,17 @@ def test_duplicate_subscriber_and_unsubscribe_identity(ws_module):
     assert player.send_command is None
 
 
+def test_subscribe_rejects_unknown_device(ws_module):
+    hass = Mock()
+    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
+    conn = Mock()
+    conn.user.id = "owner"
+    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 10, "device_id": "missing"}))
+    conn.send_error.assert_called_once_with(
+        10, "not_found", "Device not registered to this user"
+    )
+
+
 def test_register_websocket_handlers(ws_module):
     hass = Mock()
     websocket = sys.modules["homeassistant.components.websocket_api"]

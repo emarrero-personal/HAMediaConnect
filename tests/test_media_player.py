@@ -94,7 +94,7 @@ def test_entity_commands_and_availability(platform):
 def test_platform_registration_and_listener_cleanup(platform):
     hass = Mock()
     registry = Mock()
-    registry.players = {}
+    registry.players = {"existing": Mock(name="Existing", state={})}
     hass.data = {"ha_remote_media_player_registry": registry}
     listeners = {}
     def listen(topic, callback):
@@ -105,6 +105,8 @@ def test_platform_registration_and_listener_cleanup(platform):
     add = Mock()
     asyncio.run(platform.async_setup_entry(hass, entry, add))
     assert "ha_remote_media_player_registered" in listeners
+    add.assert_called_once()
+    add.reset_mock()
     event = Mock()
     event.data = {"device_id": "pixel"}
     listeners["ha_remote_media_player_registered"](event)

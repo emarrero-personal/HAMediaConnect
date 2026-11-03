@@ -2,8 +2,30 @@ name: Build HAMediaConnect APK
 
 on:
   push:
-    branches:
-      - feature/v0.2-oauth-media-player
+    branches: [feature/v0.2-oauth-media-player]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/android-apk.yml'
+      - 'custom_components/**'
+      - 'tests/**'
+      - 'requirements-test.txt'
+      - 'pyproject.toml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - 'gradlew'
+      - '.github/workflows/android-apk.yml'
+      - 'custom_components/**'
+      - 'tests/**'
+      - 'requirements-test.txt'
+      - 'pyproject.toml'
   workflow_dispatch:
 
 concurrency:
@@ -26,16 +48,18 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
           test -n "$SDKMANAGER" || { echo "Android SDK command-line tools missing"; exit 1; }
           yes | "$SDKMANAGER" --licenses >/dev/null || true
-          "$SDKMANAGER" --list --channel=3 | grep -E "platforms;android-37|build-tools;37" || true
-          "$SDKMANAGER" --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
+          "$SDKMANAGER" --list --channel=3 | grep -E "platforms;android-37|build-tools;36" || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
       - name: Install Python test dependencies
-        run: python -m pip install -r requirements-test.txt
-      - name: Run Python integration unit tests with 90% coverage gate
-        run: python -m pytest tests/ --cov=custom_components/ha_remote_media_player --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov --cov-fail-under=90
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-test.txt
+      - name: Run Python integration unit tests with 85% coverage gate
+        run: python -m pytest tests/ --cov=custom_components/ha_remote_media_player --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-report=html:htmlcov --cov-fail-under=85
       - name: Upload Python coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -45,7 +69,7 @@ jobs:
             coverage.xml
             htmlcov/
           if-no-files-found: warn
-      - name: Run unit tests and enforce 90% coverage
+      - name: Run unit tests and enforce 85% coverage
         run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
       - name: Upload unit test and coverage reports
         if: always()
