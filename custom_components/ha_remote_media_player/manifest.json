@@ -1,6 +1,6 @@
 {
   "domain": "ha_remote_media_player",
-  "name": "HA Remote Media Player",
+  "name": "HAMediaConnect",
   "version": "0.2.0",
   "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
   "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
