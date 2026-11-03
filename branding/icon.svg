@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Green Android-inspired guitarist wearing sunglasses and holding a red electric guitar">
+<rect width="180" height="180" rx="36" fill="#30205c"/>
+<g transform="translate(0 4)">
+<path fill="#b5d934" d="M44 50Q45 20 90 20Q135 20 136 50V97Q134 123 90 123Q46 123 44 97Z"/>
+<path fill="none" stroke="#b5d934" stroke-width="5" stroke-linecap="round" d="M62 25L52 9M118 25L128 9"/>
+<path fill="#17152c" d="M45 56L87 58V74Q66 84 49 69ZM92 58L135 55L131 69Q112 83 92 74Z"/>
+<path fill="none" stroke="#17152c" stroke-width="5" d="M83 62H97"/>
+<path fill="#1c1a33" d="M56 109H125L139 160H43Z"/>
+<path fill="#e43d46" d="M64 120C42 112 34 132 52 149C62 159 76 156 83 146C93 151 111 146 109 131C106 114 89 111 80 124Z"/>
+<path fill="#f5f1e6" d="M70 128L94 127L92 142L73 144Z"/>
+<path stroke="#f5c768" stroke-width="10" stroke-linecap="round" d="M90 128L151 90"/>
+<path stroke="#3b2445" stroke-width="2" d="M91 124L153 86M93 130L155 92M94 134L156 96"/>
+<path fill="#b5d934" d="M49 119Q37 124 47 137L65 143L71 132ZM120 114Q136 103 143 110L130 126L116 126Z"/>
+<path fill="#f8d24d" d="M24 64L36 55L32 70L43 68L25 90L29 73L19 75ZM145 44L160 35L153 52L167 49L145 72L149 55L139 57Z"/>
+</g></svg>
