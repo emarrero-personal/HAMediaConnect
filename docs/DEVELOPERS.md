@@ -15,8 +15,8 @@ custom_components/hamediaconnect/
                  |
                  v
 Android ConnectionService
-  HaOAuth + SecureTokenStore
-  HaWebSocketClient (register, subscribe, state)
+  HaOAuth + SecureTokenStore + DeviceIdentity
+  HaWebSocketClient (challenge, proof, subscribe, state)
                  |
                  v
 Android PlaybackService (Media3 ExoPlayer + MediaSession)
@@ -35,7 +35,7 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | File | Responsibility |
 | --- | --- |
 | `MainActivity.kt` | Dashboard, Settings, Help, OAuth callback and connection controls |
-| `AppPrefs.kt` | Non-secret settings and stable device UUID |
+| `AppPrefs.kt` | Non-secret settings and device fingerprint display |
 | `SecureTokenStore.kt` | Android encrypted credential storage |
 | `HaOAuth.kt` | OAuth authorization-code flow with PKCE and refresh |
 | `ConnectionService.kt` | Foreground WebSocket connection, reconnect, command routing |
@@ -66,19 +66,9 @@ The Android app connects to the instance's `/api/websocket` endpoint, using `wss
 
 OAuth is recommended for HTTPS deployments; long-lived access tokens are supported for trusted local HTTP networks. Never print credentials in logs or include them in bug reports.
 
-After `auth_ok`, the app registers itself:
+After `auth_ok`, Android requests a P-256 challenge, signs it with its installation Keystore key, and authenticates that exact connection before subscribing. The device ID is the SHA-256 fingerprint of its public key. Reconnect always requires a fresh proof; HA user authentication alone cannot claim a registered device, including another installation belonging to the same HA user.
 
-```json
-{"id":1,"type":"hamediaconnect/register","device_id":"DEVICE_UUID","name":"Kitchen Tablet"}
-```
-
-After successful registration, it subscribes to commands:
-
-```json
-{"id":2,"type":"hamediaconnect/subscribe_commands","device_id":"DEVICE_UUID"}
-```
-
-Home Assistant delivers commands as WebSocket subscription events. The app reports playback state using `hamediaconnect/state`. ConnectionService retries on transient network failures; registration is repeated after reconnection.
+See [Phase 2 authentication and transport design](SECURITY_PHASE_2.md) for the complete message flow, strict schemas, limits, persistence, revocation/re-registration, MediaSession authorization, OAuth decisions, and remaining risks. Update the integration and Android app together: the UUID-only registration protocol is no longer supported.
 
 ## Commands sent to the Android app
 
@@ -148,7 +138,7 @@ Android sends a native WebSocket state message resembling:
 {
   "id":3,
   "type":"hamediaconnect/state",
-  "device_id":"DEVICE_UUID",
+  "device_id":"64_HEX_PUBLIC_KEY_FINGERPRINT",
   "state":{
     "state":"playing",
     "volume_level":0.35,

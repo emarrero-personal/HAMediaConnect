@@ -116,3 +116,7 @@ HAMediaConnect is licensed under the **GNU General Public License, version 3 or 
 The project-owned source code is offered under GPL-3.0-or-later. Third-party components retain their own copyrights and license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the dependency inventory and outstanding release-attribution verification tasks.
 
 **Branding:** The HAMediaConnect name and mascot are not separately licensed by this statement. No trademark rights are granted by the GPL; copyright licensing of artwork included in the source distribution must be established separately before treating it as reusable branding.
+
+### Device authentication and revocation
+
+The Android app and HA integration must be updated together for the possession-based device protocol. Each installation uses an Android Keystore P-256 key; a fresh signature is required after every HA WebSocket login. Device identity bindings and revoked-key records persist across HA restarts. See the [Phase 2 security design](docs/SECURITY_PHASE_2.md) for administrator revocation, explicit device identity reset, credential recovery, HTTP behavior, and validation limits.

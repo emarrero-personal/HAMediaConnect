@@ -64,6 +64,15 @@ dependencies {
     testImplementation("org.robolectric:robolectric:4.16")
 }
 
+// Robolectric loads app classes through its sandbox classloader without a code source.
+// Include those classes so the gate measures the security tests rather than only plain JVM tests.
+tasks.withType<Test>().configureEach {
+    extensions.configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
 jacoco {
     toolVersion = "0.8.13"
 }
@@ -75,7 +84,7 @@ val coverageExclusions = listOf(
     "**/BootReceiver*", "**/ConnectionService*", "**/MainActivity*",
     "**/PlaybackService*", "**/SecureTokenStore*", "**/HaOAuth*",
     "**/HaWebSocketClient*", "**/AppPrefs*", "**/PlayerStateBus*",
-    "**/PlayerSnapshot*"
+    "**/PlayerSnapshot*", "**/AndroidDeviceKeys*", "**/PlaybackNotifications*"
 )
 
 tasks.register<JacocoReport>("appCodeCoverageReport") {

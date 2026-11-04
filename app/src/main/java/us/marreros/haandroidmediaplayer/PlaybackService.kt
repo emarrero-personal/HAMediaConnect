@@ -77,6 +77,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        setMediaNotificationProvider(PlaybackNotifications(this))
         player = ExoPlayer.Builder(this).build()
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
@@ -96,22 +97,31 @@ class PlaybackService : MediaSessionService() {
                 publishState()
             }
         })
-        mediaSession = MediaSession.Builder(this, player).build()
+        mediaSession = MediaSession.Builder(this, player).setCallback(object : MediaSession.Callback {
+            override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo) =
+                ControllerPolicy.result(session, controller)
+        }).build()
         ContextCompat.registerReceiver(this, dndReceiver,
             IntentFilter(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED)
         handler.post(ticker)
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession = mediaSession
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
+        if (ControllerPolicy.allowed(controllerInfo.uid, controllerInfo.isTrusted)) mediaSession else null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        // Never forward caller-supplied media-button/custom intents to Media3: its
+        // fallback has no verified Binder identity. Live system controls use the session.
+        if (!InternalPlayback.allowed(intent)) return START_STICKY
+        if (intent == null) return super.onStartCommand(intent, flags, startId)
+        when (intent.action) {
             CMD_PLAY_MEDIA -> playMedia(
                 intent.getStringExtra(EXTRA_URL),
                 intent.getStringExtra(EXTRA_TITLE),
                 intent.getBooleanExtra(EXTRA_ANNOUNCE, false)
             )
+            "notification_toggle" -> if (player.isPlaying) player.pause() else player.play()
             CMD_PLAY -> player.play()
             CMD_PAUSE -> player.pause()
             CMD_STOP -> {
@@ -142,7 +152,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     private fun playMedia(url: String?, title: String?, announce: Boolean) {
-        if (url.isNullOrBlank()) return
+        if (url.isNullOrBlank() || !TransportPolicy.media(url)) return
         if (announce && isDndActive()) {
             Log.i(TAG, "Suppressing announcement while DND is active")
             return

@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var startOnBootCheck: CheckBox
     private lateinit var allowHttpCheck: CheckBox
     private lateinit var deviceIdText: TextView
+    private var oauthGeneration = 0
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -97,13 +98,15 @@ class MainActivity : AppCompatActivity() {
         }
         urlInput = findViewById(R.id.urlInput)
         tokenInput = findViewById(R.id.tokenInput)
+        tokenInput.isSaveEnabled = false
+        tokenInput.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         nameInput = findViewById(R.id.nameInput)
         startOnBootCheck = findViewById(R.id.startOnBootCheck)
         allowHttpCheck = findViewById(R.id.allowHttpCheck)
         deviceIdText = findViewById(R.id.deviceIdText)
 
         val prefs = AppPrefs.prefs(this)
-        val deviceId = AppPrefs.ensureDeviceId(this)
+        val deviceId = try { DeviceIdentity(this).deviceId } catch (_: Exception) { "Key unavailable — reset identity" }
         urlInput.setText(prefs.getString(AppPrefs.KEY_URL, ""))
         tokenInput.setText("")
         if (SecureTokenStore(this).get("auth_method") == "token") tokenChoice.isChecked = true
@@ -113,6 +116,38 @@ class MainActivity : AppCompatActivity() {
         statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
         deviceIdText.text = "Device ID: $deviceId"
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
+        allowHttpCheck.setOnCheckedChangeListener { _, checked ->
+            if (checked) AlertDialog.Builder(this).setTitle("Unencrypted control connection")
+                .setMessage("HTTP exposes your Home Assistant token, commands, and device authentication to anyone able to intercept this network. Use only on a trusted local network.")
+                .setPositiveButton("Allow HTTP", null)
+                .setNegativeButton("Cancel") { _, _ -> allowHttpCheck.isChecked = false }.show()
+        }
+        findViewById<Button>(R.id.forgetCredentialsButton).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("Forget Home Assistant credentials?")
+                .setMessage("Disconnect and remove saved tokens and pending sign-in. Your device identity remains registered. Sign in again to reconnect.")
+                .setPositiveButton("Forget credentials") { _, _ ->
+                    oauthGeneration++
+                    stopService(Intent(this, ConnectionService::class.java))
+                    stopService(Intent(this, PlaybackService::class.java))
+                    try { SecureTokenStore.reset(this); tokenInput.text.clear(); statusText.text = "Credentials removed; sign in again" }
+                    catch (_: Exception) { statusText.text = "Unable to reset credential storage" }
+                }.setNegativeButton("Cancel", null).show()
+        }
+        findViewById<Button>(R.id.resetIdentityButton).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("Reset device identity?")
+                .setMessage("This creates a new player identity. Revoke the old device in Home Assistant first. Existing entities will not transfer to the new identity.")
+                .setPositiveButton("Reset identity") { _, _ ->
+                    stopService(Intent(this, ConnectionService::class.java))
+                    stopService(Intent(this, PlaybackService::class.java))
+                    oauthGeneration++
+                    try {
+                        OAuthAttempt(SecureTokenStore(this)).cancel()
+                        DeviceIdentity.reset(this)
+                        deviceIdText.text = "Device ID: ${DeviceIdentity(this).deviceId}"
+                        statusText.text = "New identity created; save and connect to register"
+                    } catch (_: Exception) { statusText.text = "Device key unavailable" }
+                }.setNegativeButton("Cancel", null).show()
+        }
         findViewById<Button>(R.id.oauthButton).setOnClickListener { startOAuth() }
         handleOAuthCallback(intent)
 
@@ -123,17 +158,29 @@ class MainActivity : AppCompatActivity() {
                 urlInput.error = "Use HTTPS or explicitly allow insecure HTTP"
                 return@setOnClickListener
             }
-            if (tokenChoice.isChecked && token.isBlank() && SecureTokenStore(this).get("long_lived_token").isNullOrBlank()) {
+            if (token.length > 8192) { tokenInput.error = "Token is too long"; return@setOnClickListener }
+            val secrets = SecureTokenStore(this)
+            if (tokenChoice.isChecked && token.isBlank() &&
+                (secrets.get("long_lived_token").isNullOrBlank() || secrets.get("credential_origin") != url)) {
                 tokenInput.error = "Enter a long-lived access token"
                 return@setOnClickListener
             }
-            if (tokenChoice.isChecked) SecureTokenStore(this).apply {
-                if (get("auth_method") != "token") clear()
-                if (token.isNotBlank()) put("long_lived_token", token)
-                put("auth_method", "token")
-                tokenInput.text.clear()
+            if (!tokenChoice.isChecked && (secrets.get("auth_method") != "oauth" || secrets.get("credential_origin") != url)) {
+                statusText.text = "Sign in with OAuth for this Home Assistant URL"
+                return@setOnClickListener
             }
-            val name = nameInput.text.toString().trim().ifBlank { Build.MODEL }
+            oauthGeneration++
+            try {
+                OAuthAttempt(secrets).cancel()
+                if (tokenChoice.isChecked) secrets.apply {
+                    if (get("auth_method") != "token" || get("credential_origin") != url) clear()
+                    if (token.isNotBlank()) put("long_lived_token", token)
+                    put("credential_origin", url)
+                    put("auth_method", "token")
+                    tokenInput.text.clear()
+                }
+            } catch (_: Exception) { statusText.text = "Credential storage unavailable; sign in again"; return@setOnClickListener }
+            val name = nameInput.text.toString().trim().ifBlank { Build.MODEL }.take(128)
             prefs.edit()
                 .putString(AppPrefs.KEY_URL, url)
                 .putString(AppPrefs.KEY_NAME, name)
@@ -141,11 +188,14 @@ class MainActivity : AppCompatActivity() {
                 .putBoolean(AppPrefs.KEY_ALLOW_HTTP, allowHttpCheck.isChecked)
                 .apply()
 
+            stopService(Intent(this, ConnectionService::class.java))
             requestNotificationsIfNeeded()
             ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
         }
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
+            oauthGeneration++
+            runCatching { OAuthAttempt(SecureTokenStore(this)).cancel() }
             stopService(Intent(this, ConnectionService::class.java))
             stopService(Intent(this, PlaybackService::class.java))
             prefs.edit().putString(AppPrefs.KEY_STATUS, "Stopped").apply()
@@ -160,62 +210,56 @@ class MainActivity : AppCompatActivity() {
 
     private fun startOAuth() {
         val url = urlInput.text.toString().trim().trimEnd('/')
-        if (!url.startsWith("https://")) {
-            statusText.text = "OAuth requires HTTPS (Nabu Casa URL supported)"
+        if (!AppPrefs.isAllowedUrl(url, false)) {
+            statusText.text = "OAuth requires a valid HTTPS Home Assistant URL"
             return
         }
-        val state = HaOAuth.randomUrlSafe(24)
-        val verifier = HaOAuth.randomUrlSafe(48)
-        AppPrefs.prefs(this).edit()
-            .putString(AppPrefs.KEY_URL, url)
-            .putString("oauth_pending_state", state)
-            .putLong("oauth_pending_at", System.currentTimeMillis()).apply()
-        SecureTokenStore(this).put("oauth_pending_verifier", verifier)
-        CustomTabsIntent.Builder().build().launchUrl(this, HaOAuth(url).authorizationUrl(state, verifier))
+        oauthGeneration++
+        try {
+            val (state, verifier) = OAuthAttempt(SecureTokenStore(this)).begin(url)
+            AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_URL, url).apply()
+            CustomTabsIntent.Builder().build().launchUrl(this, HaOAuth(url).authorizationUrl(state, verifier))
+        } catch (_: Exception) {
+            runCatching { OAuthAttempt(SecureTokenStore(this)).cancel() }
+            statusText.text = "Unable to start OAuth; credential storage unavailable"
+        }
     }
 
     private fun handleOAuthCallback(intent: Intent?) {
         val uri = intent?.data ?: return
-        if (uri.scheme != "haandroidmediaplayer" || uri.host != "oauth" || uri.path != "/callback") return
         intent.data = null
+        val callback = try { OAuthAttempt(SecureTokenStore(this)).consume(uri) } catch (_: Exception) { null }
+        if (callback == null) { statusText.text = "OAuth callback rejected"; return }
+        if (callback.code == null) { statusText.text = "OAuth authorization denied"; return }
         val prefs = AppPrefs.prefs(this)
-        val state = prefs.getString("oauth_pending_state", null)
-        val secrets = SecureTokenStore(this)
-        val verifier = secrets.get("oauth_pending_verifier")
-        secrets.remove("oauth_pending_verifier")
-        val issued = prefs.getLong("oauth_pending_at", 0)
-        prefs.edit().remove("oauth_pending_state")
-            .remove("oauth_pending_at").apply()
-        if (state == null || verifier == null || issued <= 0 ||
-            System.currentTimeMillis() - issued !in 0..600000 ||
-            uri.getQueryParameter("state") != state) {
-            statusText.text = "OAuth callback rejected"
+        if (prefs.getString(AppPrefs.KEY_URL, "") != callback.origin) {
+            statusText.text = "Home Assistant URL changed; sign in again"
             return
         }
-        val code = uri.getQueryParameter("code")
-        if (code.isNullOrBlank()) {
-            statusText.text = "OAuth authorization denied"
-            return
-        }
+        val generation = ++oauthGeneration
         statusText.text = "Exchanging authorization code…"
-        val url = prefs.getString(AppPrefs.KEY_URL, "")!!
         oauthExecutor.execute {
             try {
-                val tokens = HaOAuth(url).exchange(code, verifier)
-                val store = SecureTokenStore(this)
-                store.clear()
-                store.put("auth_method", "oauth")
-                store.put("access_token", tokens.getString("access_token"))
-                store.put("refresh_token", tokens.getString("refresh_token"))
-                prefs.edit().putLong("oauth_expiry",
-                    System.currentTimeMillis() + tokens.optLong("expires_in", 1800) * 1000).apply()
+                val tokens = HaOAuth(callback.origin).exchange(callback.code, callback.verifier)
                 runOnUiThread {
-                    statusText.text = "OAuth authenticated"
-                    requestNotificationsIfNeeded()
-                    ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
+                    if (generation != oauthGeneration || prefs.getString(AppPrefs.KEY_URL, "") != callback.origin) return@runOnUiThread
+                    try {
+                        val store = SecureTokenStore(this)
+                        if (store.get("oauth_epoch") != callback.transaction) return@runOnUiThread
+                        store.clear()
+                        store.put("auth_method", "oauth")
+                        store.put("credential_origin", callback.origin)
+                        store.put("access_token", tokens.getString("access_token"))
+                        store.put("refresh_token", tokens.getString("refresh_token"))
+                        prefs.edit().putLong("oauth_expiry", System.currentTimeMillis() + tokens.getLong("expires_in") * 1000).apply()
+                        statusText.text = "OAuth authenticated"
+                        stopService(Intent(this, ConnectionService::class.java))
+                        requestNotificationsIfNeeded()
+                        ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
+                    } catch (_: Exception) { statusText.text = "Credential storage unavailable; sign in again" }
                 }
-            } catch (e: Exception) {
-                runOnUiThread { statusText.text = "OAuth exchange failed: ${e.message}" }
+            } catch (_: Exception) {
+                runOnUiThread { if (generation == oauthGeneration) statusText.text = "OAuth exchange failed; sign in again" }
             }
         }
     }

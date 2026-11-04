@@ -8,7 +8,7 @@ import importlib.util
 import sys
 import types
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, AsyncMock
 
 import pytest
 
@@ -57,97 +57,108 @@ def ws_module(monkeypatch):
     return load("websocket_api")
 
 
-def test_register_and_owner_enforcement(ws_module):
+from test_registry import keypair, proof, connection
+
+
+@pytest.fixture
+def env(ws_module):
+    registry_class = sys.modules["custom_components.hamediaconnect.registry"].PlayerRegistry
     hass = Mock()
-    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
-    first = Mock()
-    first.user.id = "user-1"
-    second = Mock()
-    second.user.id = "user-2"
-    msg = {"id": 1, "device_id": "pixel", "name": "Pixel"}
-    asyncio.run(ws_module.ws_register(hass, first, msg))
-    first.send_result.assert_called_once()
-    asyncio.run(ws_module.ws_register(hass, second, msg))
-    second.send_error.assert_called_once_with(1, "forbidden", "Device already registered to another user")
-    asyncio.run(ws_module.ws_state(hass, second, {"id": 2, "device_id": "pixel", "state": {"state": "playing"}}))
-    second.send_error.assert_called_with(2, "not_found", "Device not registered to this user")
+    registry = registry_class(hass, Mock(async_save=AsyncMock()))
+    hass.data = {ws_module.REGISTRY_KEY: registry}
+    return hass, registry
 
 
-def test_subscribe_deliver_and_disconnect(ws_module):
-    hass = Mock()
-    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
-    registry = hass.data[ws_module.REGISTRY_KEY]
-    registry.register("pixel", "Pixel", "owner")
-    conn = Mock()
-    conn.user.id = "owner"
-    conn.subscriptions = {}
-    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 4, "device_id": "pixel"}))
-    conn.send_result.assert_called_once_with(4)
-    assert registry.dispatch("pixel", {"action": "pause"})
-    conn.send_event.assert_called_once_with(4, {"action": "pause"})
-    conn.subscriptions[4]()
-    assert not registry.dispatch("pixel", {"action": "pause"})
+async def register(ws, hass, conn):
+    key, public = keypair()
+    await ws.ws_challenge(hass, conn, {"id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    result = conn.send_result.call_args.args[1]
+    await ws.ws_register(hass, conn, {"id": 2, "type": "hamediaconnect/register", "signature": proof(key, result["payload"])})
+    return result["device_id"]
 
 
-def test_state_update_and_missing_device(ws_module):
-    hass = Mock()
-    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
-    registry = hass.data[ws_module.REGISTRY_KEY]
-    registry.register("pixel", "Pixel", "owner")
-    conn = Mock()
-    conn.user.id = "owner"
-    asyncio.run(ws_module.ws_state(hass, conn, {
-        "id": 6, "device_id": "pixel", "state": {"state": "playing"}
-    }))
-    assert registry.players["pixel"].state["state"] == "playing"
-    conn.send_result.assert_called_once_with(6)
-    asyncio.run(ws_module.ws_state(hass, conn, {
-        "id": 7, "device_id": "missing", "state": {"state": "paused"}
-    }))
-    conn.send_error.assert_called_once_with(
-        7, "not_found", "Device not registered to this user"
-    )
+def msg(kind, device_id, **fields):
+    return {"id": 3, "type": f"hamediaconnect/{kind}", "device_id": device_id, **fields}
 
 
-def test_duplicate_subscriber_and_unsubscribe_identity(ws_module):
-    hass = Mock()
-    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
-    registry = hass.data[ws_module.REGISTRY_KEY]
-    player = registry.register("pixel", "Pixel", "owner")
-    conn = Mock()
-    conn.user.id = "owner"
-    conn.subscriptions = {}
-    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 8, "device_id": "pixel"}))
-    original = player.send_command
-    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 9, "device_id": "pixel"}))
-    conn.send_error.assert_called_once_with(
-        9, "already_connected", "Device has an active command subscriber"
-    )
+async def test_full_protocol_and_disconnect(ws_module, env):
+    hass, registry = env
+    conn = connection()
+    device_id = await register(ws_module, hass, conn)
+    await ws_module.ws_subscribe(hass, conn, msg("subscribe_commands", device_id))
+    assert registry.dispatch(device_id, {"action": "pause"})
+    conn.send_event.assert_called_once_with(3, {"action": "pause"})
+    await ws_module.ws_state(hass, conn, msg("state", device_id, state={"state": "playing", "volume_level": .5}))
+    assert registry.players[device_id].state["state"] == "playing"
+    await ws_module.ws_subscribe(hass, conn, {**msg("subscribe_commands", device_id), "id": 4})
+    conn.send_error.assert_called_with(4, "device_auth_failed", "Device request rejected")
+    # Native HA invokes all subscription cleanup callbacks on disconnect.
+    for cleanup in list(conn.subscriptions.values()):
+        cleanup()
+    assert not registry.sessions
+    assert not registry.dispatch(device_id, {"action": "pause"})
+
+
+async def test_same_user_and_cross_user_cannot_subscribe_or_report(ws_module, env):
+    hass, registry = env
+    device_id = await register(ws_module, hass, connection())
+    for attacker in (connection(), connection("other")):
+        await ws_module.ws_subscribe(hass, attacker, msg("subscribe_commands", device_id))
+        await ws_module.ws_state(hass, attacker, msg("state", device_id, state={"state": "playing"}))
+        assert attacker.send_error.call_count == 2
+        attacker.send_result.assert_not_called()
+    assert not registry.players[device_id].state
+
+
+@pytest.mark.parametrize("fields", [
+    {"state": {"extra": "bad"}}, {"extra": "bad", "state": {}},
+    {"state": {"volume_level": float("nan")}}, {"state": {"volume_level": float("inf")}},
+    {"state": {"volume_level": True}}, {"state": {"volume_level": "0.5"}},
+    {"state": {"state": "invalid"}}, {"state": {"media_title": "x" * 513}},
+    {"state": {"media_content_id": "x" * 2049}}, {"state": {"is_volume_muted": 1}},
+    {"state": {}, "device_id": "x" * 20000}, {"state": {}, "device_id": "spoof"},
+])
+async def test_strict_state_validation(ws_module, env, fields):
+    hass, registry = env
+    conn = connection()
+    device_id = await register(ws_module, hass, conn)
+    conn.send_result.reset_mock()
+    await ws_module.ws_state(hass, conn, {**msg("state", device_id), **fields})
+    conn.send_error.assert_called_once()
+    conn.send_result.assert_not_called()
+
+
+async def test_revocation_requires_admin_and_storage_error_is_generic(ws_module, env):
+    hass, registry = env
+    conn = connection()
+    device_id = await register(ws_module, hass, conn)
+    conn.user.is_admin = False
+    await ws_module.ws_revoke(hass, conn, msg("revoke", device_id))
+    assert not registry.players[device_id].revoked
+    conn.user.is_admin = True
+    registry.store.async_save.side_effect = OSError("secret path")
+    await ws_module.ws_revoke(hass, conn, msg("revoke", device_id))
+    conn.send_error.assert_called_with(3, "storage_failed", "Identity storage unavailable")
+    registry.store.async_save.side_effect = None
+    await ws_module.ws_revoke(hass, conn, msg("revoke", device_id))
+    assert registry.players[device_id].revoked
+
+
+async def test_subscribe_unsubscribe_identity_and_registration_validation(ws_module, env):
+    hass, registry = env
+    conn = connection()
+    device_id = await register(ws_module, hass, conn)
+    await ws_module.ws_subscribe(hass, conn, msg("subscribe_commands", device_id))
     replacement = Mock()
-    player.send_command = replacement
-    conn.subscriptions[8]()
-    assert player.send_command is replacement
-    player.send_command = original
-    conn.subscriptions[8]()
-    assert player.send_command is None
+    registry.players[device_id].send_command = replacement
+    conn.subscriptions[3]()
+    assert registry.players[device_id].send_command is replacement
+    await ws_module.ws_challenge(hass, connection(), {"id": 6, "type": "hamediaconnect/challenge", "public_key": "bad", "name": "X"})
+    await ws_module.ws_register(hass, conn, {"id": 7, "type": "hamediaconnect/register", "signature": "bad"})
+    conn.send_error.assert_called_with(7, "device_auth_failed", "Device request rejected")
 
 
-def test_subscribe_rejects_unknown_device(ws_module):
-    hass = Mock()
-    hass.data = {ws_module.REGISTRY_KEY: ws_module.PlayerRegistry(hass)}
-    conn = Mock()
-    conn.user.id = "owner"
-    asyncio.run(ws_module.ws_subscribe(hass, conn, {"id": 10, "device_id": "missing"}))
-    conn.send_error.assert_called_once_with(
-        10, "not_found", "Device not registered to this user"
-    )
-
-
-def test_register_websocket_handlers(ws_module):
-    hass = Mock()
+def test_handlers(ws_module):
     websocket = sys.modules["homeassistant.components.websocket_api"]
-    ws_module.async_register_websocket_commands(hass)
-    assert websocket.async_register_command.call_count == 3
-    assert [call.args[1] for call in websocket.async_register_command.call_args_list] == [
-        ws_module.ws_register, ws_module.ws_state, ws_module.ws_subscribe
-    ]
+    ws_module.async_register_websocket_commands(Mock())
+    assert websocket.async_register_command.call_count == 5

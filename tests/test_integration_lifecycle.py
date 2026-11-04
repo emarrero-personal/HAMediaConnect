@@ -51,6 +51,9 @@ def modules(monkeypatch):
         spec.loader.exec_module(mod)
         return mod
     load("const")
+    stub("homeassistant.helpers")
+    storage = stub("homeassistant.helpers.storage")
+    storage.Store = Mock(return_value=types.SimpleNamespace(async_load=AsyncMock(return_value=None), async_save=AsyncMock()))
     load("registry")
     ws = stub(f"{PKG}.websocket_api")
     ws.REGISTRY_KEY = "hamediaconnect_registry"
