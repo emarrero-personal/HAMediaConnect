@@ -123,7 +123,7 @@ class HaWebSocketClient(
                     }
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Bad websocket message: $text", e)
+                Log.e(TAG, "Invalid websocket message", e)
             }
         }
 
