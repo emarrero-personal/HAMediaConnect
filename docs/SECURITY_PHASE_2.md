@@ -1,6 +1,6 @@
 # Phase 2 authentication and transport design
 
-This is a breaking device protocol change. Update the Android app and custom integration together and sign in again. There is no UUID-only enrollment or plaintext credential migration. Normal HA media-player actions remain unchanged.
+Version 0.10.0 (Android version code 11) is a breaking device protocol change. Update the Android app and custom integration together and sign in again. There is no UUID-only enrollment or plaintext credential migration. Normal HA media-player actions remain unchanged.
 
 ## Trust boundary and identity
 
@@ -41,7 +41,7 @@ Initial enrollment is trust-on-first-proof within the authenticated HA account, 
    Only a connection that proved this identity can subscribe or send `hamediaconnect/state`. Only one live command subscriber per device is allowed. Native HA disconnect/unsubscribe callbacks remove subscriptions; a separate cleanup callback also removes the authenticated connection state. Incomplete handshakes are removed after 30 seconds, even if the socket stays open.
 7. Reconnect repeats native HA authentication and a fresh device challenge. Challenges and authenticated sessions are never persisted. Captured signatures cannot authenticate another connection or answer a later challenge.
 
-Android permits only the expected handshake sequence and response IDs. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. Transient disconnections and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
+Android permits only the expected handshake sequence and response IDs. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
 
 ## Persistence, revocation, key loss
 
@@ -76,6 +76,7 @@ Revoked-key tombstones count against the finite identity quotas. There is no sil
 | Outbound commands per device / Android inbound commands | 120 per minute |
 | Pending challenge | one per connection, expires after 30 seconds |
 | Android overall connection/auth handshake | 45 seconds |
+| Android state acknowledgment deadline | 15 seconds; reconnect on expiry |
 | Android pending state updates | one, at most one update per second; intermediate updates dropped |
 | Android WebSocket send buffer | rejects further application sends above 16 KiB |
 
@@ -117,7 +118,24 @@ Run the same gates as CI:
 
 ```sh
 python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85
-bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage assembleDebug
+bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage securityCodeCoverageReport verifySecurityCodeCoverage assembleDebug
 ```
 
-Python tests exercise actual ECDSA verification with isolated HA interface stubs, persistence/restart, revocation, replay, connection binding, ownership, strict schemas, quotas, and subscription cleanup. They are not a live Home Assistant runtime test. Android tests use Robolectric, real JVM ECDSA/AES-GCM, fake hardware-key lifecycle, Media3 authorization, immutable notification intents, raw-intent bypass rejection, callback matching/replay/expiry/transaction races, URL policies, protocol limits, and queue/backoff behavior. JaCoCo includes Robolectric-loaded classes; the 85% gate includes the new identity, OAuth transaction, controller, and URL policies. Hardware Keystore and notification presentation adapters follow the existing framework-adapter exclusions and require physical-device testing. Both 85% gates remain unchanged.
+Python tests exercise actual ECDSA verification with isolated HA interface stubs, persistence/restart, revocation, replay, connection binding, ownership, strict schemas, quotas, and subscription cleanup. They are not a live Home Assistant runtime test. Android tests use Robolectric, real JVM ECDSA/AES-GCM, fake hardware-key lifecycle, Media3 authorization, immutable notification intents, raw-intent bypass rejection, callback matching/replay/expiry/transaction races, URL policies, protocol limits, and queue/backoff behavior. JaCoCo includes Robolectric-loaded classes; the 85% gate includes the new identity, OAuth transaction, controller, and URL policies. The separate `securityCodeCoverageReport` uses explicit inclusions independent of the broad app report: `DeviceIdentity`, `HaWebSocketClient`, `SecureTokenStore`, `HaOAuth`, `OAuthAttempt`, `OAuthCallback`, `TransportPolicy`, `ControllerPolicy`, `InternalPlayback`, and `PlaybackNotifications`, including nested classes. `verifySecurityCodeCoverage` enforces an additional 85% line gate on that set; CI and release validation run it and CI uploads its XML/HTML reports. `DeviceIdentity` was already included in the original app gate; its distinct `AndroidDeviceKeys` adapter was excluded. The original app and Python 85% gates remain unchanged.
+
+`SecurityDeviceTest` under `app/src/androidTest` runs through AndroidJUnitRunner on Android, using the actual Android Keystore provider and an actual bound MediaSessionService. It checks key non-exportability, signature verification, identity persistence, deliberate recovery after key deletion, credential ciphertext tampering/field substitution, credential key loss, and internal-versus-raw playback intents. Key deletion deterministically exercises unavailable-key recovery; it does not simulate every hardware invalidation condition.
+
+Run on a **disposable** emulator or test installation: these tests deliberately clear its credentials and reset keys. The CI `Keystore and service instrumentation` job provisions a fresh API 35 emulator and runs:
+
+```sh
+bash ./gradlew --no-daemon connectedDebugAndroidTest securityDeviceCoverageReport
+```
+
+`securityDeviceCoverageReport` explicitly measures `AndroidDeviceKeys`, `SecureTokenStore`, and `PlaybackService` from connected Android test execution data. It is separate from the JVM report and has no percentage gate: the service includes playback paths beyond the security scenarios. CI uploads test results and XML/HTML device coverage. Device tests fail without a connected device, and report generation requires nonempty connected-test coverage data; they are not substituted with Robolectric. An emulator validates the real Android APIs, but physical hardware backing, OEM-specific invalidation, Bluetooth, lock-screen, and Android Auto compatibility still require physical-device validation.
+
+
+### Follow-up validation for 0.10.0
+
+The acknowledgment-timeout regressions cover missing acknowledgments, a deadline renewed after acknowledgment, timer cancellation on close/failure, late acknowledgments after timeout, single reconnect notification, and state publishing on a replacement connection. Local validation passed 32 Android JVM/Robolectric tests and the original app gate (97.12% measured line coverage), the explicit security-code gate (87.50%), 45 Python tests (96.84% branch-inclusive coverage), and debug/app-test APK builds.
+
+All three instrumentation tests passed on a fresh Android 16 / API 36.1 emulator. The separate device report measured the `AndroidDeviceKeys` adapter at 100% line coverage, `SecureTokenStore` at 94.29%, and `PlaybackService` at 27.70%. The last figure intentionally includes untested media/announcement paths; the service is not declared fully covered. CI additionally runs the suite on API 35. Emulator coverage is not evidence of physical hardware backing or OEM media-control compatibility.

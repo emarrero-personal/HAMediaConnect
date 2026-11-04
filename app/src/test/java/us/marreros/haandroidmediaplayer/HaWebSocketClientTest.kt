@@ -158,6 +158,56 @@ class HaWebSocketClientTest {
         assertEquals(240, h.commands.size)
         assertEquals("Protocol rejected", h.statuses.last())
     }
+    @Test fun missingStateAckClosesOnceAndRequestsBackoffReconnect() {
+        val h = Harness(); h.ready()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        h.client.fireState(JSONObject().put("state", "idle"))
+        val count = h.sent.size
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(HaWebSocketClient.STATE_ACK_TIMEOUT_MS - 1))
+        assertFalse(h.cancelled)
+        h.client.fireState(JSONObject().put("state", "playing"))
+        assertEquals(count, h.sent.size) // Backpressure never queues intermediate states.
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(1))
+        assertTrue(h.cancelled)
+        assertEquals(HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS, h.statuses.last())
+        assertTrue(TransportPolicy.shouldReconnect(h.statuses.last()))
+        h.result(4) // A late acknowledgment cannot revive a closed client.
+        h.listener.onFailure(h.socket, RuntimeException(), null)
+        assertEquals(1, h.statuses.count { it == HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS })
+        val replacement = Harness(); replacement.ready()
+        replacement.client.fireState(JSONObject().put("state", "idle"))
+        assertEquals("hamediaconnect/state", replacement.sent.last().getString("type"))
+        h.client.close(); replacement.client.close()
+    }
+    @Test fun matchingAcksCancelTheirDeadlineAndNewRequestsGetFreshDeadlines() {
+        val h = Harness(); h.ready()
+        val loop = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+        loop.idleFor(Duration.ofSeconds(2))
+        h.client.fireState(JSONObject().put("state", "idle"))
+        loop.idleFor(Duration.ofSeconds(10)); h.result(4)
+        h.client.fireState(JSONObject().put("state", "playing"))
+        loop.idleFor(Duration.ofSeconds(5)) // Old deadline must not cancel the new request.
+        assertFalse(h.cancelled)
+        h.result(5)
+        loop.idleFor(Duration.ofSeconds(20))
+        assertFalse(h.cancelled)
+        h.client.close()
+    }
+    @Test fun closeAndFailureCancelPendingStateDeadlines() {
+        for (close in listOf(true, false)) {
+            val h = Harness(); h.ready()
+            val loop = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            loop.idleFor(Duration.ofSeconds(2)); h.client.fireState(JSONObject().put("state", "idle"))
+            if (close) h.client.close() else h.listener.onFailure(h.socket, RuntimeException(), null)
+            val statuses = h.statuses.toList()
+            loop.idleFor(Duration.ofSeconds(20))
+            assertEquals(statuses, h.statuses)
+        }
+        assertFalse(TransportPolicy.shouldReconnect("Authentication failed"))
+        assertFalse(TransportPolicy.shouldReconnect("Protocol rejected"))
+        assertTrue(TransportPolicy.shouldReconnect("Disconnected"))
+        assertTrue(TransportPolicy.shouldReconnect("Authentication timed out"))
+    }
     @Test fun controlUrlsUseExplicitHttpPolicyAndDisableRedirects() {
         val h = Harness()
         val method = HaWebSocketClient::class.java.getDeclaredMethod("toWebSocketUrl", String::class.java).apply { isAccessible = true }
