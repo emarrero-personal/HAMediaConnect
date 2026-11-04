@@ -42,5 +42,6 @@ class SecureTokenStore(context: Context) {
         } catch (_: Exception) { null }
     }
 
+    fun remove(name: String) { prefs.edit().remove(name).apply() }
     fun clear() { prefs.edit().clear().apply() }
 }

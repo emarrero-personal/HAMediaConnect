@@ -69,7 +69,10 @@ class ConnectionService : Service() {
                 return
             }
         }
-        if (token.isBlank() && !tokenMode) token = prefs.getString(AppPrefs.KEY_TOKEN, "")?.trim().orEmpty()
+        if (!AppPrefs.isAllowedUrl(baseUrl, prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))) {
+            updateStatus("Connection blocked: HTTPS required unless insecure HTTP is enabled")
+            return
+        }
         val deviceId = AppPrefs.ensureDeviceId(this)
         if (baseUrl.isBlank() || token.isBlank()) {
             updateStatus("Configure URL and sign in")

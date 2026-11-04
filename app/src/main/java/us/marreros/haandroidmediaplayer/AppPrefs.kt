@@ -6,7 +6,13 @@ import java.util.UUID
 object AppPrefs {
     private const val FILE = "ha_android_media_player"
     const val KEY_URL = "ha_url"
-    const val KEY_TOKEN = "ha_token"
+    const val KEY_ALLOW_HTTP = "allow_insecure_http"
+
+    fun isAllowedUrl(url: String, allowHttp: Boolean): Boolean {
+        val parsed = android.net.Uri.parse(url)
+        return parsed.host != null && parsed.port >= -1 &&
+            (parsed.scheme == "https" || (allowHttp && parsed.scheme == "http"))
+    }
     const val KEY_NAME = "device_name"
     const val KEY_DEVICE_ID = "device_id"
     const val KEY_START_BOOT = "start_on_boot"

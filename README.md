@@ -55,13 +55,14 @@ Open the repository in Android Studio with JDK 17 and the required SDK, sync Gra
 
 ### 3. Connect
 1. Enter your Home Assistant base URL, for example `https://example.ui.nabu.casa` or `http://homeassistant.local:8123`.
-2. Choose one authentication method:
+2. In Settings, leave **Allow insecure HTTP connections** unchecked (the default). If your Home Assistant server has no HTTPS endpoint, explicitly enable it before connecting.
+3. Choose one authentication method:
    - **OAuth:** Recommended for an HTTPS-accessible Home Assistant instance. Tap **Sign in with Home Assistant** and authorize the app.
    - **Long-lived access token:** Useful on trusted local networks when your instance is available only over HTTP. Generate a token from your Home Assistant user profile, paste it into the app, and tap **Save & connect**.
-3. Set a friendly device name, and optionally enable start on boot.
-4. Wait until the dashboard reports **Connected**.
+4. Set a friendly device name, and optionally enable start on boot.
+5. Wait until the dashboard reports **Connected**.
 
-**Security:** HTTP does not encrypt tokens or playback URLs in transit. Never expose a token-based HTTP connection directly to the public internet. Prefer HTTPS whenever possible.
+**Security:** HTTP does not encrypt Home Assistant tokens or control traffic in transit. The insecure HTTP switch defaults to disabled; enable it only when you understand the risk and cannot use HTTPS. Never expose an HTTP token connection to the public internet. HTTP media playback is independent of this switch.
 
 ### 4. Play something
 In Home Assistant, find the new `media_player` entity under **Settings → Devices & services → HAMediaConnect**. Use the media player controls, call `media_player.play_media` with a playable audio URL, or target the entity from a TTS automation.
@@ -88,6 +89,14 @@ Music Assistant does not automatically list every Home Assistant `media_player` 
 4. Save the settings. Your selected players should then be available as Music Assistant playback destinations.
 
 If HAMediaConnect works from Home Assistant but is missing in Music Assistant, check the player selections in the **Home Assistant Media Players** provider first.
+
+## Security
+
+**Turn off insecure HTTP** in Android Settings whenever your Home Assistant instance supports HTTPS. This setting is off by default and blocks unencrypted Home Assistant authentication and WebSocket control traffic. Only enable it for a trusted local Home Assistant installation without SSL; anyone able to intercept that connection could capture your long-lived token and control Home Assistant with its permissions. Avoid exposing port 8123 over the internet. Prefer HTTPS/WSS via Home Assistant Cloud or your own properly configured TLS endpoint.
+
+Credentials and the temporary OAuth PKCE verifier are encrypted at rest with Android Keystore AES-256-GCM. Ordinary preferences contain nonsecret settings only. Credential files are excluded from Android backup and device transfer. The app does not display saved access tokens in the settings form; leaving the token field empty retains the previously saved token when using token authentication.
+
+HTTP/HTTPS **media playback** is allowed separately so local audio and TTS URLs continue to work even when insecure Home Assistant control connections are disabled.
 
 ## Troubleshooting
 - **No media player entity:** Verify the custom integration is installed, configured, and loaded, and that the Android app reports Connected.
