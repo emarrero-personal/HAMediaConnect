@@ -116,6 +116,8 @@ jobs:
         run: |
           set -euo pipefail
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
+          export ANDROID_AVD_HOME="$HOME/.android/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           sudo chmod a+rw /dev/kvm
           AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -print -quit)"
           printf 'no\n' | "$AVDMANAGER" create avd --name security-tests --package "system-images;android-35;google_apis;x86_64" --device pixel_2 --force
