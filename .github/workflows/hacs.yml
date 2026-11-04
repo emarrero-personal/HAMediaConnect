@@ -8,6 +8,7 @@ on:
       - 'hacs.json'
       - 'README.md'
       - 'LICENSE'
+      - 'docs/**'
       - 'custom_components/**'
   pull_request:
     branches: [main]
@@ -16,6 +17,7 @@ on:
       - 'hacs.json'
       - 'README.md'
       - 'LICENSE'
+      - 'docs/**'
       - 'custom_components/**'
   workflow_dispatch:
 

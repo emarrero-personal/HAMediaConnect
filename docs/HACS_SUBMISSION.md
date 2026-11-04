@@ -19,8 +19,8 @@ Sources: [HACS general publish requirements](https://hacs.dev/docs/publish/start
 | Repository license | Mandatory for default catalog checks | Pass | Root `LICENSE` is GPL-3.0-or-later, an OSI-approved license. Third-party notices remain separately documented. |
 | Not archived; owner/major contributor may submit | Mandatory | Pass | Repository is active and personally owned by `emarrero-personal`. |
 | Home Assistant brand images | Mandatory for a branded integration | Pass for HA 2026.3+ | `custom_components/hamediaconnect/brand/icon.png` (256 × 256) and `icon@2x.png` (512 × 512) use the project's mascot. Current Home Assistant guidance says custom integrations ship these in their own `brand/` directory; no external Brands PR is planned. HACS's integration page still mentions the legacy Brands repository, while current Home Assistant guidance and the Brands repository document the newer local method. |
-| HACS validator | Mandatory before default-catalog submission | Awaiting this PR's GitHub Actions run | `.github/workflows/hacs.yml` uses the supported `hacs/action@main` with category `integration`. |
-| Hassfest validator | Mandatory before default-catalog submission | Awaiting this PR's GitHub Actions run | `.github/workflows/hassfest.yml` uses the official Home Assistant Hassfest action. |
+| HACS validator | Mandatory before default-catalog submission | Pass | [PR #19 HACS validation run](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838389972). `.github/workflows/hacs.yml` uses the supported `hacs/action@main` with category `integration`. |
+| Hassfest validator | Mandatory before default-catalog submission | Pass | [PR #19 Hassfest run](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838389921). `.github/workflows/hassfest.yml` uses the official Home Assistant Hassfest action. |
 | Published GitHub Release | Recommended, optional | Pass | `v0.10.0` is a published, non-draft, non-prerelease release with the signed APK and SHA-256 checksum. |
 | Submission PR to `hacs/default` | Required to enter the default catalog | Not performed | Maintainer approval is still required. No external PR has been opened. |
 
@@ -28,11 +28,13 @@ HACS uses the latest published GitHub Release tag for its remote version when re
 
 ## Validation runs
 
-Successful runs for this pull request will be linked here after GitHub Actions completes:
+Successful validation runs for this pull request:
 
-- HACS validation: pending.
-- Hassfest validation: pending.
-- Existing Python and Android regression workflows: pending.
+- [HACS validation](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838389972) — passed.
+- [Hassfest](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838389921) — passed.
+- Python and Android PR regression workflows: pending at the time of this update. Local regression results are listed below.
+
+Local regression results: Python 45 tests with 96.85% coverage; Android 32 JVM/Robolectric tests with 97.12% app line coverage and 87.50% security coverage; 3 Android instrumentation tests passed on a disposable API 36 emulator. Both Android coverage gates retain their existing 85% thresholds.
 
 ## Release readiness
 
