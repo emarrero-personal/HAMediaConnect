@@ -28,7 +28,7 @@ Android PlaybackService (Media3 ExoPlayer + MediaSession)
            ConnectionService → Home Assistant state
 ```
 
-The companion integration provides the Home Assistant `media_player` entity and resolves `media-source://` URLs. The Android app manages connectivity, decoding incoming commands, playback and state reporting. The Android package and integration domain still use historical names for compatibility.
+The companion integration provides the Home Assistant `media_player` entity and resolves `media-source://` URLs. The current Android client app manages connectivity, decoding incoming commands, playback and state reporting. The Android package and integration domain still use historical names for compatibility.
 
 ### Android code map
 
@@ -65,7 +65,7 @@ The device fingerprint is derived from a canonical encoding of the installation'
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as Android app
+    participant A as Client app (Android)
     participant H as Home Assistant
     A->>H: Connect to /api/websocket and authenticate
     H-->>A: auth_ok
@@ -85,7 +85,7 @@ Security requirements: challenges must be unpredictable, one-time-use, and time-
 
 
 
-The Android app connects to the instance's `/api/websocket` endpoint, using `wss://` for HTTPS and `ws://` for HTTP. It waits for `auth_required`, then sends:
+The client app connects to the instance's `/api/websocket` endpoint, using `wss://` for HTTPS and `ws://` for HTTP. It waits for `auth_required`, then sends:
 
 ```json
 {"type":"auth","access_token":"REDACTED"}
@@ -93,11 +93,11 @@ The Android app connects to the instance's `/api/websocket` endpoint, using `wss
 
 OAuth is recommended for HTTPS deployments; long-lived access tokens are supported for trusted local HTTP networks. Never print credentials in logs or include them in bug reports.
 
-After `auth_ok`, Android requests a P-256 challenge, signs it with its installation Keystore key, and authenticates that exact connection before subscribing. The device ID is the SHA-256 fingerprint of its public key. Reconnect always requires a fresh proof; HA user authentication alone cannot claim a registered device, including another installation belonging to the same HA user.
+After `auth_ok`, the client app requests a P-256 challenge, signs it with its installation Keystore key, and authenticates that exact connection before subscribing. The device ID is the SHA-256 fingerprint of its public key. Reconnect always requires a fresh proof; HA user authentication alone cannot claim a registered device, including another installation belonging to the same HA user.
 
-See [Phase 2 authentication and transport design](SECURITY_PHASE_2.md) for the complete message flow, strict schemas, limits, persistence, revocation/re-registration, MediaSession authorization, OAuth decisions, and remaining risks. Update the integration and Android app together: the UUID-only registration protocol is no longer supported.
+See [Phase 2 authentication and transport design](SECURITY_PHASE_2.md) for the complete message flow, strict schemas, limits, persistence, revocation/re-registration, MediaSession authorization, OAuth decisions, and remaining risks. Update the integration and client app together: the UUID-only registration protocol is no longer supported.
 
-## Commands sent to the Android app
+## Commands sent to the client app
 
 The **native** interface uses the companion integration. These are command event payloads dispatched through the custom WebSocket subscription (not direct Home Assistant `fire_event` calls).
 
@@ -159,7 +159,7 @@ Supported Home Assistant entity features currently include PLAY, PAUSE, STOP, PL
 
 ## State reporting
 
-Android sends a native WebSocket state message resembling:
+The client app sends a native WebSocket state message resembling:
 
 ```json
 {
@@ -176,11 +176,11 @@ Android sends a native WebSocket state message resembling:
 }
 ```
 
-The `state` object may omit media metadata when unavailable. Supported playback states include `idle`, `buffering`, `playing` and `paused`; the Android client currently normalizes `error` to `idle` before publishing.
+The `state` object may omit media metadata when unavailable. Supported playback states include `idle`, `buffering`, `playing` and `paused`; the current Android client implementation normalizes `error` to `idle` before publishing.
 
 ## Announcements, audio focus and DND
 
-When the companion integration receives a TTS media-source URL (`media-source://tts/...`), it resolves it to a playable URL and sets `announce=true`. For an announcement, the Android player saves its own current media item, playback position and playing/paused status, then restores them when the announcement finishes. Audio from another Android app is not directly controlled by this playback service.
+When the companion integration receives a TTS media-source URL (`media-source://tts/...`), it resolves it to a playable URL and sets `announce=true`. For an announcement, the current Android client player saves its own current media item, playback position and playing/paused status, then restores them when the announcement finishes. Audio from another Android app is not directly controlled by this playback service.
 
 The app suppresses announcements when Android's interruption filter indicates Do Not Disturb. If DND activates during an announcement, the service ends it and restores previously interrupted playback. This behavior should be tested on target devices because Android audio policy and OEM behavior vary.
 
