@@ -9,7 +9,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
-from .registry import MAX_MESSAGE
+from .registry import MAX_MESSAGE, RetryableDeviceError
 
 REGISTRY_KEY = f"{DOMAIN}_registry"
 def TEXT(maximum):
@@ -45,6 +45,8 @@ def command(kind, fields):
                     raise ValueError("Message too large")
                 schema(msg)
                 await fn(hass, connection, msg)
+            except RetryableDeviceError:
+                connection.send_error(msg["id"], "temporarily_unavailable", "Retry later")
             except (ValueError, PermissionError, vol.Invalid, RecursionError, TypeError):
                 connection.send_error(msg["id"], "device_auth_failed", "Device request rejected")
             except OSError:
@@ -79,7 +81,8 @@ async def ws_subscribe(hass, connection, msg):
     registry.budget(connection.user.id, "subscribe", 10)
     player = registry.owned(connection, msg["device_id"])
     if player.send_command is not None:
-        raise PermissionError("Already subscribed")
+        connection.send_error(msg["id"], "subscription_busy", "Previous connection is closing; retry")
+        return
 
     @callback
     def send(command):

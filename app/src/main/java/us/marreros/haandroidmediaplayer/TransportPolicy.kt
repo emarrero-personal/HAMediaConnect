@@ -32,7 +32,15 @@ object TransportPolicy {
     }
 
     fun shouldReconnect(status: String): Boolean = status == "Disconnected" ||
+        status.startsWith("Disconnected:") || status == "Connection temporarily unavailable; retrying" ||
         status == "Authentication timed out" || status == HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS
+
+    fun connectionFailure(error: Throwable): String = when (error) {
+        is java.net.UnknownHostException -> "Disconnected: DNS lookup failed; check network"
+        is javax.net.ssl.SSLException -> "Disconnected: TLS validation failed; check certificate"
+        is java.net.SocketTimeoutException -> "Disconnected: connection timed out"
+        else -> "Disconnected: transport unavailable"
+    }
 
     fun reconnectDelay(attempt: Int, random: Double = java.security.SecureRandom().nextDouble()): Long {
         val ceiling = (5000L * (1L shl attempt.coerceIn(0, 6))).coerceAtMost(300000L)

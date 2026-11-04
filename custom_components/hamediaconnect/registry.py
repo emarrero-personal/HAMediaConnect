@@ -82,6 +82,10 @@ class Session:
     cancel: Callable = lambda: None
 
 
+class RetryableDeviceError(ValueError):
+    """Temporary resource exhaustion; device authorization is unchanged."""
+
+
 class PlayerRegistry:
     def __init__(self, hass: HomeAssistant, store=None) -> None:
         self.hass = hass
@@ -113,14 +117,14 @@ class PlayerRegistry:
         key = (owner, bucket)
         expiry, count = self.rates.get(key, (now + 60, 0))
         if count >= limit or (key not in self.rates and len(self.rates) >= 1024):
-            raise ValueError("Rate limit")
+            raise RetryableDeviceError("Rate limit")
         self.rates[key] = (expiry, count + 1)
 
     def session(self, connection):
         if connection in self.sessions:
             return self.sessions[connection]
         if len(self.sessions) >= MAX_SESSIONS:
-            raise ValueError("Session limit")
+            raise RetryableDeviceError("Session limit")
         session = self.sessions[connection] = Session(connection.user.id)
 
         def cleanup():

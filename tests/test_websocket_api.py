@@ -91,7 +91,7 @@ async def test_full_protocol_and_disconnect(ws_module, env):
     await ws_module.ws_state(hass, conn, msg("state", device_id, state={"state": "playing", "volume_level": .5}))
     assert registry.players[device_id].state["state"] == "playing"
     await ws_module.ws_subscribe(hass, conn, {**msg("subscribe_commands", device_id), "id": 4})
-    conn.send_error.assert_called_with(4, "device_auth_failed", "Device request rejected")
+    conn.send_error.assert_called_with(4, "subscription_busy", "Previous connection is closing; retry")
     # Native HA invokes all subscription cleanup callbacks on disconnect.
     for cleanup in conn.subscriptions.values():
         cleanup()
@@ -196,3 +196,42 @@ async def test_disconnect_reconnect_cleanup_does_not_remove_new_subscription(ws_
         del second.subscriptions[key]
     assert not second.subscriptions and not registry.sessions
     assert not registry.dispatch(device, {"action": "pause"})
+
+
+async def test_rate_limit_is_retryable_not_identity_rejection(ws_module, env):
+    hass, registry = env
+    conn = connection()
+    key, public = keypair()
+    for i in range(11):
+        await ws_module.ws_challenge(hass, connection(), {
+            "id": i + 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 12, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    conn.send_error.assert_called_once_with(12, "temporarily_unavailable", "Retry later")
+    assert not registry.players
+
+
+async def test_overlap_preserves_single_subscriber_then_recovers(ws_module, env):
+    hass, registry = env
+    key, public = keypair()
+    async def enroll(conn):
+        await ws_module.ws_challenge(hass, conn, {
+            "id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+        challenge = conn.send_result.call_args.args[1]
+        await ws_module.ws_register(hass, conn, {
+            "id": 2, "type": "hamediaconnect/register", "signature": proof(key, challenge["payload"])})
+        return challenge["device_id"]
+    first, second = connection(), connection()
+    device = await enroll(first)
+    await ws_module.ws_subscribe(hass, first, msg("subscribe_commands", device))
+    await enroll(second)
+    await ws_module.ws_subscribe(hass, second, msg("subscribe_commands", device))
+    second.send_error.assert_called_once_with(3, "subscription_busy", "Previous connection is closing; retry")
+    registry.dispatch(device, {"action": "pause"})
+    first.send_event.assert_called_once()
+    second.send_event.assert_not_called()
+    for cleanup in first.subscriptions.values():
+        cleanup()
+    await ws_module.ws_subscribe(hass, second, {**msg("subscribe_commands", device), "id": 4})
+    registry.dispatch(device, {"action": "play"})
+    second.send_event.assert_called_once_with(4, {"action": "play"})

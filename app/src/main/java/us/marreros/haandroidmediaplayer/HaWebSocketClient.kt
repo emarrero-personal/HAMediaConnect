@@ -7,6 +7,12 @@ import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+interface HaConnection {
+    fun connect()
+    fun close()
+    fun fireState(event: JSONObject)
+}
+
 /** One HA connection, one proof, one command subscription; no application message queue. */
 class HaWebSocketClient(
     private val baseUrl: String,
@@ -16,7 +22,7 @@ class HaWebSocketClient(
     private val onStatus: (String) -> Unit,
     private val onCommand: (HaCommand) -> Unit,
     private val allowHttp: Boolean = false
-) {
+) : HaConnection {
     companion object {
         const val MAX_MESSAGE = 16384
         const val STATE_ACK_TIMEOUT_MS = 15000L
@@ -68,7 +74,7 @@ class HaWebSocketClient(
     private var commandCount = 0
     private val deviceId get() = identity.deviceId
 
-    @Synchronized fun connect() {
+    @Synchronized override fun connect() {
         require(stage == "new")
         require(token.length in 1..8192 && deviceName.length in 1..128)
         stage = "ha_required"
@@ -76,7 +82,7 @@ class HaWebSocketClient(
         socket = client.newWebSocket(Request.Builder().url(toWebSocketUrl(baseUrl)).build(), Listener())
         onStatus("Connecting…")
     }
-    @Synchronized fun close() {
+    @Synchronized override fun close() {
         stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
     }
@@ -109,7 +115,7 @@ class HaWebSocketClient(
         requestId = nextId++
         send(ws, fields.put("id", requestId).put("type", "hamediaconnect/$type"))
     }
-    @Synchronized fun fireState(event: JSONObject) {
+    @Synchronized override fun fireState(event: JSONObject) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (stage != "ready" || stateId != -1 || now - lastStateAt < 1000) return
         val ws = socket ?: return
@@ -166,7 +172,13 @@ class HaWebSocketClient(
                             check(success)
                         } else {
                             check(id == requestId)
-                            if (!success) { fail("Device authentication rejected; review registration"); return@synchronized }
+                            if (!success) {
+                                val code = json.optJSONObject("error")?.optString("code")
+                                fail(if (code in setOf("subscription_busy", "storage_failed", "temporarily_unavailable"))
+                                    "Connection temporarily unavailable; retrying"
+                                else "Device authentication rejected; review registration")
+                                return@synchronized
+                            }
                             when (stage) {
                                 "challenge" -> {
                                     val result = json.getJSONObject("result")
@@ -206,7 +218,8 @@ class HaWebSocketClient(
             } catch (_: Exception) { fail("Protocol rejected") }
         }
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) { fail("Protocol rejected") }
-        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail("Disconnected") }
+        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(TransportPolicy.connectionFailure(t)) }
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { fail("Disconnected") }
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail("Disconnected") }
     }
     private fun toWebSocketUrl(base: String): String = TransportPolicy.base(base, allowHttp).newBuilder()

@@ -56,6 +56,27 @@ class HaWebSocketClientTest {
         }
         fun event(data: JSONObject) = message(JSONObject().put("type", "event").put("id", 3).put("event", data).toString())
     }
+    @Test fun serverClosingCancelsAndRetriesWithoutDisplayingCloseReason() {
+        val h = Harness(); h.ready()
+        h.listener.onClosing(h.socket, 1001, "SECRET_TOKEN")
+        assertTrue(h.cancelled)
+        assertEquals("Disconnected", h.statuses.last())
+        assertTrue(TransportPolicy.shouldReconnect(h.statuses.last()))
+        h.listener.onClosed(h.socket, 1001, "SECRET_TOKEN")
+        assertEquals(1, h.statuses.count { it == "Disconnected" })
+    }
+    @Test fun temporaryServerFailuresRetryButAuthorizationRejectionStops() {
+        for (code in listOf("subscription_busy", "storage_failed", "temporarily_unavailable", "device_auth_failed", "unknown")) {
+            val h = Harness(); h.start()
+            h.message(JSONObject().put("type", "result").put("id", 1).put("success", false)
+                .put("error", JSONObject().put("code", code).put("message", "SECRET_TOKEN")).toString())
+            assertTrue(h.cancelled)
+            assertFalse(h.statuses.last().contains("SECRET_TOKEN"))
+            assertEquals(code in setOf("subscription_busy", "storage_failed", "temporarily_unavailable"),
+                TransportPolicy.shouldReconnect(h.statuses.last()))
+            h.client.close()
+        }
+    }
     @Test fun signsFreshChallengeBeforeSubscribingAndMapsCommands() {
         val h = Harness(); h.ready()
         assertEquals("auth", h.sent[0].getString("type"))
