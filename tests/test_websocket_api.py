@@ -93,7 +93,7 @@ async def test_full_protocol_and_disconnect(ws_module, env):
     await ws_module.ws_subscribe(hass, conn, {**msg("subscribe_commands", device_id), "id": 4})
     conn.send_error.assert_called_with(4, "device_auth_failed", "Device request rejected")
     # Native HA invokes all subscription cleanup callbacks on disconnect.
-    for cleanup in list(conn.subscriptions.values()):
+    for cleanup in conn.subscriptions.values():
         cleanup()
     assert not registry.sessions
     assert not registry.dispatch(device_id, {"action": "pause"})
@@ -162,3 +162,37 @@ def test_handlers(ws_module):
     websocket = sys.modules["homeassistant.components.websocket_api"]
     ws_module.async_register_websocket_commands(Mock())
     assert websocket.async_register_command.call_count == 5
+
+
+async def test_disconnect_reconnect_cleanup_does_not_remove_new_subscription(ws_module, env):
+    hass, registry = env
+    first = connection()
+    key, public = keypair()
+    async def connect(conn):
+        await ws_module.ws_challenge(hass, conn, {"id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+        challenge = conn.send_result.call_args.args[1]
+        await ws_module.ws_register(hass, conn, {"id": 2, "type": "hamediaconnect/register", "signature": proof(key, challenge["payload"])})
+        await ws_module.ws_subscribe(hass, conn, msg("subscribe_commands", challenge["device_id"]))
+        return challenge["device_id"]
+    device = await connect(first)
+    unrelated = Mock()
+    first.subscriptions["unrelated"] = unrelated
+    old_callbacks = list(first.subscriptions.values())
+    # HA 2026.10 uses a live values iterator, then clears all subscriptions.
+    for cleanup in first.subscriptions.values():
+        cleanup()
+    first.subscriptions.clear()
+    unrelated.assert_called_once()
+    assert not registry.sessions
+    second = connection()
+    await connect(second)
+    for cleanup in old_callbacks:
+        cleanup()
+    assert registry.dispatch(device, {"action": "pause"})
+    second.send_event.assert_called_once_with(3, {"action": "pause"})
+    # Newer Core snapshots items and deletes each key after callback invocation.
+    for key, cleanup in list(second.subscriptions.items()):
+        cleanup()
+        del second.subscriptions[key]
+    assert not second.subscriptions and not registry.sessions
+    assert not registry.dispatch(device, {"action": "pause"})
