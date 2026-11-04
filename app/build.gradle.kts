@@ -11,8 +11,9 @@ android {
         applicationId = "us.marreros.haandroidmediaplayer"
         minSdk = 29
         targetSdk = 37
-        versionCode = 10
-        versionName = "0.9.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        versionCode = 11
+        versionName = "0.10.0"
     }
 
     signingConfigs {
@@ -35,6 +36,8 @@ android {
             signingConfig = signingConfigs.getByName("distribution")
         }
     }
+
+    buildTypes.getByName("debug").enableAndroidTestCoverage = true
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -59,6 +62,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.11.0")
     implementation("androidx.media3:media3-session:1.11.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
+    androidTestImplementation("androidx.test:runner:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.16")
@@ -124,4 +130,51 @@ tasks.register<JacocoCoverageVerification>("verifyAppCodeCoverage") {
             }
         }
     }
+}
+
+// Explicit security targets, independent of the broad application-report exclusions.
+val securityPolicyTargets = listOf(
+    "**/DeviceIdentity*.class", "**/HaWebSocketClient*.class", "**/SecureTokenStore*.class",
+    "**/HaOAuth*.class", "**/OAuthAttempt*.class", "**/OAuthCallback*.class",
+    "**/TransportPolicy*.class", "**/ControllerPolicy*.class", "**/InternalPlayback*.class",
+    "**/PlaybackNotifications*.class"
+)
+fun securityClasses(targets: List<String>) = files(
+    fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) { include(targets) },
+    fileTree(layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")) { include(targets) }
+)
+
+tasks.register<JacocoReport>("securityCodeCoverageReport") {
+    dependsOn("testDebugUnitTest")
+    executionData.setFrom(layout.buildDirectory.file("jacoco/testDebugUnitTest.exec"))
+    classDirectories.setFrom(securityClasses(securityPolicyTargets))
+    sourceDirectories.setFrom(files("src/main/java"))
+    reports { xml.required.set(true); html.required.set(true) }
+}
+
+tasks.register<JacocoCoverageVerification>("verifySecurityCodeCoverage") {
+    dependsOn("securityCodeCoverageReport")
+    executionData.setFrom(layout.buildDirectory.file("jacoco/testDebugUnitTest.exec"))
+    classDirectories.setFrom(securityClasses(securityPolicyTargets))
+    violationRules {
+        rule { limit { counter = "LINE"; value = "COVEREDRATIO"; minimum = "0.85".toBigDecimal() } }
+    }
+}
+
+// This report shows device-measured framework/Keystore coverage separately; no JVM percentage
+// claims to cover hardware. The connected-test task fails if no device is available.
+tasks.register("verifySecurityDeviceCoverageData") {
+    dependsOn("connectedDebugAndroidTest")
+    doLast {
+        val data = fileTree(layout.buildDirectory.dir("outputs/code_coverage")) { include("**/*.ec") }
+        check(data.files.any { it.length() > 0 }) { "Connected security tests produced no device coverage data" }
+    }
+}
+
+tasks.register<JacocoReport>("securityDeviceCoverageReport") {
+    dependsOn("verifySecurityDeviceCoverageData")
+    executionData.setFrom(fileTree(layout.buildDirectory.dir("outputs/code_coverage")) { include("**/*.ec") })
+    classDirectories.setFrom(securityClasses(listOf("**/AndroidDeviceKeys*.class", "**/PlaybackService*.class", "**/SecureTokenStore*.class")))
+    sourceDirectories.setFrom(files("src/main/java"))
+    reports { xml.required.set(true); html.required.set(true) }
 }

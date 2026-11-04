@@ -19,6 +19,8 @@ class HaWebSocketClient(
 ) {
     companion object {
         const val MAX_MESSAGE = 16384
+        const val STATE_ACK_TIMEOUT_MS = 15000L
+        const val STATE_ACK_TIMEOUT_STATUS = "State acknowledgment timed out"
         fun boundedJson(text: String): JSONObject {
             require(text.length <= MAX_MESSAGE && text.toByteArray().size <= MAX_MESSAGE)
             android.util.JsonReader(java.io.StringReader(text)).use { reader ->
@@ -60,6 +62,7 @@ class HaWebSocketClient(
     private var requestId = -1
     private var subscriptionId = -1
     private var stateId = -1
+    private var stateTimeout: Runnable? = null
     private var lastStateAt = 0L
     private var commandWindow = 0L
     private var commandCount = 0
@@ -74,14 +77,28 @@ class HaWebSocketClient(
         onStatus("Connecting…")
     }
     @Synchronized fun close() {
-        stage = "closed"; handler.removeCallbacks(timeout)
+        stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
     }
     @Synchronized private fun fail(status: String) {
         if (stage == "closed") return
-        stage = "closed"; handler.removeCallbacks(timeout)
+        stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
         onStatus(status)
+    }
+    private fun clearStateDeadline() {
+        stateTimeout?.let(handler::removeCallbacks)
+        stateTimeout = null
+        stateId = -1
+    }
+    private fun awaitStateAcknowledgment(id: Int) {
+        val deadline = Runnable {
+            synchronized(this) {
+                if (stage == "ready" && stateId == id) fail(STATE_ACK_TIMEOUT_STATUS)
+            }
+        }
+        stateTimeout = deadline
+        handler.postDelayed(deadline, STATE_ACK_TIMEOUT_MS)
     }
     private fun send(ws: WebSocket, msg: JSONObject) {
         val text = msg.toString()
@@ -108,6 +125,7 @@ class HaWebSocketClient(
             stateId = nextId++
             send(ws, JSONObject().put("id", stateId).put("type", "hamediaconnect/state")
                 .put("device_id", deviceId).put("state", state))
+            awaitStateAcknowledgment(stateId)
             lastStateAt = now
         } catch (_: Exception) { fail("Protocol rejected") }
     }
@@ -144,7 +162,7 @@ class HaWebSocketClient(
                         val success = json.get("success")
                         require(success is Boolean)
                         if (id == stateId && stage == "ready") {
-                            stateId = -1
+                            clearStateDeadline()
                             check(success)
                         } else {
                             check(id == requestId)

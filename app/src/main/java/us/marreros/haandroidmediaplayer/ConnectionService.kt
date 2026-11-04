@@ -100,7 +100,7 @@ class ConnectionService : Service() {
                     if (stopped || attempt != generation) return@execute
                     updateStatus(status)
                     if (status == "Connected") retryAttempt = 0
-                    else if (status == "Disconnected" || status == "Authentication timed out") scheduleReconnect()
+                    else if (TransportPolicy.shouldReconnect(status)) scheduleReconnect()
                 }
             },
             onCommand = { command -> if (!stopped && attempt == generation) dispatchCommand(command) }
