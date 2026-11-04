@@ -58,6 +58,33 @@ The companion integration provides the Home Assistant `media_player` entity and 
 
 ## Authentication and connection
 
+### Device authentication sequence
+
+The device fingerprint is derived from a canonical encoding of the installation's public key; it is an identifier, **not** a secret. Authentication relies on a fresh challenge signed by the Android Keystore private key. No salt is needed for the public-key fingerprint.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as Android app
+    participant H as Home Assistant
+    A->>H: Connect to /api/websocket and authenticate
+    H-->>A: auth_ok
+    A->>H: Request device challenge (public-key identity)
+    H-->>A: Fresh random, short-lived challenge
+    Note over H: Bind challenge to this authenticated connection
+    Note over A: Sign challenge with installation P-256 Keystore key
+    A->>H: Public key / device ID + signed challenge proof
+    Note over H: Verify signature, challenge freshness, ownership, revocation
+    H-->>A: Device authentication accepted
+    A->>H: Subscribe to device commands
+    H-->>A: Subscription acknowledged
+    Note over A,H: Reconnect requires a new challenge and proof
+```
+
+Security requirements: challenges must be unpredictable, one-time-use, and time-limited; verification must bind the proof to the requesting connection and the authorized Home Assistant user. SHA-256 of the public key is a stable identifier, not an authentication substitute. See [security architecture](SECURITY_PHASE_2.md) for the authoritative protocol and limits.
+
+
+
 The Android app connects to the instance's `/api/websocket` endpoint, using `wss://` for HTTPS and `ws://` for HTTP. It waits for `auth_required`, then sends:
 
 ```json
