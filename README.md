@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/mascot.svg" alt="HAMediaConnect Android guitarist mascot" width="210">
+  <img src="branding/HAMediaConnect.svg" alt="HAMediaConnect phone, speaker, and sound waves icon" width="210">
 </p>
 
 # HAMediaConnect
@@ -45,7 +45,7 @@ Only install APKs from this project's GitHub Releases. GitHub Actions debug APKs
 3. Sign in with OAuth on an HTTPS Home Assistant URL, or use a Home Assistant long-lived access token on a trusted local network if needed. OAuth is HTTPS-only. Do not send an HTTP token connection over an untrusted network or the public internet.
 4. Save the connection and keep the app running until it reports **Connected**. On first connection, Android creates an installation-specific key in Android Keystore and proves possession to Home Assistant. The key is not uploaded. The integration then creates the device's `media_player` entity.
 
-Version 0.10.0 introduced a new device authentication protocol. Update the Android app and Home Assistant integration together, then sign in again. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
+Version 0.10.0 introduced a new device authentication protocol. Version 1.0.0 updates the project branding and version while retaining that protocol. Keep the Android app and Home Assistant integration on matching versions; update both sides together and sign in again after the 0.10.0 protocol upgrade. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
 
 ## Play audio, TTS, and Music Assistant
 
@@ -89,4 +89,4 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 
 ## License
 
-HAMediaConnect source code is licensed under **GNU GPL version 3 or any later version** (`GPL-3.0-or-later`). See [LICENSE](LICENSE). Third-party dependencies retain their own license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The project name and mascot are not separately licensed trademarks.
+HAMediaConnect source code is licensed under **GNU GPL version 3 or any later version** (`GPL-3.0-or-later`). See [LICENSE](LICENSE). Third-party dependencies retain their own license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The approved project icon source is maintained in [branding/HAMediaConnect.svg](branding/HAMediaConnect.svg); generated Android and Home Assistant assets are derivatives of that artwork.

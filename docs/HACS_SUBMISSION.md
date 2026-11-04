@@ -18,13 +18,13 @@ Sources: [HACS general publish requirements](https://hacs.dev/docs/publish/start
 | Integration manifest | Mandatory | Pass | `manifest.json` keeps domain `hamediaconnect`, includes the HACS-required keys, and passes Hassfest. |
 | Repository license | Mandatory for default catalog checks | Pass | Root `LICENSE` is GPL-3.0-or-later, an OSI-approved license. Third-party notices remain separately documented. |
 | Not archived; owner/major contributor may submit | Mandatory | Pass | Repository is active and personally owned by `emarrero-personal`. |
-| Home Assistant brand images | Mandatory for a branded integration | Pass for HA 2026.3+ | `custom_components/hamediaconnect/brand/icon.png` (256 × 256) and `icon@2x.png` (512 × 512) use the project's mascot. Current Home Assistant guidance says custom integrations ship these in their own `brand/` directory; no external Brands PR is planned. HACS's integration page still mentions the legacy Brands repository, while current Home Assistant guidance and the Brands repository document the newer local method. |
+| Home Assistant brand images | Mandatory for a branded integration | Pass for HA 2026.3+ | `custom_components/hamediaconnect/brand/icon.png` (256 × 256) and `icon@2x.png` (512 × 512) use the approved HAMediaConnect icon. Current Home Assistant guidance says custom integrations ship these in their own `brand/` directory since 2026.3; no external Brands PR is required for that path. |
 | HACS validator | Mandatory before default-catalog submission | Pass | [PR #19 HACS validation run](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838709852). `.github/workflows/hacs.yml` uses the supported `hacs/action@main` with category `integration`. |
 | Hassfest validator | Mandatory before default-catalog submission | Pass | [PR #19 Hassfest run](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41838709996). `.github/workflows/hassfest.yml` uses the official Home Assistant Hassfest action. |
 | Published GitHub Release | Recommended, optional | Pass | `v0.10.0` is a published, non-draft, non-prerelease release with the signed APK and SHA-256 checksum. |
 | Submission PR to `hacs/default` | Required to enter the default catalog | Not performed | Maintainer approval is still required. No external PR has been opened. |
 
-HACS uses the latest published GitHub Release tag for its remote version when releases exist; publishing a tag without a GitHub Release is insufficient. The current `v0.10.0` release satisfies that discovery requirement. It predates the local icon and documentation changes in this branch; no app or integration runtime version bump is needed for catalog validation. If the maintainer wants the new integration icon included in a tagged archive before catalog listing, the next paired release should be Android `0.10.1` (version code 12) and integration `0.10.1`; do not publish it as part of this work.
+HACS uses the latest published GitHub Release tag for its remote version when releases exist; publishing a tag without a GitHub Release is insufficient. The current `v0.10.0` release satisfies that discovery requirement. The source now declares Android and integration version `1.0.0` (Android version code 12), but this change is not released. The `v0.10.0` release remains untouched; a future approved `v1.0.0` release should include the matching signed APK and integration source.
 
 ## Validation runs
 
@@ -41,16 +41,16 @@ Local regression results: Python 45 tests with 96.85% coverage; Android 32 JVM/R
 
 - [GitHub Release v0.10.0](https://github.com/emarrero-personal/HAMediaConnect/releases/tag/v0.10.0) is published.
 - It contains `HAMediaConnect.apk` and `HAMediaConnect.apk.sha256`.
-- The release workflow at `.github/workflows/distribution-apk.yml` verifies that the tag points to a commit on `main`, checks Android `versionName` against the tag, requires protected-environment signing secrets, runs `apksigner verify`, creates the SHA-256 file, refuses to overwrite an existing release, and removes the temporary keystore.
-- The release assets are APK and checksum only; no signing key, signing password, OAuth token, or other signing material is attached. The release workflow's validation and publish job links will be recorded after checking the existing `v0.10.0` run.
-- Android app and integration both declare version `0.10.0`; Android version code is 11.
+- The release workflow at `.github/workflows/distribution-apk.yml` verifies that the tag points to a commit on `main`, checks Android `versionName` and integration manifest version against the tag, requires protected-environment signing secrets, runs `apksigner verify`, creates the SHA-256 file, refuses to overwrite an existing release, and removes the temporary keystore.
+- The release assets are APK and checksum only; no signing key, signing password, OAuth token, or other signing material is attached. The release workflow's validation and publish job links are recorded below.
+- On this branch, Android and integration both declare version `1.0.0`; Android version code is 12. The already published `v0.10.0` release is unchanged.
 - [Signed distribution workflow for v0.10.0](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41764999670) passed. Its [validation job](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41764999670/job/126361181618) and [sign-and-publish job](https://github.com/emarrero-personal/HAMediaConnect/actions/runs/41764999670/job/126362240156) both succeeded, including `apksigner verify` and removal of the temporary keystore.
 - Independently downloaded `HAMediaConnect.apk` passes `apksigner verify`; `sha256sum -c HAMediaConnect.apk.sha256` reports `OK`. An archive/string scan found no keystore or private-key material in the APK.
 - No new tag or release is needed for HACS readiness. No release was created or modified during this work.
 
 ## Branding
 
-The custom integration icon is bundled in `custom_components/hamediaconnect/brand/`. Home Assistant 2026.3 and newer serves local integration brand assets from this directory. The existing square mascot was reused; the project records its provenance in `THIRD_PARTY_NOTICES.md` and does not claim registered trademark or exclusive rights. There is no external branding submission to prepare under the current Home Assistant procedure. Older Home Assistant versions may continue showing a generic integration icon.
+The custom integration icon is bundled in `custom_components/hamediaconnect/brand/`. Home Assistant 2026.3 and newer serves local integration brand assets from this directory. The new assets derive from the approved source `branding/HAMediaConnect.svg`; the project records the source and derivative formats in `branding/README.md` and `THIRD_PARTY_NOTICES.md`. There is no external branding submission to prepare under the current Home Assistant procedure. Older Home Assistant versions may continue showing a generic integration icon.
 
 HACS frontend versions may still show a generic repository icon even when the integration includes local artwork; this is a known HACS frontend limitation and does not prevent the integration from shipping its brand files.
 
@@ -79,7 +79,7 @@ Adds HAMediaConnect, a Home Assistant integration that pairs with the companion 
 - Repository: https://github.com/emarrero-personal/HAMediaConnect
 - HACS validation: <link to successful HACS action run>
 - Hassfest validation: <link to successful Hassfest run>
-- Latest release: https://github.com/emarrero-personal/HAMediaConnect/releases/tag/v0.10.0
+- Latest published release (unchanged): https://github.com/emarrero-personal/HAMediaConnect/releases/tag/v0.10.0
 
 The repository is public, has Issues enabled, a description and discovery topics, a GPL-3.0-or-later license, a root README, and a single integration in `custom_components/hamediaconnect/`. The integration bundles its local brand images for Home Assistant 2026.3 and newer.
 ```
