@@ -90,3 +90,29 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 ## License
 
 HAMediaConnect source code is licensed under **GNU GPL version 3 or any later version** (`GPL-3.0-or-later`). See [LICENSE](LICENSE). Third-party dependencies retain their own license terms; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The approved project icon source is maintained in [branding/HAMediaConnect.svg](branding/HAMediaConnect.svg); generated Android and Home Assistant assets are derivatives of that artwork.
+
+## Local and remote media delivery
+
+On Android 17 or newer, grant **Local network** access when connecting the app.
+If denied, enable it in Android's app permissions before using LAN media or LAN
+Home Assistant control. Chrome has separate permissions; a working browser GET
+does not prove the app can load the same audio.
+
+For playback away from home, enable Home Assistant Cloud remote access or configure
+a valid external **HTTPS** URL in Home Assistant's network settings. Configure the
+app's Home Assistant connection with that reachable HTTPS origin and authenticate
+there once. Use this same origin on Wi-Fi and cellular. The integration prefers
+HA's external HTTPS endpoint for HA-owned media, including TTS. It keeps local
+media when no external HTTPS endpoint is configured. A local-only HTTP connection
+cannot reconnect from cellular; do not expose port 8123 publicly.
+
+The external endpoint must serve the actual `/api/tts_proxy/` and other media
+paths. Reverse-proxy login pages, extra proxy authentication, disabled Cloud
+remote access, expired media, or missing media routes can prevent playback even
+when the WebSocket connects. The Android app reports sanitized playback errors in
+its status and `HARemotePlayback` logs, and stops continuous buffering after
+30 seconds. Regenerate expired TTS after restoring connectivity. Media redirects
+are refused; use a direct audio URL for public streams that otherwise redirect.
+
+See the [TTS investigation and device test procedure](docs/diagnostics/TTS_PLAYBACK.md)
+for evidence, limitations, and Wi-Fi/cellular verification.

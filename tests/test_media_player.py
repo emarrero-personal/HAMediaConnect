@@ -38,6 +38,7 @@ def platform(monkeypatch):
         PLAY_MEDIA = 8
         VOLUME_SET = 16
         VOLUME_MUTE = 32
+        MEDIA_ANNOUNCE = 64
 
     class States(str, Enum):
         IDLE = "idle"
@@ -55,6 +56,14 @@ def platform(monkeypatch):
 
     media.MediaPlayerEntity = Entity
     module("homeassistant.helpers").__path__ = []
+    network = module("homeassistant.helpers.network")
+    class NoURLAvailableError(Exception):
+        pass
+    network.NoURLAvailableError = NoURLAvailableError
+    def no_external(*args, **kwargs):
+        raise NoURLAvailableError
+    network.get_url = no_external
+    network.is_hass_url = lambda hass, url: url.startswith("https://ha.example/") or url.startswith("http://10.1.0.195:8123/")
     entity = module("homeassistant.helpers.entity")
     entity.DeviceInfo = dict
     parent = module("custom_components")
@@ -82,6 +91,7 @@ def test_entity_commands_and_availability(platform):
     player.send_command = None
     registry.players = {"pixel": player}
     entity = platform.AndroidMediaPlayer(registry, "pixel")
+    assert entity._attr_supported_features & platform.MediaPlayerEntityFeature.MEDIA_ANNOUNCE
     assert entity.name == "Living Room"
     assert entity.available is False
     player.send_command = Mock()
@@ -207,3 +217,52 @@ def test_announcement_flag_for_direct_media(platform):
     entity.entity_id = "media_player.kitchen"
     asyncio.run(entity.async_play_media("music", "https://example.com/a.mp3", announce=True))
     assert registry.dispatch.call_args.args[1]["announce"] is True
+
+
+@pytest.mark.parametrize("endpoint", ["https://remote.ui.nabu.casa", "https://external.example"])
+@pytest.mark.parametrize("url", ["/api/tts_proxy/a.mp3?sig=a%2Fb&x=1", "http://10.1.0.195:8123/api/tts_proxy/a.mp3?sig=a%2Fb&x=1"])
+def test_ha_media_external_https_preserves_raw_path_and_query(platform, endpoint, url):
+    platform.get_url = Mock(return_value=endpoint)
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    asyncio.run(entity.async_play_media("audio/mpeg", url))
+    sent = registry.dispatch.call_args.args[1]
+    assert sent["media_content_id"] == endpoint + "/api/tts_proxy/a.mp3?sig=a%2Fb&x=1"
+    assert sent["announce"] is True
+    platform.get_url.assert_called_once_with(entity.hass, allow_internal=False, require_ssl=True)
+
+
+def test_public_media_never_rebased_or_detected_by_path_alone(platform):
+    platform.get_url = Mock()
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    url = "https://public.example/api/tts_proxy/audio.mp3?signature=keep"
+    asyncio.run(entity.async_play_media("music", url))
+    assert registry.dispatch.call_args.args[1]["media_content_id"] == url
+    assert registry.dispatch.call_args.args[1]["announce"] is False
+    platform.get_url.assert_not_called()
+
+
+def test_local_only_tts_keeps_http_endpoint(platform):
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    url = "http://10.1.0.195:8123/api/tts_proxy/a.mp3"
+    asyncio.run(entity.async_play_media("audio/mpeg", url))
+    assert registry.dispatch.call_args.args[1]["media_content_id"] == url
+    assert registry.dispatch.call_args.args[1]["announce"] is True
+
+
+def test_signed_media_retains_escaped_path_and_repeated_query(platform):
+    platform.get_url = Mock(return_value="https://external.example")
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    url = "https://ha.example/api/media_source/local/a%20b%2Fc.mp3?authSig=fixture%2Fsignature&x=1&x=2"
+    asyncio.run(entity.async_play_media("audio/mpeg", url))
+    assert registry.dispatch.call_args.args[1]["media_content_id"] == (
+        "https://external.example/api/media_source/local/a%20b%2Fc.mp3?authSig=fixture%2Fsignature&x=1&x=2"
+    )
+    assert registry.dispatch.call_args.args[1]["announce"] is False
