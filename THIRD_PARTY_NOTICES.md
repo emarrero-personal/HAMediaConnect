@@ -20,7 +20,7 @@ The Kotlin runtime and transitive dependencies packaged into the APK also have t
 
 ## Project branding
 
-The authoritative HAMediaConnect icon is [`branding/HAMediaConnect.svg`](branding/HAMediaConnect.svg), copied unchanged from the maintainer-approved `/home/emarrero/HAMediaConnect.svg`. Android vector resources and the Home Assistant integration PNGs are derivatives of that source artwork. The icon retains its transparent background and `#336699` color.
+The authoritative HAMediaConnect icon is [`branding/HAMediaConnect.svg`](branding/HAMediaConnect.svg), derived from the maintainer-approved `/home/emarrero/HAMediaConnect.svg` with its path geometry unchanged. Android vector resources and the Home Assistant integration PNGs are derivatives of that source artwork. The icon retains its transparent background and uses the app background accent violet `#5540A0`, as directed by the maintainer.
 
 ## Release compliance tasks (owners: repository maintainer)
 
