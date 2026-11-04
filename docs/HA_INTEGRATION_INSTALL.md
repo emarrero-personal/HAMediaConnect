@@ -1,28 +1,7 @@
-# Home Assistant custom integration — OAuth bootstrap
+# Install the Home Assistant integration
 
-**Development branch:** `feature/v0.2-oauth-media-player`
+HAMediaConnect has one custom integration in `custom_components/hamediaconnect/`. Install that directory through HACS or copy it manually, restart Home Assistant, then add **HAMediaConnect** from **Settings → Devices & services → Add integration**.
 
-This milestone adds only the publicly readable OAuth client identification page and a UI setup flow. No Android changes are required for this installation step, and no media player entity is created yet.
+The integration and Android app work together. For version 0.10.0, update both sides and sign in again because device enrollment now uses a per-installation Android Keystore key. See the [README](../README.md) for the complete installation, connection, and update steps and the [Phase 2 security design](SECURITY_PHASE_2.md) for enrollment, lost-key recovery, and revocation.
 
-## Install this development version manually
-
-Because this repository is currently private and the integration exists on a feature branch, manual installation is the most reliable test path:
-
-1. From the feature branch, copy the entire `custom_components/hamediaconnect` directory into `/config/custom_components/hamediaconnect` on Home Assistant. Copy all files, not just `oauth_view.py`.
-2. If you previously added `hamediaconnect:` to `configuration.yaml`, remove it. UI configuration does not need this YAML entry.
-3. Restart Home Assistant.
-4. In **Settings → Devices & services → Add integration**, search for **HAMediaConnect** and complete its single setup screen.
-5. Open `https://YOUR-INSTANCE.ui.nabu.casa/api/hamediaconnect/oauth-client` in a private browser window. Expect HTTP 200 and an HTML page titled **HAMediaConnect OAuth Client**, without a Home Assistant login prompt.
-6. Inspect page source for `<link rel="redirect_uri" href="haandroidmediaplayer://oauth/callback">`.
-
-The URL is a **public endpoint by design** and contains no secrets. If it returns 404, check HA logs for errors loading `hamediaconnect`. If it redirects to authentication, the Nabu Casa routing/public access assumptions need further investigation.
-
-## HACS
-
-The repository contains root-level `hacs.json` and the conventional `custom_components/hamediaconnect` layout. Once released on an accessible branch/repository, it can be added to HACS as a custom integration repository. HACS distribution and validation have **not** been tested; do not assume the private development branch is installable through HACS.
-
-## Test scope
-
-This only verifies that the integration loads and serves the OAuth client page. OAuth redirect acceptance and code exchange must be tested separately. The Home Assistant server may need to fetch its own Nabu Casa hostname for client-ID verification; that is not yet proven.
-
-Do not deploy Android changes or replace working v0.1 credentials as part of this milestone.
+The repository uses the standard HACS layout: root `hacs.json` and a single integration under `custom_components/hamediaconnect/`. Its `content_in_root` value is `false`. HACS validation and Hassfest run in GitHub Actions; official catalog inclusion has not yet been submitted.

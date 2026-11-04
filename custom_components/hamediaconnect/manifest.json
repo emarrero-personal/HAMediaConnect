@@ -4,7 +4,9 @@
   "version": "0.10.0",
   "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
   "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
-  "codeowners": [],
+  "codeowners": [
+    "@emarrero-personal"
+  ],
   "dependencies": [
     "http",
     "media_source",
