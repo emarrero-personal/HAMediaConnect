@@ -57,7 +57,7 @@ class MediaHttpTest {
         }
     }
     @Test fun httpErrorsAndRedirectsSurfaceThroughMedia3() {
-        for (code in listOf(401, 403, 404, 500, 503, 302, 307)) response(code) { url, service ->
+        for (code in listOf(401, 403, 404, 410, 500, 503, 302, 307)) response(code) { url, service ->
             val source = service.mediaDataSourceFactory.createDataSource()
             try {
                 source.open(DataSpec(Uri.parse(url)))

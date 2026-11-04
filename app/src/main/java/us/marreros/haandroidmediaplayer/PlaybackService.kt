@@ -49,6 +49,8 @@ class PlaybackService : MediaSessionService() {
     private var currentUrl: String? = null
     private var currentTitle: String? = null
     private var playbackFailed = false
+    private var playbackError: String? = null
+    private var playbackNotice: String? = null
     private val bufferingTimeout = Runnable {
         if (player.playbackState == Player.STATE_BUFFERING) failPlayback(PlaybackFailure.TIMEOUT)
     }
@@ -58,10 +60,13 @@ class PlaybackService : MediaSessionService() {
         Log.w(TAG, reason) // Never attach the Throwable or its message/URL.
         AppPrefs.prefs(this).edit().putString("playback_error", reason).apply()
         playbackFailed = true
-        if (announcing) restoreMedia() else {
+        playbackError = reason
+        if (announcing) {
+            if (savedMedia != null) playbackNotice = "Announcement failed — ${PlaybackDiagnostic.endpoint(currentUrl)}\n$reason"
+            restoreMedia()
+        } else {
             replacePlaybackListener()
             player.stop()
-            currentTitle = reason
             publishState("idle")
         }
     }
@@ -128,6 +133,13 @@ class PlaybackService : MediaSessionService() {
                     failPlayback("Announcement ended without playable audio; regenerate TTS")
                 }
             }
+            if (generation != playbackGeneration) return
+            if (!announcing && playbackState == Player.STATE_ENDED && !playbackFailed) {
+                currentUrl = null
+                currentTitle = null
+                replacePlaybackListener()
+                player.clearMediaItems()
+            }
             publishState()
         }
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -192,6 +204,11 @@ class PlaybackService : MediaSessionService() {
             CMD_PLAY -> player.play()
             CMD_PAUSE -> player.pause()
             CMD_STOP -> {
+                handler.removeCallbacks(bufferingTimeout)
+                playbackFailed = false
+                playbackError = null
+                playbackNotice = null
+                AppPrefs.prefs(this).edit().remove("playback_error").apply()
                 announcing = false
                 savedMedia = null
                 replacePlaybackListener()
@@ -226,6 +243,8 @@ class PlaybackService : MediaSessionService() {
         }
         handler.removeCallbacks(bufferingTimeout)
         playbackFailed = false
+        playbackError = null
+        playbackNotice = null
         AppPrefs.prefs(this).edit().remove("playback_error").apply()
         Log.i(TAG, "playMedia announce=$announce items=${player.mediaItemCount}")
         if (announce) {
@@ -270,10 +289,14 @@ class PlaybackService : MediaSessionService() {
         handler.removeCallbacks(bufferingTimeout)
         replacePlaybackListener()
         if (previous == null) {
-            currentUrl = null
-            currentTitle = if (playbackFailed) AppPrefs.prefs(this).getString("playback_error", null) else null
+            if (!playbackFailed) {
+                currentUrl = null
+                currentTitle = null
+            }
             player.clearMediaItems()
         } else {
+            playbackFailed = false
+            playbackError = null
             currentUrl = previous.url
             currentTitle = previous.title
             player.setMediaItem(previous.item, previous.positionMs)
@@ -303,7 +326,7 @@ class PlaybackService : MediaSessionService() {
             player.playbackState == Player.STATE_READY && !player.playWhenReady -> "paused"
             else -> "idle"
         }
-        PlayerStateBus.listener?.invoke(
+        PlayerStateBus.publish(
             PlayerSnapshot(
                 state = state,
                 volume = systemVolume(),
@@ -311,7 +334,9 @@ class PlaybackService : MediaSessionService() {
                 positionMs = player.currentPosition.coerceAtLeast(0L),
                 durationMs = player.duration.takeIf { it > 0 } ?: 0L,
                 title = currentTitle,
-                contentId = currentUrl
+                contentId = currentUrl,
+                error = playbackError,
+                notice = playbackNotice
             )
         )
     }
@@ -322,6 +347,14 @@ class PlaybackService : MediaSessionService() {
         unregisterReceiver(dndReceiver)
         playbackGeneration++
         player.removeListener(playbackListener)
+        player.stop()
+        player.clearMediaItems()
+        currentUrl = null
+        currentTitle = null
+        playbackError = null
+        playbackNotice = null
+        AppPrefs.prefs(this).edit().remove("playback_error").apply()
+        publishState("idle")
         mediaSession.release()
         player.release()
         super.onDestroy()

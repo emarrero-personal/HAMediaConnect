@@ -230,7 +230,7 @@ def test_ha_media_external_https_preserves_raw_path_and_query(platform, endpoint
     sent = registry.dispatch.call_args.args[1]
     assert sent["media_content_id"] == endpoint + "/api/tts_proxy/a.mp3?sig=a%2Fb&x=1"
     assert sent["announce"] is True
-    platform.get_url.assert_called_once_with(entity.hass, allow_internal=False, require_ssl=True)
+    platform.get_url.assert_called_once_with(entity.hass, allow_internal=False, require_ssl=True, prefer_cloud=True)
 
 
 def test_public_media_never_rebased_or_detected_by_path_alone(platform):
@@ -285,3 +285,13 @@ def test_resolved_tts_token_uses_cloud_origin_without_extra_authentication(platf
         "media_content_id": "https://remote.ui.nabu.casa/api/tts_proxy/opaque-token",
         "announce": True,
     }
+
+
+@pytest.mark.parametrize("extra, expected", [({"title": "Morning music"}, "Morning music"),
+    (None, None), ({"title": 12}, None), ({"title": "x" * 513}, None), ({"title": ""}, None)])
+def test_optional_title_is_bounded_before_dispatch(platform, extra, expected):
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    asyncio.run(entity.async_play_media("audio/mpeg", "https://public.example/music.mp3", extra=extra))
+    assert registry.dispatch.call_args.args[1].get("media_title") == expected

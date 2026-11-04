@@ -146,7 +146,7 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             try:
                 # Cloud's remote UI uses HA's HTTP router, including tts_proxy.
                 # Selecting its origin does not verify the live tunnel or GET.
-                external = get_url(self.hass, allow_internal=False, require_ssl=True)
+                external = get_url(self.hass, allow_internal=False, require_ssl=True, prefer_cloud=True)
             except NoURLAvailableError:
                 # Local-only installations remain supported. Android reports an
                 # actionable load failure if this endpoint cannot be reached.
@@ -155,9 +155,13 @@ class AndroidMediaPlayer(MediaPlayerEntity):
                 media_id = external.rstrip("/") + parsed.path
                 if parsed.query:
                     media_id += "?" + parsed.query
+        extra = kwargs.get("extra")
+        title = extra.get("title") if isinstance(extra, dict) else None
+        metadata = {"media_title": title} if isinstance(title, str) and 0 < len(title) <= 512 else {}
         self._send(
             "play_media",
             media_content_type=str(media_type),
             media_content_id=media_id,
             announce=is_tts or bool(kwargs.get("announce", False)),
+            **metadata,
         )
