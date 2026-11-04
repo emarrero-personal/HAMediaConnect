@@ -5,7 +5,7 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical">
             <FrameLayout android:layout_width="match_parent" android:layout_height="390dp" android:background="@drawable/hero_gradient">
                 <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:padding="24dp">
-                    <ImageView android:layout_width="164dp" android:layout_height="164dp" android:contentDescription="Android guitarist mascot" android:src="@drawable/mascot_guitar" />
+                    <ImageView android:layout_width="120dp" android:layout_height="110dp" android:background="@drawable/brand_tile" android:padding="10dp" android:contentDescription="HAMediaConnect phone, speaker, and sound waves icon" android:scaleType="fitCenter" android:src="@drawable/hamediaconnect_brand" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="HAMediaConnect" android:textColor="#FFFFFF" android:textSize="32sp" android:textStyle="bold" />
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:layout_marginTop="8dp" android:text="Play audio from Home Assistant\non this Android device" android:textColor="#F3EFFF" android:textSize="17sp" />
                 </LinearLayout>
@@ -62,7 +62,7 @@
         <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="22dp" android:paddingTop="64dp">
             <TextView android:id="@+id/helpBack" android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center_vertical" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" android:paddingBottom="8dp" android:text="‹   Help &amp; Getting Started" android:textColor="#21153E" android:textSize="24sp" android:textStyle="bold" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:background="@drawable/card_surface" android:gravity="center_vertical" android:orientation="horizontal" android:padding="14dp">
-                <ImageView android:layout_width="76dp" android:layout_height="76dp" android:src="@drawable/mascot_guitar" android:contentDescription="Android guitarist mascot" />
+                <ImageView android:layout_width="76dp" android:layout_height="51dp" android:scaleType="fitCenter" android:src="@drawable/hamediaconnect_brand" android:contentDescription="HAMediaConnect phone, speaker, and sound waves icon" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="16dp" android:text="HAMediaConnect\nHome Assistant audio for Android" android:textColor="#291C52" android:textSize="17sp" android:textStyle="bold" />
             </LinearLayout>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="Getting Started" android:textColor="#5123A6" android:textSize="20sp" android:textStyle="bold" />
