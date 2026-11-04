@@ -115,9 +115,10 @@ jobs:
           ANDROID_SERIAL: emulator-5554
         run: |
           set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/emulator:$PATH"
           sudo chmod a+rw /dev/kvm
           AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager -print -quit)"
-          echo no | "$AVDMANAGER" create avd --name security-tests --package "system-images;android-35;google_apis;x86_64" --force
+          printf 'no\n' | "$AVDMANAGER" create avd --name security-tests --package "system-images;android-35;google_apis;x86_64" --device pixel_2 --force
           "$ANDROID_HOME/emulator/emulator" -avd security-tests -port 5554 -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/security-emulator.log" 2>&1 &
           trap 'adb -s emulator-5554 emu kill || true' EXIT
           timeout 180 bash -c 'until [[ "$(adb -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == 1 ]]; do sleep 2; done'
