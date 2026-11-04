@@ -27,8 +27,7 @@ class BootReceiver : BroadcastReceiver() {
             !credentials.get("long_lived_token").isNullOrBlank()
         } else {
             !credentials.get("access_token").isNullOrBlank() ||
-                !credentials.get("refresh_token").isNullOrBlank() ||
-                !prefs.getString(AppPrefs.KEY_TOKEN, "").isNullOrBlank()
+                !credentials.get("refresh_token").isNullOrBlank()
         }
         if (!hasCredential) {
             Log.i(TAG, "Skipping reconnect: no stored credentials")

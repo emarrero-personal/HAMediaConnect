@@ -1,7 +1,7 @@
 name: Validate Home Assistant integration
 on:
   push:
-    branches: [feature/v0.2-oauth-media-player]
+    branches: [main]
     paths:
       - 'custom_components/**'
       - 'tests/**'
