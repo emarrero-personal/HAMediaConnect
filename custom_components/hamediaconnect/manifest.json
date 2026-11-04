@@ -1,7 +1,7 @@
 {
   "domain": "hamediaconnect",
   "name": "HAMediaConnect",
-  "version": "0.2.0",
+  "version": "0.10.0",
   "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
   "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
   "codeowners": [],

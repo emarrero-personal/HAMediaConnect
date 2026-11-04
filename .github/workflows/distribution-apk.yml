@@ -68,7 +68,7 @@ jobs:
           python -m pip install -r requirements-test.txt
           python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85
       - name: Run Android unit tests and coverage gate
-        run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage
+        run: bash ./gradlew --no-daemon testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage securityCodeCoverageReport verifySecurityCodeCoverage
       - name: Capture resolved release runtime dependency inventory
         run: |
           mkdir -p build/release-compliance
