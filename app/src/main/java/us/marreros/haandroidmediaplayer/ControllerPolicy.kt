@@ -7,6 +7,7 @@ import androidx.media3.session.MediaSession
 import androidx.media3.session.SessionCommands
 
 /** Trust is calculated by Media3/platform from Binder UID and package permissions. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 object ControllerPolicy {
     fun allowed(uid: Int, trusted: Boolean, ownUid: Int = Process.myUid()) = uid >= 0 && (uid == ownUid || trusted)
     val playerCommands: Player.Commands = Player.Commands.Builder().addAll(

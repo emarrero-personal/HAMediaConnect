@@ -41,7 +41,7 @@ Initial enrollment is trust-on-first-proof within the authenticated HA account, 
    Only a connection that proved this identity can subscribe or send `hamediaconnect/state`. Only one live command subscriber per device is allowed. Native HA disconnect/unsubscribe callbacks remove subscriptions; a separate cleanup callback also removes the authenticated connection state. Incomplete handshakes are removed after 30 seconds, even if the socket stays open.
 7. Reconnect repeats native HA authentication and a fresh device challenge. Challenges and authenticated sessions are never persisted. Captured signatures cannot authenticate another connection or answer a later challenge.
 
-Android permits only the expected handshake sequence and response IDs. Temporary subscription conflicts, rate/session exhaustion, and storage failures retry without granting authorization or adding a second subscriber. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
+Android permits only the expected handshake sequence and response IDs. Temporary subscription conflicts, rate/session exhaustion, and storage failures retry without granting authorization or adding a second subscriber. HA authentication rejection, confirmed device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
 
 ## Persistence, revocation, key loss
 
@@ -121,8 +121,29 @@ For security test commands, coverage gates, and release checklists, see the [Mai
 HA-owned media prefers HA's supported Cloud HTTPS endpoint when available, then configured external HTTPS;
 raw paths and signatures survive endpoint selection. Public streams keep their
 origins. Media uses a separate unauthenticated Media3 OkHttp client with TLS
-validation, no redirects, bounded connect/read and buffering deadlines, and fixed
+validation, at most five redirects within the identical scheme/host/port, bounded connect/read and buffering deadlines, and fixed
 sanitized diagnostics. It never receives HA bearer tokens. Android 17 local access
 requires the Local network runtime permission. HTTP audio retains its existing
 independent capability. See [TTS investigation](diagnostics/TTS_PLAYBACK.md) for
 security tradeoffs, compatible diagnostics proposal, and unverified device cases.
+
+
+### Typed recovery and media provenance
+
+Retry decisions use `ConnectionFailure` kind/stage, not display strings. Unknown
+server error codes retry a fresh proof; explicit identity rejection during challenge
+or proof stops. A legacy coarse rejection at subscription retries from challenge,
+where revocation/owner/signature enforcement still applies. Expired challenges are
+consumed and rejected before a fresh attempt; captured proofs remain unusable.
+The sanitized permanent failure kind persists across service/process restart; only
+explicit Settings connection actions can clear that block. OAuth
+refresh results cannot replace credentials whose origin, auth method or refresh
+token changed during the request.
+
+HA ownership is recorded before relative resources are made absolute. Only those
+resources and origins verified by `is_hass_url` select HA's external endpoint;
+Android never guesses ownership from a third-party URL's path. Path signatures,
+queries and opaque TTS tokens survive the actual request but are redacted from UI
+and logs. The separate media client has no bearer credentials or cookie store.
+Redirects with another origin, a downgrade, userinfo, fragments, malformed locations,
+or excessive hops are refused. No TLS bypass or additional public endpoint is introduced.

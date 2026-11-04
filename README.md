@@ -112,7 +112,8 @@ remote access, expired media, or missing media routes can prevent playback even
 when the WebSocket connects. The Android app reports sanitized playback errors in
 its status and `HARemotePlayback` logs, and stops continuous buffering after
 30 seconds. Regenerate expired TTS after restoring connectivity. Media redirects
-are refused; use a direct audio URL for public streams that otherwise redirect.
+are allowed only within the same origin, up to five hops. Cross-origin redirects
+and HTTPS downgrades are refused; use a direct audio endpoint in those cases.
 When an announcement fails and music is restored, Home Assistant receives the
 restored music state. The announcement failure is retained in Android status and
 sanitized logs; it is not independently reported to Home Assistant. See the
@@ -123,3 +124,9 @@ for evidence, limitations, and Wi-Fi/cellular verification.
 
 For the v1.0.1 corrections, sanitized Playback diagnostics, and the pending Pixel 10
 acceptance checklist, see [device corrections](docs/diagnostics/V1_0_1_FINAL_CORRECTIONS.md).
+
+Network changes retry immediately with the saved credentials and device key.
+Temporary transport, server and subscription failures back off automatically; confirmed
+authentication failures require correcting the credentials or registration in Settings,
+then Save and Connect. Idle Playback shows whether it is waiting for a connection;
+currently playing audio and playback failures remain visible during reconnection.

@@ -36,16 +36,31 @@ class MainActivity : AppCompatActivity() {
     private var awaitingConnection = false
     private var openSettings: (() -> Unit)? = null
     private var returnHome: (() -> Unit)? = null
-    private fun connectionStatus(value: String) {
+    private fun connectionStatus(value: String, authenticated: Boolean = false) {
         statusText.text = value
         findViewById<TextView>(R.id.settingsStatus).text = value
-        if (awaitingConnection && value == "Connected") {
+        if (awaitingConnection && authenticated) {
             awaitingConnection = false
             returnHome?.invoke()
         }
     }
+    private fun playbackConnection(): ConnectionPhase {
+        val prefs = AppPrefs.prefs(this)
+        return prefs.getString(AppPrefs.KEY_CONNECTION_PHASE, null)?.let {
+            runCatching { ConnectionPhase.valueOf(it) }.getOrNull()
+        } ?: when (prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")) {
+            "Connected" -> ConnectionPhase.CONNECTED
+            "Connecting", "Connecting…" -> ConnectionPhase.CONNECTING
+            "Reconnecting" -> ConnectionPhase.RECONNECTING
+            else -> ConnectionPhase.DISCONNECTED
+        }
+    }
+    private fun renderPlayback(snapshot: PlayerSnapshot? = PlayerStateBus.latest) {
+        val idle = PlayerSnapshot("idle", 0f, false, 0, 0, null, null)
+        findViewById<TextView>(R.id.playbackStatus).text = PlaybackDiagnostic.summary(snapshot ?: idle, playbackConnection())
+    }
     private val playbackObserver: (PlayerSnapshot) -> Unit = { snapshot ->
-        runOnUiThread { findViewById<TextView>(R.id.playbackStatus).text = PlaybackDiagnostic.summary(snapshot) }
+        runOnUiThread { renderPlayback(snapshot) }
     }
 
     private val notificationPermission = registerForActivityResult(
@@ -57,8 +72,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-        if (key == AppPrefs.KEY_STATUS) {
-            connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected")
+        if (key == AppPrefs.KEY_STATUS || key == AppPrefs.KEY_CONNECTION_PHASE) {
+            connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected",
+                authenticated = playbackConnection() == ConnectionPhase.CONNECTED)
+            renderPlayback()
         }
     }
 
@@ -97,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         openSettings = { showScreen(settingsScreen) }
         if (awaitingConnection) showScreen(settingsScreen)
         PlayerStateBus.observer = playbackObserver
-        PlayerStateBus.latest?.let(playbackObserver)
+        renderPlayback()
         findViewById<android.view.View>(R.id.settingsButton).setOnClickListener { showScreen(settingsScreen) }
         findViewById<android.view.View>(R.id.helpButton).setOnClickListener { showScreen(helpScreen) }
         findViewById<android.view.View>(R.id.gettingStartedCard).setOnClickListener { showScreen(helpScreen) }
@@ -137,7 +154,8 @@ class MainActivity : AppCompatActivity() {
         nameInput.setText(prefs.getString(AppPrefs.KEY_NAME, Build.MODEL))
         startOnBootCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)
         allowHttpCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false)
-        connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected")
+        connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected",
+                authenticated = playbackConnection() == ConnectionPhase.CONNECTED)
         deviceIdText.text = "Device ID: $deviceId"
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         allowHttpCheck.setOnCheckedChangeListener { _, checked ->
@@ -225,7 +243,8 @@ class MainActivity : AppCompatActivity() {
             runCatching { OAuthAttempt(SecureTokenStore(this)).cancel() }
             stopService(Intent(this, ConnectionService::class.java))
             stopService(Intent(this, PlaybackService::class.java))
-            prefs.edit().putString(AppPrefs.KEY_STATUS, "Stopped").apply()
+            prefs.edit().putString(AppPrefs.KEY_STATUS, "Stopped")
+                .putString(AppPrefs.KEY_CONNECTION_PHASE, ConnectionPhase.DISCONNECTED.name).apply()
         }
     }
 

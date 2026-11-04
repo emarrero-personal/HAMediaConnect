@@ -16,6 +16,33 @@ import android.os.Looper
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class StatusUiTest {
+    @Test fun idleFollowsConnectivityWhileBufferedAudioAndErrorsRemainIndependent() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val prefs = AppPrefs.prefs(context)
+        prefs.edit().clear().commit()
+        PlayerStateBus.publish(PlayerSnapshot("idle", .5f, false, 0, 0, null, null))
+        val controller = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = controller.get()
+        try {
+            fun phase(value: ConnectionPhase) {
+                prefs.edit().putString(AppPrefs.KEY_CONNECTION_PHASE, value.name)
+                    .putString(AppPrefs.KEY_STATUS, ConnectionEvent(value).message).commit()
+                shadowOf(Looper.getMainLooper()).idle()
+            }
+            fun text() = activity.findViewById<TextView>(R.id.playbackStatus).text.toString()
+            phase(ConnectionPhase.CONNECTED); assertTrue(text().startsWith("Ready"))
+            phase(ConnectionPhase.RECONNECTING); assertEquals("Waiting for Home Assistant connection", text())
+            phase(ConnectionPhase.DISCONNECTED); assertEquals("Unavailable — Not connected", text())
+            PlayerStateBus.publish(PlayerSnapshot("playing", .5f, false, 1000, 2000, "Music", "https://public.example/song"))
+            assertTrue(text().startsWith("Playing"))
+            phase(ConnectionPhase.RECONNECTING); assertTrue(text().startsWith("Playing"))
+            PlayerStateBus.publish(PlayerSnapshot("idle", .5f, false, 0, 0, null, "https://ha.example/api/tts_proxy/secret", PlaybackFailure.TIMEOUT))
+            phase(ConnectionPhase.DISCONNECTED); assertTrue(text().startsWith("Failed"))
+            phase(ConnectionPhase.CONNECTED); assertTrue(text().contains(PlaybackFailure.TIMEOUT))
+            PlayerStateBus.publish(PlayerSnapshot("idle", .5f, false, 0, 0, null, null))
+            assertTrue(text().startsWith("Ready"))
+        } finally { controller.pause().stop().destroy() }
+    }
     @Test fun settingsWaitsForDeviceAuthenticationAndPlaybackNeverChangesConnection() {
         val context = RuntimeEnvironment.getApplication() as Context
         val prefs = AppPrefs.prefs(context)

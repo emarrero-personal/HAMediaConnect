@@ -39,6 +39,8 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `SecureTokenStore.kt` | Android encrypted credential storage |
 | `HaOAuth.kt` | OAuth authorization-code flow with PKCE and refresh |
 | `ConnectionService.kt` | Foreground WebSocket connection, reconnect, command routing |
+| `ConnectionState.kt` | Typed connection failures, stages and retry policy |
+| `MediaRedirectPolicy.kt` | Bounded same-origin media redirects |
 | `HaWebSocketClient.kt` | Native Home Assistant WebSocket protocol |
 | `HaCommand.kt` | Parsed command model |
 | `PlaybackService.kt` | Media3 playback, announcements, volume, mute and DND |
@@ -192,7 +194,16 @@ HA signs/resolves media through its standard media helpers, identifies HA-owned
 origins with `is_hass_url`, and prefers Cloud HTTPS, then configured external HTTPS, via `get_url`.
 The Android client keeps public absolute URLs and resolves relative paths using
 its configured control origin. Production Media3 loading uses a separate OkHttp
-client, validates TLS, refuses redirects and bounds buffering. Announcement errors
+client, validates TLS, allows only bounded same-origin redirects and bounds buffering. Announcement errors
 are recorded before restoring prior playback. There are no new command/state
-fields. See the [TTS investigation](diagnostics/TTS_PLAYBACK.md) for the full trace,
-historical investigation. See [v1.0.1 device corrections](diagnostics/V1_0_1_FINAL_CORRECTIONS.md) for the current live UI, reconnect error classification, security review and physical acceptance procedure.
+fields. See the [TTS investigation](diagnostics/TTS_PLAYBACK.md) for the historical trace. See [v1.0.1 device corrections](diagnostics/V1_0_1_FINAL_CORRECTIONS.md) for the current live UI, reconnect error classification, security review and physical acceptance procedure.
+
+
+Default-network changes cancel old generations and retry immediately. Subsequent
+recoverable failures use bounded equal-jitter backoff indefinitely. The connection
+service consumes `ConnectionEvent`/`ConnectionFailure`, persists a typed phase for
+live UI rendering, and never parses display text to decide retry or authorization.
+A manual corrected-configuration action resets a terminal block; network events do not.
+HA resource ownership is established before default URL conversion so an unrecognized
+LAN origin cannot suppress Cloud/external HTTPS selection. See the current device
+corrections for the failure-code matrix, tests and physical acceptance checklist.

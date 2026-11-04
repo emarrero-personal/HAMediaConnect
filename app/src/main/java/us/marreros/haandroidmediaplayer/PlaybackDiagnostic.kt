@@ -24,14 +24,21 @@ object PlaybackDiagnostic {
         return "${uri.scheme.uppercase()} · $category · $route"
     }
 
-    fun summary(snapshot: PlayerSnapshot): String {
+    fun summary(snapshot: PlayerSnapshot, connection: ConnectionPhase = ConnectionPhase.CONNECTED): String {
         val label = if (snapshot.error != null) "Failed" else when (snapshot.state) {
             "buffering" -> "Buffering"
             "playing" -> "Playing"
             "paused" -> "Paused"
             else -> "Ready"
         }
-        if (label == "Ready") return "Ready — Waiting for audio from Home Assistant"
+        if (label == "Ready") {
+            val idle = when (connection) {
+            ConnectionPhase.CONNECTED -> "Ready — Waiting for audio from Home Assistant"
+            ConnectionPhase.CONNECTING, ConnectionPhase.RECONNECTING -> "Waiting for Home Assistant connection"
+            else -> "Unavailable — Not connected"
+            }
+            return listOfNotNull(idle, snapshot.notice).joinToString("\n")
+        }
         // Metadata may itself contain a signed URL. Never render a URL as a title.
         val title = snapshot.title?.takeUnless { it.contains("://") || it.contains('?') }
             ?.filter { !it.isISOControl() }?.take(512)
