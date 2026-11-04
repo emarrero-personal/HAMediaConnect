@@ -28,7 +28,7 @@ def platform(monkeypatch):
     media = module("homeassistant.components.media_player")
     media.__path__ = []
     browse = module("homeassistant.components.media_player.browse_media")
-    browse.async_process_play_media_url = lambda hass, url: "https://ha.example" + url if url.startswith("/") else url
+    browse.async_process_play_media_url = lambda hass, url, allow_relative_url=False: "https://ha.example" + url if url.startswith("/") and not allow_relative_url else url
     from enum import Enum, IntFlag
 
     class Features(IntFlag):
@@ -295,3 +295,31 @@ def test_optional_title_is_bounded_before_dispatch(platform, extra, expected):
     entity.hass = Mock()
     asyncio.run(entity.async_play_media("audio/mpeg", "https://public.example/music.mp3", extra=extra))
     assert registry.dispatch.call_args.args[1].get("media_title") == expected
+
+
+def test_relative_tts_keeps_ownership_before_default_origin_conversion(platform):
+    """An unrecognized default LAN origin must not bypass external selection."""
+    calls = []
+    def process(hass, url, *, allow_relative_url=False):
+        calls.append((url, allow_relative_url))
+        return url if allow_relative_url else "http://unrecognized-lan:8123" + url
+    platform.async_process_play_media_url = process
+    platform.get_url = Mock(return_value="https://remote.ui.nabu.casa")
+    platform.is_hass_url = lambda hass, url: False
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    asyncio.run(entity.async_play_media("audio/mpeg", "/api/tts_proxy/fixture-token?authSig=a%2Fb&x=1&x=2"))
+    assert registry.dispatch.call_args.args[1]["media_content_id"] == "https://remote.ui.nabu.casa/api/tts_proxy/fixture-token?authSig=a%2Fb&x=1&x=2"
+    assert calls == [("/api/tts_proxy/fixture-token?authSig=a%2Fb&x=1&x=2", True)]
+
+
+def test_network_relative_third_party_is_not_treated_as_ha_media(platform):
+    platform.get_url = Mock()
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    platform.async_process_play_media_url = lambda hass, url: url
+    asyncio.run(entity.async_play_media("audio/mpeg", "//third-party.example/api/tts_proxy/fake"))
+    platform.get_url.assert_not_called()
+    assert registry.dispatch.call_args.args[1]["announce"] is False

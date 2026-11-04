@@ -137,24 +137,26 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             media_id = item.url
             media_type = item.mime_type
 
-        # Sign with HA before selecting an endpoint. Only HA-owned URLs may move;
-        # preserve the raw escaped path/query (including existing signatures).
-        media_id = async_process_play_media_url(self.hass, media_id)
-        if is_hass_url(self.hass, media_id):
-            parsed = urlsplit(media_id)
+        # Remember ownership before a helper chooses a local/default origin. A
+        # relative HA resource must not lose its provenance when made absolute.
+        parsed = urlsplit(media_id)
+        ha_owned = (not parsed.scheme and not parsed.netloc and parsed.path.startswith("/")) or is_hass_url(self.hass, media_id)
+        if ha_owned:
             is_tts = is_tts or parsed.path.startswith("/api/tts_proxy/")
+            # Sign while still relative, so no private URL has to be guessed or
+            # rewritten by Android. TTS proxy paths already contain HA's token.
+            media_id = async_process_play_media_url(self.hass, media_id, allow_relative_url=True)
+            parsed = urlsplit(media_id)
             try:
-                # Cloud's remote UI uses HA's HTTP router, including tts_proxy.
-                # Selecting its origin does not verify the live tunnel or GET.
                 external = get_url(self.hass, allow_internal=False, require_ssl=True, prefer_cloud=True)
             except NoURLAvailableError:
-                # Local-only installations remain supported. Android reports an
-                # actionable load failure if this endpoint cannot be reached.
-                pass
+                media_id = async_process_play_media_url(self.hass, media_id)
             else:
                 media_id = external.rstrip("/") + parsed.path
                 if parsed.query:
                     media_id += "?" + parsed.query
+        else:
+            media_id = async_process_play_media_url(self.hass, media_id)
         extra = kwargs.get("extra")
         title = extra.get("title") if isinstance(extra, dict) else None
         metadata = {"media_title": title} if isinstance(title, str) and 0 < len(title) <= 512 else {}

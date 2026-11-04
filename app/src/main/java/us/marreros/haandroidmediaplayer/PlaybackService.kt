@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     companion object {
         private const val TAG = "HARemotePlayback"
@@ -162,6 +163,7 @@ class PlaybackService : MediaSessionService() {
         // Separate from authenticated HA control: never attach bearer tokens.
         // Refuse redirects so signatures cannot cross origins or downgrade TLS.
         val mediaHttp = OkHttpClient.Builder()
+            .addInterceptor(MediaRedirectPolicy())
             .followRedirects(false).followSslRedirects(false)
             .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
             .build()
