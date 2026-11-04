@@ -35,12 +35,17 @@ class MainActivity : AppCompatActivity() {
     private var oauthGeneration = 0
 
     private val notificationPermission = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { }
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants["android.permission.ACCESS_LOCAL_NETWORK"] == false) {
+            statusText.text = "Local playback needs Local network permission in Android app settings"
+        }
+    }
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-        if (key == AppPrefs.KEY_STATUS) {
-            statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
+        if (key == AppPrefs.KEY_STATUS || key == "playback_error") {
+            statusText.text = prefs.getString("playback_error", null)
+                ?: prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
         }
     }
 
@@ -113,7 +118,8 @@ class MainActivity : AppCompatActivity() {
         nameInput.setText(prefs.getString(AppPrefs.KEY_NAME, Build.MODEL))
         startOnBootCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)
         allowHttpCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false)
-        statusText.text = prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
+        statusText.text = prefs.getString("playback_error", null)
+            ?: prefs.getString(AppPrefs.KEY_STATUS, "Disconnected")
         deviceIdText.text = "Device ID: $deviceId"
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
         allowHttpCheck.setOnCheckedChangeListener { _, checked ->
@@ -265,12 +271,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestNotificationsIfNeeded() {
-        if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        val permissions = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
+                Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
+        if (Build.VERSION.SDK_INT >= 37 && ContextCompat.checkSelfPermission(this,
+                "android.permission.ACCESS_LOCAL_NETWORK") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissions.add("android.permission.ACCESS_LOCAL_NETWORK")
+        }
+        if (permissions.isNotEmpty()) notificationPermission.launch(permissions.toTypedArray())
     }
 
     override fun onDestroy() {

@@ -4,6 +4,9 @@ from __future__ import annotations
 from homeassistant.components import media_source
 from homeassistant.components.media_player import MediaPlayerEntity, MediaPlayerEntityFeature, MediaType, MediaPlayerState
 from homeassistant.components.media_player.browse_media import async_process_play_media_url
+from urllib.parse import urlsplit
+
+from homeassistant.helpers.network import NoURLAvailableError, get_url, is_hass_url
 from homeassistant.core import callback
 from homeassistant.helpers.entity import DeviceInfo
 
@@ -15,6 +18,7 @@ SUPPORTED = (
     | MediaPlayerEntityFeature.PAUSE
     | MediaPlayerEntityFeature.STOP
     | MediaPlayerEntityFeature.PLAY_MEDIA
+    | MediaPlayerEntityFeature.MEDIA_ANNOUNCE
     | MediaPlayerEntityFeature.VOLUME_SET
     | MediaPlayerEntityFeature.VOLUME_MUTE
 )
@@ -133,9 +137,24 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             media_id = item.url
             media_type = item.mime_type
 
-        # HA-generated media URLs may be relative (e.g. /api/tts_proxy/...).
-        # Android must receive an absolute URL, not a media-source URI.
+        # Sign with HA before selecting an endpoint. Only HA-owned URLs may move;
+        # preserve the raw escaped path/query (including existing signatures).
         media_id = async_process_play_media_url(self.hass, media_id)
+        if is_hass_url(self.hass, media_id):
+            parsed = urlsplit(media_id)
+            is_tts = is_tts or parsed.path.startswith("/api/tts_proxy/")
+            try:
+                # Cloud's remote UI uses HA's HTTP router, including tts_proxy.
+                # Selecting its origin does not verify the live tunnel or GET.
+                external = get_url(self.hass, allow_internal=False, require_ssl=True)
+            except NoURLAvailableError:
+                # Local-only installations remain supported. Android reports an
+                # actionable load failure if this endpoint cannot be reached.
+                pass
+            else:
+                media_id = external.rstrip("/") + parsed.path
+                if parsed.query:
+                    media_id += "?" + parsed.query
         self._send(
             "play_media",
             media_content_type=str(media_type),

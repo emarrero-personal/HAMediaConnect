@@ -15,6 +15,10 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -39,10 +43,28 @@ class PlaybackService : MediaSessionService() {
     }
 
     private lateinit var player: ExoPlayer
+    internal lateinit var mediaDataSourceFactory: OkHttpDataSource.Factory
     private lateinit var mediaSession: MediaSession
     private val handler = Handler(Looper.getMainLooper())
     private var currentUrl: String? = null
     private var currentTitle: String? = null
+    private var playbackFailed = false
+    private val bufferingTimeout = Runnable {
+        if (player.playbackState == Player.STATE_BUFFERING) failPlayback(PlaybackFailure.TIMEOUT)
+    }
+
+    private fun failPlayback(reason: String) {
+        handler.removeCallbacks(bufferingTimeout)
+        Log.w(TAG, reason) // Never attach the Throwable or its message/URL.
+        AppPrefs.prefs(this).edit().putString("playback_error", reason).apply()
+        playbackFailed = true
+        if (announcing) restoreMedia() else {
+            replacePlaybackListener()
+            player.stop()
+            currentTitle = reason
+            publishState("idle")
+        }
+    }
     private data class SavedMedia(
         val item: MediaItem,
         val positionMs: Long,
@@ -52,7 +74,6 @@ class PlaybackService : MediaSessionService() {
     )
     private var savedMedia: SavedMedia? = null
     private var announcing = false
-    private var announcementReady = false
     private var muted = false
     private val dndReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -75,28 +96,73 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    private var playbackGeneration = 0L
+    internal lateinit var playbackListener: Player.Listener
+        private set
+
+    private fun replacePlaybackListener() {
+        // Media3 drops queued events for removed listeners. The generation also
+        // rejects an old callback already captured by a caller during replacement.
+        if (::playbackListener.isInitialized) player.removeListener(playbackListener)
+        val generation = ++playbackGeneration
+        playbackListener = createPlaybackListener(generation)
+        player.addListener(playbackListener)
+    }
+
+    private fun createPlaybackListener(generation: Long) = object : Player.Listener {
+        private var announcementReady = false
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (generation != playbackGeneration) return
+            Log.d(TAG, "state=$playbackState announcing=$announcing saved=${savedMedia != null}")
+            handler.removeCallbacks(bufferingTimeout)
+            if (playbackState == Player.STATE_BUFFERING) {
+                handler.postDelayed(bufferingTimeout, PlaybackFailure.BUFFER_TIMEOUT_MS)
+            }
+            if (announcing && playbackState == Player.STATE_READY) announcementReady = true
+            if (announcing && playbackState == Player.STATE_ENDED) {
+                if (announcementReady) {
+                    restoreMedia()
+                } else if (player.playbackState == Player.STATE_ENDED) {
+                    // A real empty/failed stream can end without reaching READY.
+                    // A stale ENDED while the new item loads must not restore it.
+                    failPlayback("Announcement ended without playable audio; regenerate TTS")
+                }
+            }
+            publishState()
+        }
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (generation == playbackGeneration) publishState()
+        }
+        override fun onPlayerError(error: PlaybackException) {
+            if (generation != playbackGeneration) return
+            failPlayback(PlaybackFailure.describe(error))
+        }
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            if (generation != playbackGeneration) return
+            currentTitle = mediaMetadata.title?.toString() ?: currentTitle
+            publishState()
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         setMediaNotificationProvider(PlaybackNotifications(this))
-        player = ExoPlayer.Builder(this).build()
-        player.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                Log.d(TAG, "state=$playbackState announcing=$announcing saved=${savedMedia != null}")
-                if (announcing && playbackState == Player.STATE_READY) announcementReady = true
-                if (announcing && announcementReady && playbackState == Player.STATE_ENDED) {
-                    restoreMedia()
-                }
-                publishState()
+        // Separate from authenticated HA control: never attach bearer tokens.
+        // Refuse redirects so signatures cannot cross origins or downgrade TLS.
+        val mediaHttp = OkHttpClient.Builder()
+            .followRedirects(false).followSslRedirects(false)
+            .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
+            .build()
+        mediaDataSourceFactory = OkHttpDataSource.Factory(mediaHttp)
+            .setContentTypePredicate { type ->
+                val mime = type.substringBefore(';').trim().lowercase()
+                mime != "text/html" && mime != "application/json"
             }
-            override fun onIsPlayingChanged(isPlaying: Boolean) = publishState()
-            override fun onPlayerError(error: PlaybackException) {
-                if (announcing) restoreMedia() else publishState("error")
-            }
-            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
-                currentTitle = mediaMetadata.title?.toString() ?: currentTitle
-                publishState()
-            }
-        })
+        player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(this)
+                .setDataSourceFactory(mediaDataSourceFactory))
+            .build()
+        replacePlaybackListener()
         mediaSession = MediaSession.Builder(this, player).setCallback(object : MediaSession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo) =
                 ControllerPolicy.result(session, controller)
@@ -119,15 +185,16 @@ class PlaybackService : MediaSessionService() {
             CMD_PLAY_MEDIA -> playMedia(
                 intent.getStringExtra(EXTRA_URL),
                 intent.getStringExtra(EXTRA_TITLE),
-                intent.getBooleanExtra(EXTRA_ANNOUNCE, false)
+                intent.getBooleanExtra(EXTRA_ANNOUNCE, false),
+                intent.getStringExtra(EXTRA_CONTENT_TYPE)
             )
             "notification_toggle" -> if (player.isPlaying) player.pause() else player.play()
             CMD_PLAY -> player.play()
             CMD_PAUSE -> player.pause()
             CMD_STOP -> {
                 announcing = false
-                announcementReady = false
                 savedMedia = null
+                replacePlaybackListener()
                 player.stop()
                 player.clearMediaItems()
                 currentUrl = null
@@ -151,12 +218,15 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    private fun playMedia(url: String?, title: String?, announce: Boolean) {
+    private fun playMedia(url: String?, title: String?, announce: Boolean, contentType: String?) {
         if (url.isNullOrBlank() || !TransportPolicy.media(url)) return
         if (announce && isDndActive()) {
             Log.i(TAG, "Suppressing announcement while DND is active")
             return
         }
+        handler.removeCallbacks(bufferingTimeout)
+        playbackFailed = false
+        AppPrefs.prefs(this).edit().remove("playback_error").apply()
         Log.i(TAG, "playMedia announce=$announce items=${player.mediaItemCount}")
         if (announce) {
             if (!announcing && player.mediaItemCount > 0) {
@@ -172,10 +242,8 @@ class PlaybackService : MediaSessionService() {
                 }
             }
             announcing = true
-            announcementReady = false
         } else {
             announcing = false
-            announcementReady = false
             savedMedia = null
         }
         currentUrl = url
@@ -185,8 +253,10 @@ class PlaybackService : MediaSessionService() {
             .build()
         val item = MediaItem.Builder()
             .setUri(url)
+            .setMimeType(contentType?.takeIf { it.startsWith("audio/") || it.startsWith("video/") || it == "application/x-mpegURL" })
             .setMediaMetadata(metadata)
             .build()
+        replacePlaybackListener()
         player.setMediaItem(item)
         player.prepare()
         player.play()
@@ -196,11 +266,12 @@ class PlaybackService : MediaSessionService() {
         val previous = savedMedia
         Log.i(TAG, "restoreMedia saved=${previous != null}")
         announcing = false
-        announcementReady = false
         savedMedia = null
+        handler.removeCallbacks(bufferingTimeout)
+        replacePlaybackListener()
         if (previous == null) {
             currentUrl = null
-            currentTitle = null
+            currentTitle = if (playbackFailed) AppPrefs.prefs(this).getString("playback_error", null) else null
             player.clearMediaItems()
         } else {
             currentUrl = previous.url
@@ -247,7 +318,10 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         handler.removeCallbacks(ticker)
+        handler.removeCallbacks(bufferingTimeout)
         unregisterReceiver(dndReceiver)
+        playbackGeneration++
+        player.removeListener(playbackListener)
         mediaSession.release()
         player.release()
         super.onDestroy()

@@ -185,3 +185,14 @@ When the companion integration receives a TTS media-source URL (`media-source://
 The app suppresses announcements when Android's interruption filter indicates Do Not Disturb. If DND activates during an announcement, the service ends it and restores previously interrupted playback. This behavior should be tested on target devices because Android audio policy and OEM behavior vary.
 
 For maintainer build, test, signing, and release instructions, see [Maintainer handbook](MAINTAINER.md).
+
+## Media endpoint selection and diagnostics
+
+HA signs/resolves media through its standard media helpers, identifies HA-owned
+origins with `is_hass_url`, and prefers a secure external endpoint via `get_url`.
+The Android client keeps public absolute URLs and resolves relative paths using
+its configured control origin. Production Media3 loading uses a separate OkHttp
+client, validates TLS, refuses redirects and bounds buffering. Announcement errors
+are recorded before restoring prior playback. There are no new command/state
+fields. See the [TTS investigation](diagnostics/TTS_PLAYBACK.md) for the full trace,
+error reporting limitations, security review and physical acceptance procedure.

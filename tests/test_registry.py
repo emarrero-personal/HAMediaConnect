@@ -164,7 +164,8 @@ async def test_rate_limits_session_quota_and_cleanup(registry, registry_module, 
     with pytest.raises(ValueError):
         registry.challenge(conn, public, "Again")
     conn.subscriptions[registry_module.SESSION_KEY]()
-    assert not registry.sessions and not conn.subscriptions
+    assert not registry.sessions
+    assert registry_module.SESSION_KEY in conn.subscriptions
     for _ in range(8):
         c = connection()
         registry.challenge(c, public, "Pixel")

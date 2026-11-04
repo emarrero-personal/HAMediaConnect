@@ -115,3 +115,14 @@ HTTP is not made secure by device signatures: an on-path attacker can steal HA b
 ## Validation
 
 For security test commands, coverage gates, and release checklists, see the [Maintainer handbook](MAINTAINER.md).
+
+### Media delivery diagnostics update
+
+HA-owned media prefers HA's supported external HTTPS endpoint when configured;
+raw paths and signatures survive endpoint selection. Public streams keep their
+origins. Media uses a separate unauthenticated Media3 OkHttp client with TLS
+validation, no redirects, bounded connect/read and buffering deadlines, and fixed
+sanitized diagnostics. It never receives HA bearer tokens. Android 17 local access
+requires the Local network runtime permission. HTTP audio retains its existing
+independent capability. See [TTS investigation](diagnostics/TTS_PLAYBACK.md) for
+security tradeoffs, compatible diagnostics proposal, and unverified device cases.

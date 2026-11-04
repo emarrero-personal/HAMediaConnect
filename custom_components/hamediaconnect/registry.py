@@ -126,14 +126,21 @@ class PlayerRegistry:
         def cleanup():
             session.cancel()
             self.sessions.pop(connection, None)
-            connection.subscriptions.pop(SESSION_KEY, None)
             if session.device_id:
                 player = self.players.get(session.device_id)
                 if player and getattr(player.send_command, "connection", None) is connection:
                     player.send_command = None
                     self.hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": player.device_id})
         connection.subscriptions[SESSION_KEY] = cleanup
-        session.cancel = asyncio.get_running_loop().call_later(30, cleanup).cancel
+        def expire():
+            # Timer cleanup owns its registration; native disconnect cleanup
+            # owns the subscription dictionary while invoking callbacks.
+            if self.sessions.get(connection) is session:
+                cleanup()
+                if connection.subscriptions.get(SESSION_KEY) is cleanup:
+                    connection.subscriptions.pop(SESSION_KEY)
+
+        session.cancel = asyncio.get_running_loop().call_later(30, expire).cancel
         return session
 
     def challenge(self, connection, public_key, name):
@@ -204,7 +211,9 @@ class PlayerRegistry:
             player.send_command = None
             for connection, session in list(self.sessions.items()):
                 if session.device_id == device_id:
-                    connection.subscriptions[SESSION_KEY]()
+                    cleanup = connection.subscriptions.pop(SESSION_KEY, None)
+                    if cleanup:
+                        cleanup()
             self.hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": device_id})
 
     @callback
