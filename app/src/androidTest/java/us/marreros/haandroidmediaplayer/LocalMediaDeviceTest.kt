@@ -21,12 +21,14 @@ class LocalMediaDeviceTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
         val finished = CountDownLatch(1)
+        val completed = CountDownLatch(1)
         var played = false
         context.stopService(Intent(context, ConnectionService::class.java))
         context.stopService(Intent(context, PlaybackService::class.java))
         AppPrefs.prefs(context).edit().remove("playback_error").commit()
         PlayerStateBus.listener = { state ->
             if (state.state == "playing") { played = true; finished.countDown() }
+            if (played && state.state == "idle" && state.contentId == null) completed.countDown()
             if (AppPrefs.prefs(context).contains("playback_error")) finished.countDown()
         }
         try {
@@ -43,6 +45,7 @@ class LocalMediaDeviceTest {
                 assertNotNull("Failure must be visible", AppPrefs.prefs(context).getString("playback_error", null))
             } else {
                 assertTrue("Granted LAN permission must allow MP3 decoding/playback", played)
+                assertTrue("The short announcement must complete and restore idle", completed.await(10, TimeUnit.SECONDS))
                 assertNull(AppPrefs.prefs(context).getString("playback_error", null))
             }
         } finally {

@@ -88,7 +88,9 @@ A failed announcement restores the original item, position, and play/pause inten
 With no interrupted item, the service returns to idle with the diagnostic as its
 media title. The latest sanitized failure remains in Android app status until the
 next accepted media request. During restoration the HA state represents the
-restored music; it does not persist a structured announcement failure. The ticker
+restored music. Announcement failures are not independently reported to Home
+Assistant after restoration; automations cannot use the restored state to detect
+that failure. Android status and sanitized logs retain it. The ticker
 repeats the resulting state, so HA's rate-limited state sender can deliver it.
 No new WebSocket fields are sent; registered devices and command schemas remain
 compatible. A future compatible extension would negotiate a `playback_diagnostics`
@@ -156,9 +158,9 @@ checks. Emulator permission enforcement and Keystore checks are recorded below.
 * Gradle was launched with JAVA_HOME pointing to JDK 17; the repository's existing
   `gradle/gradle-daemon-jvm.properties` selects its JDK 25 daemon. That toolchain
   configuration was not changed. No assertion of a pure JDK 17 build is made.
-* HACS/Hassfest GitHub actions and Python 3.13 CI were not executed locally.
-  Docker and a live HA runtime are unavailable. No push or PR was requested;
-  GitHub workflow results for this branch are therefore pending.
+* These results describe the initial implementation. The follow-up validation
+  below records the announcement-completion review. A live HA/Cloud instance and
+  the physical Pixel are not available in this workspace.
 
 To repeat the optional emulator test, create a disposable AVD, generate a short
 MP3 (for example with ffmpeg's sine source), and serve it using
@@ -180,3 +182,84 @@ adb -s <serial> shell pm grant us.marreros.haandroidmediaplayer android.permissi
 
 Without the fixture argument the optional test is skipped, so normal CI does not
 contact a host endpoint. It must be deliberately enabled for the paired LAN test.
+
+## Review follow-up: announcement completion
+
+Each item replacement now installs a new Player.Listener with a fresh generation
+and an unarmed completion flag. Only READY from that listener arms announcement
+completion. ENDED before READY while the replacement loads is ignored. An actual
+end without playable audio is reported through the existing failure path. Old
+READY, ENDED, error, and metadata callbacks are ignored after replacement, stop,
+restoration, or service destruction. Repeated announcements retain the original
+music snapshot, including its position and paused/playing intent. Media3 1.11.0's
+[ListenerSet contract](https://github.com/androidx/media/blob/1.11.0/libraries/common/src/main/java/androidx/media3/common/util/ListenerSet.java)
+also excludes queued events for a listener removed after enqueueing.
+
+Regression tests inject late callbacks both before and after a replacement
+announcement becomes READY, replace an announcement with ordinary music, repeat
+the same announcement URL, fail before/after READY, deliver duplicate completion
+and error callbacks after restoration, and stop during an announcement. They
+verify that the original music position and paused/playing intent survive.
+
+## Cloud media compatibility review
+
+Source compatibility was checked against Home Assistant Core 2026.10.0:
+
+* [Network helpers](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/helpers/network.py)
+  select configured external HTTPS first, then Cloud's remote UI URL via
+  `async_remote_ui_url` when available. HAMediaConnect does not construct a Nabu
+  Casa hostname or use a Cloud voice-service/webhook URL.
+* [Cloud integration](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/cloud/__init__.py)
+  checks login, remote access preference, and an instance or cached domain before
+  returning the remote UI URL. It can return the cached domain while the remote
+  backend is not loaded; it does not prove the tunnel is connected. Cloud
+  voice/TTS subscription alone is insufficient.
+* [Cloud remote transport](https://github.com/NabuCasa/hass-nabucasa/blob/master/hass_nabucasa/remote.py)
+  passes the HA aiohttp runner to SniTun. Its
+  [aiohttp adapter](https://github.com/NabuCasa/snitun/blob/main/snitun/utils/aiohttp_client.py)
+  uses that runner's server rather than a separate set of media routes.
+* [TTS media-source resolution](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/tts/media_source.py)
+  returns a stream URL. The
+  [TTS HTTP view](https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/components/tts/__init__.py)
+  serves `/api/tts_proxy/{token}` without bearer authentication. It streams the
+  generated audio/content type for a live token; missing tokens return 404 and an
+  empty/failed generation can return 500. The opaque token is itself sensitive.
+
+These contracts make the selected Cloud origin plus the unchanged resolved path
+compatible at the routing/authentication level. A regression test covers a
+resolved opaque TTS token path (no file-extension assumption) dispatched on the
+Cloud origin without added credentials. Existing tests cover signed media paths
+and query preservation. No URL algorithm change is warranted by this source
+review. It does **not** verify a particular account, live tunnel, external proxy,
+phone network, token lifetime, or successful decoding. No live Nabu Casa endpoint
+was supplied or exercised, and no claim of end-to-end Cloud playback is made.
+
+For runtime acceptance, generate fresh TTS through the HA action while the phone
+is on cellular and connected to the Cloud HTTPS control origin. Confirm the app
+reports playing for that generated item, audio is audible, and music restoration
+works. Inspect only sanitized application diagnostics. A valid homepage or
+WebSocket connection is insufficient. Protected non-TTS media still requires HA
+path signing; remote UI access does not remove media authorization requirements.
+
+### Follow-up local validation
+
+* Python compileall and all 54 isolated integration tests pass; combined
+  line/branch coverage is 96.43% (85% gate).
+* All 46 Android JVM/Robolectric tests pass. Application line coverage remains
+  97.6% and security line coverage remains 87.5%; both 85% gates pass. Debug APK
+  assembly passes. No coverage exclusion or threshold changed.
+* Android 17 disposable-emulator suite: four tests pass (Keystore, credential
+  encryption, service authorization, settings contrast); the optional LAN fixture
+  test skips without its explicit argument. Device coverage data/report generated.
+* With the 3-second synthetic LAN MP3 and permission granted, the production
+  player reaches playing and subsequently completes the announcement and restores
+  idle; the optional test passes in 3.897 seconds. Denied-permission behavior is
+  also checked separately against the same fixture, with the 30-second bound.
+* Full Python/HA, Android, HACS, and Hassfest GitHub workflows are triggered by
+  the follow-up push to [PR #22](https://github.com/emarrero-personal/HAMediaConnect/pull/22).
+  Their current status is recorded on the PR; local results above do not stand in
+  for CI or real HA/Cloud/physical-device acceptance.
+
+The existing daemon toolchain caveat above still applies. The WebSocket cleanup
+implementation, authentication/transport protections, and component version 1.0.1
+are unchanged by this follow-up. No merge or release is performed.

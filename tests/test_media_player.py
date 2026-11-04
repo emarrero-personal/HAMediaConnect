@@ -266,3 +266,22 @@ def test_signed_media_retains_escaped_path_and_repeated_query(platform):
         "https://external.example/api/media_source/local/a%20b%2Fc.mp3?authSig=fixture%2Fsignature&x=1&x=2"
     )
     assert registry.dispatch.call_args.args[1]["announce"] is False
+
+
+def test_resolved_tts_token_uses_cloud_origin_without_extra_authentication(platform):
+    """HA 2026.10 serves resolved TTS at an opaque /api/tts_proxy/{token} path."""
+    source = sys.modules["homeassistant.components.media_source"]
+    async def resolve(hass, media_id, target_media_player):
+        return types.SimpleNamespace(url="/api/tts_proxy/opaque-token", mime_type="audio/mpeg")
+    source.async_resolve_media = resolve
+    platform.get_url = Mock(return_value="https://remote.ui.nabu.casa")
+    registry = Mock()
+    entity = platform.AndroidMediaPlayer(registry, "pixel")
+    entity.hass = Mock()
+    entity.entity_id = "media_player.pixel"
+    asyncio.run(entity.async_play_media("music", "media-source://tts/provider?message=fixture"))
+    assert registry.dispatch.call_args.args[1] == {
+        "action": "play_media", "media_content_type": "audio/mpeg",
+        "media_content_id": "https://remote.ui.nabu.casa/api/tts_proxy/opaque-token",
+        "announce": True,
+    }

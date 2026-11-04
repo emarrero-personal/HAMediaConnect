@@ -113,6 +113,10 @@ when the WebSocket connects. The Android app reports sanitized playback errors i
 its status and `HARemotePlayback` logs, and stops continuous buffering after
 30 seconds. Regenerate expired TTS after restoring connectivity. Media redirects
 are refused; use a direct audio URL for public streams that otherwise redirect.
+When an announcement fails and music is restored, Home Assistant receives the
+restored music state. The announcement failure is retained in Android status and
+sanitized logs; it is not independently reported to Home Assistant. See the
+investigation below for the proposed capability-negotiated diagnostics extension.
 
 See the [TTS investigation and device test procedure](docs/diagnostics/TTS_PLAYBACK.md)
 for evidence, limitations, and Wi-Fi/cellular verification.

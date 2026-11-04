@@ -144,6 +144,8 @@ class AndroidMediaPlayer(MediaPlayerEntity):
             parsed = urlsplit(media_id)
             is_tts = is_tts or parsed.path.startswith("/api/tts_proxy/")
             try:
+                # Cloud's remote UI uses HA's HTTP router, including tts_proxy.
+                # Selecting its origin does not verify the live tunnel or GET.
                 external = get_url(self.hass, allow_internal=False, require_ssl=True)
             except NoURLAvailableError:
                 # Local-only installations remain supported. Android reports an

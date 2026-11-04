@@ -59,6 +59,7 @@ class PlaybackService : MediaSessionService() {
         AppPrefs.prefs(this).edit().putString("playback_error", reason).apply()
         playbackFailed = true
         if (announcing) restoreMedia() else {
+            replacePlaybackListener()
             player.stop()
             currentTitle = reason
             publishState("idle")
@@ -95,23 +96,49 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
-    internal val playbackListener = object : Player.Listener {
+    private var playbackGeneration = 0L
+    internal lateinit var playbackListener: Player.Listener
+        private set
+
+    private fun replacePlaybackListener() {
+        // Media3 drops queued events for removed listeners. The generation also
+        // rejects an old callback already captured by a caller during replacement.
+        if (::playbackListener.isInitialized) player.removeListener(playbackListener)
+        val generation = ++playbackGeneration
+        playbackListener = createPlaybackListener(generation)
+        player.addListener(playbackListener)
+    }
+
+    private fun createPlaybackListener(generation: Long) = object : Player.Listener {
+        private var announcementReady = false
         override fun onPlaybackStateChanged(playbackState: Int) {
+            if (generation != playbackGeneration) return
             Log.d(TAG, "state=$playbackState announcing=$announcing saved=${savedMedia != null}")
             handler.removeCallbacks(bufferingTimeout)
             if (playbackState == Player.STATE_BUFFERING) {
                 handler.postDelayed(bufferingTimeout, PlaybackFailure.BUFFER_TIMEOUT_MS)
             }
+            if (announcing && playbackState == Player.STATE_READY) announcementReady = true
             if (announcing && playbackState == Player.STATE_ENDED) {
-                restoreMedia()
+                if (announcementReady) {
+                    restoreMedia()
+                } else if (player.playbackState == Player.STATE_ENDED) {
+                    // A real empty/failed stream can end without reaching READY.
+                    // A stale ENDED while the new item loads must not restore it.
+                    failPlayback("Announcement ended without playable audio; regenerate TTS")
+                }
             }
             publishState()
         }
-        override fun onIsPlayingChanged(isPlaying: Boolean) = publishState()
+        override fun onIsPlayingChanged(isPlaying: Boolean) {
+            if (generation == playbackGeneration) publishState()
+        }
         override fun onPlayerError(error: PlaybackException) {
+            if (generation != playbackGeneration) return
             failPlayback(PlaybackFailure.describe(error))
         }
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+            if (generation != playbackGeneration) return
             currentTitle = mediaMetadata.title?.toString() ?: currentTitle
             publishState()
         }
@@ -135,7 +162,7 @@ class PlaybackService : MediaSessionService() {
             .setMediaSourceFactory(DefaultMediaSourceFactory(this)
                 .setDataSourceFactory(mediaDataSourceFactory))
             .build()
-        player.addListener(playbackListener)
+        replacePlaybackListener()
         mediaSession = MediaSession.Builder(this, player).setCallback(object : MediaSession.Callback {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo) =
                 ControllerPolicy.result(session, controller)
@@ -167,6 +194,7 @@ class PlaybackService : MediaSessionService() {
             CMD_STOP -> {
                 announcing = false
                 savedMedia = null
+                replacePlaybackListener()
                 player.stop()
                 player.clearMediaItems()
                 currentUrl = null
@@ -228,6 +256,7 @@ class PlaybackService : MediaSessionService() {
             .setMimeType(contentType?.takeIf { it.startsWith("audio/") || it.startsWith("video/") || it == "application/x-mpegURL" })
             .setMediaMetadata(metadata)
             .build()
+        replacePlaybackListener()
         player.setMediaItem(item)
         player.prepare()
         player.play()
@@ -238,6 +267,8 @@ class PlaybackService : MediaSessionService() {
         Log.i(TAG, "restoreMedia saved=${previous != null}")
         announcing = false
         savedMedia = null
+        handler.removeCallbacks(bufferingTimeout)
+        replacePlaybackListener()
         if (previous == null) {
             currentUrl = null
             currentTitle = if (playbackFailed) AppPrefs.prefs(this).getString("playback_error", null) else null
@@ -289,6 +320,8 @@ class PlaybackService : MediaSessionService() {
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(bufferingTimeout)
         unregisterReceiver(dndReceiver)
+        playbackGeneration++
+        player.removeListener(playbackListener)
         mediaSession.release()
         player.release()
         super.onDestroy()
