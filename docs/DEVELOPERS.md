@@ -1,6 +1,5 @@
 # HAMediaConnect — Developer Guide
-
-This document describes the implementation and wire protocol in the **v0.2 feature branch**. For installation, see the [README](../README.md).
+This document describes the implementation and wire protocol
 
 ## Architecture
 
@@ -170,12 +169,11 @@ The app suppresses announcements when Android's interruption filter indicates Do
 
 ## Development workflow
 
-1. Check out `feature/v0.2-oauth-media-player` for ongoing development. Do not modify `main` until a reviewed merge.
-2. Open the project in Android Studio and sync Gradle.
-3. Build and run on Android 10+ (minSdk 29). Test both OAuth and local token authentication.
-4. Copy the custom integration to a Home Assistant test instance and restart HA.
-5. Verify registration, media playback, TTS, mute, DND, reconnect and boot recovery.
-6. Run the Python integration tests where the Home Assistant test dependencies are available.
-7. Review [third-party notices](../THIRD_PARTY_NOTICES.md) before release.
+1. Open the project in Android Studio and sync Gradle.
+2. Build and run on Android 10+ (minSdk 29). Test both OAuth and local token authentication.
+3. Copy the custom integration to a Home Assistant test instance and restart HA.
+4. Verify registration, media playback, TTS, mute, DND, reconnect and boot recovery.
+5. Run the Python integration tests where the Home Assistant test dependencies are available.
+6. Review [third-party notices](../THIRD_PARTY_NOTICES.md) before release.
 
 Do not treat this guide as a security or build certification. The branch still requires a complete compile/test pass, transitive dependency license review, and release packaging.
