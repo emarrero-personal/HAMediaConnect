@@ -46,6 +46,7 @@
                 <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="https://homeassistant.example.com" android:inputType="textUri" android:singleLine="true" />
                 <EditText android:id="@+id/tokenInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Long-lived access token" android:inputType="textPassword" android:singleLine="true" android:visibility="gone" />
                 <EditText android:id="@+id/nameInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Device name" android:inputType="textCapWords" android:singleLine="true" />
+                <CheckBox android:id="@+id/allowHttpCheck" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Allow insecure HTTP connections (not recommended)" />
                 <CheckBox android:id="@+id/startOnBootCheck" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Start connection after reboot" />
                 <Button android:id="@+id/oauthButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Sign in with Home Assistant" />
                 <Button android:id="@+id/saveStartButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Save &amp; connect" />
