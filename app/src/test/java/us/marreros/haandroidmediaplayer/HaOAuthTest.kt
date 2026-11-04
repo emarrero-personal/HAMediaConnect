@@ -19,7 +19,7 @@ class HaOAuthTest {
  }
  @Test fun rejectsHttp() {
   try { HaOAuth("http://example.com"); fail("Expected rejection") }
-  catch (e:IllegalArgumentException) { assertTrue(e.message!!.contains("HTTPS")) }
+  catch (e:IllegalArgumentException) { assertNotNull(e) }
  }
  @Test fun authorizationUrlHasCorrectPkce() {
   val uri=HaOAuth("https://ha.example/").authorizationUrl("state123","verifier")

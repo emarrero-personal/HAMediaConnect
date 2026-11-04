@@ -21,9 +21,9 @@ class ConnectionService : Service() {
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private var reconnectFuture: ScheduledFuture<*>? = null
     private var client: HaWebSocketClient? = null
-    private var stopped = false
-    private var generation = 0L
-    private var retrySeconds = 5L
+    @Volatile private var stopped = false
+    @Volatile private var generation = 0L
+    private var retryAttempt = 0
 
     override fun onCreate() {
         super.onCreate()
@@ -39,7 +39,7 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopped = false
-        scheduler.execute { connect() }
+        if (reconnectFuture == null && client == null) scheduler.execute { connect() }
         return START_STICKY
     }
 
@@ -50,7 +50,15 @@ class ConnectionService : Service() {
         val attempt = ++generation
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
+        if (!AppPrefs.isAllowedUrl(baseUrl, prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))) {
+            updateStatus("Connection blocked: HTTPS required unless insecure HTTP is enabled")
+            return
+        }
         val secure = SecureTokenStore(this)
+        if (secure.get("credential_origin") != baseUrl.trimEnd('/')) {
+            updateStatus("Sign in or enter a token for this Home Assistant URL")
+            return
+        }
         val tokenMode = secure.get("auth_method") == "token"
         var token = if (tokenMode) secure.get("long_lived_token").orEmpty() else secure.get("access_token").orEmpty()
         val refreshToken = if (tokenMode) null else secure.get("refresh_token")
@@ -63,17 +71,17 @@ class ConnectionService : Service() {
                 if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
                 prefs.edit().putLong("oauth_expiry",
                     System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
-            } catch (_: Exception) {
-                updateStatus("Token refresh unavailable; retrying")
-                scheduleReconnect()
+            } catch (e: Exception) {
+                if (e is OAuthRejected) updateStatus("Authentication failed; sign in again")
+                else { updateStatus("Token refresh unavailable; retrying"); scheduleReconnect() }
                 return
             }
         }
-        if (!AppPrefs.isAllowedUrl(baseUrl, prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))) {
-            updateStatus("Connection blocked: HTTPS required unless insecure HTTP is enabled")
+
+        val identity = try { DeviceIdentity(this) } catch (_: Exception) {
+            updateStatus("Device key unavailable; reset identity in Settings")
             return
         }
-        val deviceId = AppPrefs.ensureDeviceId(this)
         if (baseUrl.isBlank() || token.isBlank()) {
             updateStatus("Configure URL and sign in")
             stopSelf()
@@ -84,28 +92,29 @@ class ConnectionService : Service() {
         client = HaWebSocketClient(
             baseUrl = baseUrl,
             token = token,
-            deviceId = deviceId,
-            deviceName = prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL,
+            identity = identity,
+            allowHttp = prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false),
+            deviceName = (prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL).take(128),
             onStatus = { status ->
                 scheduler.execute {
                     if (stopped || attempt != generation) return@execute
                     updateStatus(status)
-                    if (status == "Connected") retrySeconds = 5L
-                    else if (status.startsWith("Disconnected") || status == "Authentication failed" || status.startsWith("Registration rejected") || status.startsWith("Subscription rejected")) scheduleReconnect()
+                    if (status == "Connected") retryAttempt = 0
+                    else if (status == "Disconnected" || status == "Authentication timed out") scheduleReconnect()
                 }
             },
-            onCommand = { command -> dispatchCommand(command) }
+            onCommand = { command -> if (!stopped && attempt == generation) dispatchCommand(command) }
         ).also { it.connect() }
     }
 
     private fun scheduleReconnect() {
         if (stopped || (reconnectFuture != null && !reconnectFuture!!.isDone)) return
-        val delay = retrySeconds
-        retrySeconds = (retrySeconds * 2).coerceAtMost(60L)
+        val delay = TransportPolicy.reconnectDelay(retryAttempt)
+        retryAttempt = (retryAttempt + 1).coerceAtMost(6)
         reconnectFuture = scheduler.schedule({
             reconnectFuture = null
             if (!stopped) connect()
-        }, delay, TimeUnit.SECONDS)
+        }, delay, TimeUnit.MILLISECONDS)
     }
 
     private fun dispatchCommand(command: HaCommand) {
@@ -119,14 +128,12 @@ class ConnectionService : Service() {
             putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
             command.muted?.let { putExtra(PlaybackService.EXTRA_MUTED, it) }
         }
-        startService(intent)
+        startService(InternalPlayback.authorize(intent))
     }
 
-    private fun resolveUrl(url: String): String {
-        if (url.startsWith("http://") || url.startsWith("https://")) return url
-        val base = AppPrefs.prefs(this).getString(AppPrefs.KEY_URL, "")!!.trimEnd('/')
-        return if (url.startsWith('/')) "$base$url" else "$base/$url"
-    }
+    private fun resolveUrl(url: String): String = TransportPolicy.resolveMedia(
+        AppPrefs.prefs(this).getString(AppPrefs.KEY_URL, "")!!, url
+    )
 
     fun publishPlayerState(
         state: String,
@@ -139,7 +146,6 @@ class ConnectionService : Service() {
     ) {
         val prefs = AppPrefs.prefs(this)
         val payload = JSONObject()
-            .put("device_id", AppPrefs.ensureDeviceId(this))
             .put("name", prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL))
             .put("state", state)
             .put("volume_level", volume)

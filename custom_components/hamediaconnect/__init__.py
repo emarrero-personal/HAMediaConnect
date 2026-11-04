@@ -1,5 +1,6 @@
 """Home Assistant integration for Android remote media players."""
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .oauth_view import OAuthClientView
@@ -11,7 +12,9 @@ PLATFORMS = ["media_player"]
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register OAuth page and authenticated WebSocket commands."""
-    hass.data[REGISTRY_KEY] = PlayerRegistry(hass)
+    registry = PlayerRegistry(hass, Store(hass, 1, f"{DOMAIN}.identities", private=True, atomic_writes=True))
+    await registry.async_load()
+    hass.data[REGISTRY_KEY] = registry
     hass.http.register_view(OAuthClientView())
     async_register_websocket_commands(hass)
     return True

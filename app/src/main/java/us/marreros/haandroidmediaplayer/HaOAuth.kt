@@ -11,7 +11,9 @@ import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 
 /** Home Assistant authorization-code + PKCE client. Never invoke token exchange on the UI thread. */
-class HaOAuth(private val baseUrl: String) {
+class OAuthRejected : IllegalStateException("OAuth authorization rejected")
+
+class HaOAuth(base: String) {
     companion object {
         const val CLIENT_PATH = "/api/hamediaconnect/oauth-client"
         const val REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
@@ -24,12 +26,13 @@ class HaOAuth(private val baseUrl: String) {
         )
     }
 
+    private val baseUrl = TransportPolicy.base(base, false).toString().trimEnd('/')
     private val clientId: String = baseUrl.trimEnd('/') + CLIENT_PATH
 
     private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
-        .callTimeout(25, TimeUnit.SECONDS).build()
+        .callTimeout(25, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
 
-    init { require(baseUrl.startsWith("https://")) { "OAuth requires HTTPS" } }
+
 
     fun authorizationUrl(state: String, verifier: String): Uri =
         Uri.parse("${baseUrl.trimEnd('/')}/auth/authorize").buildUpon()
@@ -45,18 +48,31 @@ class HaOAuth(private val baseUrl: String) {
         FormBody.Builder().add("grant_type", "authorization_code")
             .add("code", code).add("client_id", clientId)
             .add("redirect_uri", REDIRECT_URI).add("code_verifier", verifier).build()
-    )
+    ).also { require(it.optString("refresh_token").length in 1..8192) }
 
     fun refresh(refreshToken: String): JSONObject = tokenRequest(
         FormBody.Builder().add("grant_type", "refresh_token")
             .add("client_id", clientId).add("refresh_token", refreshToken).build()
     )
 
+    internal fun validateTokens(tokens: JSONObject): JSONObject {
+        require(tokens.get("access_token") is String && tokens.getString("access_token").length in 1..8192)
+        require(tokens.get("token_type") is String && tokens.getString("token_type").equals("Bearer", ignoreCase = true))
+        val expiry = tokens.get("expires_in")
+        require(expiry is Number && expiry.toDouble().isFinite() && expiry.toDouble() in 1.0..86400.0)
+        if (tokens.has("refresh_token")) require(tokens.get("refresh_token") is String && tokens.getString("refresh_token").length in 1..8192)
+        return tokens
+    }
+
     private fun tokenRequest(body: FormBody): JSONObject {
         val request = Request.Builder().url("${baseUrl.trimEnd('/')}/auth/token").post(body).build()
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IllegalStateException("Token endpoint returned HTTP ${response.code}")
-            return JSONObject(response.body?.string() ?: error("Empty token response"))
+            if (response.code in listOf(400, 401, 403) || response.isRedirect) throw OAuthRejected()
+            check(response.isSuccessful) { "Token endpoint unavailable" }
+            val source = requireNotNull(response.body).source()
+            source.request(16385)
+            require(source.buffer.size <= 16384) { "Token response too large" }
+            return validateTokens(HaWebSocketClient.boundedJson(source.readUtf8()))
         }
     }
 }

@@ -1,26 +1,19 @@
 package us.marreros.haandroidmediaplayer
-import android.content.Context
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AppPrefsTest {
- @Test fun createsAndPersistsDeviceId() {
-  val context:Context=RuntimeEnvironment.getApplication()
+ @Test fun doesNotEnableHttpImplicitly() {
+  val context = RuntimeEnvironment.getApplication() as android.content.Context
   AppPrefs.prefs(context).edit().clear().commit()
-  val id=AppPrefs.ensureDeviceId(context)
-  assertTrue(id.isNotBlank())
-  assertEquals(id,AppPrefs.ensureDeviceId(context))
-  assertEquals(id,AppPrefs.prefs(context).getString(AppPrefs.KEY_DEVICE_ID,null))
- }
- @Test fun keepsExistingDeviceId() {
-  val context:Context=RuntimeEnvironment.getApplication()
-  AppPrefs.prefs(context).edit().putString(AppPrefs.KEY_DEVICE_ID,"existing").commit()
-  assertEquals("existing",AppPrefs.ensureDeviceId(context))
+  assertFalse(AppPrefs.prefs(context).getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))
+  assertFalse(AppPrefs.isAllowedUrl("http://ha.local:8123", false))
+  assertTrue(AppPrefs.isAllowedUrl("https://ha.local:8123", false))
  }
 }

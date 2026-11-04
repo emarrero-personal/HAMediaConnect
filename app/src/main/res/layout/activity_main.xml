@@ -53,6 +53,8 @@
                 <Button android:id="@+id/stopButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Disconnect" />
             </LinearLayout>
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="Advanced" android:textColor="#5123A6" android:textSize="18sp" android:textStyle="bold" />
+            <Button android:id="@+id/forgetCredentialsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Forget Home Assistant credentials" />
+            <Button android:id="@+id/resetIdentityButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Reset device identity" />
             <TextView android:id="@+id/deviceIdText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="#51436D" android:textIsSelectable="true" android:textSize="12sp" />
         </LinearLayout>
     </ScrollView>
