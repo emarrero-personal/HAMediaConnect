@@ -41,7 +41,7 @@ Initial enrollment is trust-on-first-proof within the authenticated HA account, 
    Only a connection that proved this identity can subscribe or send `hamediaconnect/state`. Only one live command subscriber per device is allowed. Native HA disconnect/unsubscribe callbacks remove subscriptions; a separate cleanup callback also removes the authenticated connection state. Incomplete handshakes are removed after 30 seconds, even if the socket stays open.
 7. Reconnect repeats native HA authentication and a fresh device challenge. Challenges and authenticated sessions are never persisted. Captured signatures cannot authenticate another connection or answer a later challenge.
 
-Android permits only the expected handshake sequence and response IDs. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
+Android permits only the expected handshake sequence and response IDs. Temporary subscription conflicts, rate/session exhaustion, and storage failures retry without granting authorization or adding a second subscriber. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
 
 ## Persistence, revocation, key loss
 
@@ -118,7 +118,7 @@ For security test commands, coverage gates, and release checklists, see the [Mai
 
 ### Media delivery diagnostics update
 
-HA-owned media prefers HA's supported external HTTPS endpoint when configured;
+HA-owned media prefers HA's supported Cloud HTTPS endpoint when available, then configured external HTTPS;
 raw paths and signatures survive endpoint selection. Public streams keep their
 origins. Media uses a separate unauthenticated Media3 OkHttp client with TLS
 validation, no redirects, bounded connect/read and buffering deadlines, and fixed

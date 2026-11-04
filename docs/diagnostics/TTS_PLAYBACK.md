@@ -1,5 +1,7 @@
 # TTS investigation
 
+The later [v1.0.1 device corrections](V1_0_1_FINAL_CORRECTIONS.md) supersede the endpoint-priority, UI-status, and validation conclusions below. This document records the preceding investigation and its historical test results.
+
 ## Findings before implementation
 
 At the start of this investigation, the reported Pixel failure had not been

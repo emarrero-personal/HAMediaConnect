@@ -102,7 +102,7 @@ For playback away from home, enable Home Assistant Cloud remote access or config
 a valid external **HTTPS** URL in Home Assistant's network settings. Configure the
 app's Home Assistant connection with that reachable HTTPS origin and authenticate
 there once. Use this same origin on Wi-Fi and cellular. The integration prefers
-HA's external HTTPS endpoint for HA-owned media, including TTS. It keeps local
+HA's Cloud HTTPS endpoint when available, then a configured external HTTPS endpoint for HA-owned media, including TTS. It keeps local
 media when no external HTTPS endpoint is configured. A local-only HTTP connection
 cannot reconnect from cellular; do not expose port 8123 publicly.
 
@@ -120,3 +120,6 @@ investigation below for the proposed capability-negotiated diagnostics extension
 
 See the [TTS investigation and device test procedure](docs/diagnostics/TTS_PLAYBACK.md)
 for evidence, limitations, and Wi-Fi/cellular verification.
+
+For the v1.0.1 corrections, sanitized Playback diagnostics, and the pending Pixel 10
+acceptance checklist, see [device corrections](docs/diagnostics/V1_0_1_FINAL_CORRECTIONS.md).

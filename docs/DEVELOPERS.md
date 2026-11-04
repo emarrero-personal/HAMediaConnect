@@ -189,10 +189,10 @@ For maintainer build, test, signing, and release instructions, see [Maintainer h
 ## Media endpoint selection and diagnostics
 
 HA signs/resolves media through its standard media helpers, identifies HA-owned
-origins with `is_hass_url`, and prefers a secure external endpoint via `get_url`.
+origins with `is_hass_url`, and prefers Cloud HTTPS, then configured external HTTPS, via `get_url`.
 The Android client keeps public absolute URLs and resolves relative paths using
 its configured control origin. Production Media3 loading uses a separate OkHttp
 client, validates TLS, refuses redirects and bounds buffering. Announcement errors
 are recorded before restoring prior playback. There are no new command/state
 fields. See the [TTS investigation](diagnostics/TTS_PLAYBACK.md) for the full trace,
-error reporting limitations, security review and physical acceptance procedure.
+historical investigation. See [v1.0.1 device corrections](diagnostics/V1_0_1_FINAL_CORRECTIONS.md) for the current live UI, reconnect error classification, security review and physical acceptance procedure.
