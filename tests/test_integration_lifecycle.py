@@ -52,6 +52,8 @@ def modules(monkeypatch):
         return mod
     load("const")
     stub("homeassistant.helpers")
+    config_validation = stub("homeassistant.helpers.config_validation")
+    config_validation.config_entry_only_config_schema = Mock(return_value="config-entry-only")
     storage = stub("homeassistant.helpers.storage")
     storage.Store = Mock(return_value=types.SimpleNamespace(async_load=AsyncMock(return_value=None), async_save=AsyncMock()))
     load("registry")
@@ -66,6 +68,7 @@ def modules(monkeypatch):
 
 def test_setup_and_entry_lifecycle(modules):
     integration, _, _, ws = modules
+    assert integration.CONFIG_SCHEMA == "config-entry-only"
     hass = Mock()
     hass.data = {}
     assert asyncio.run(integration.async_setup(hass, {})) is True

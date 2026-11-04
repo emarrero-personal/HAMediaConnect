@@ -1,14 +1,14 @@
 {
-  "title": "HA Remote Media Player",
+  "title": "HAMediaConnect",
   "config": {
     "step": {
       "user": {
-        "title": "Set up HA Remote Media Player",
-        "description": "Install the OAuth client identification endpoint. Android player registration will be available in a future update."
+        "title": "Set up HAMediaConnect",
+        "description": "Add the integration to Home Assistant so Android devices can securely register as media players."
       }
     },
     "abort": {
-      "already_configured": "HA Remote Media Player is already configured."
+      "already_configured": "HAMediaConnect is already configured."
     }
   }
 }

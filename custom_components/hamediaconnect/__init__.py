@@ -1,5 +1,6 @@
 """Home Assistant integration for Android remote media players."""
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
@@ -8,6 +9,7 @@ from .registry import PlayerRegistry
 from .websocket_api import REGISTRY_KEY, async_register_websocket_commands
 
 PLATFORMS = ["media_player"]
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:

@@ -1,15 +1,17 @@
 {
   "domain": "hamediaconnect",
   "name": "HAMediaConnect",
-  "version": "0.10.0",
-  "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
-  "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
-  "codeowners": [],
+  "codeowners": [
+    "@emarrero-personal"
+  ],
+  "config_flow": true,
   "dependencies": [
     "http",
     "media_source",
     "websocket_api"
   ],
-  "config_flow": true,
-  "iot_class": "local_push"
+  "documentation": "https://github.com/emarrero-personal/HAMediaConnect",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/emarrero-personal/HAMediaConnect/issues",
+  "version": "0.10.0"
 }
