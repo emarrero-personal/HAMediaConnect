@@ -4,7 +4,7 @@ This document is for project maintainers, release engineers, and contributors wi
 
 ## Release management
 
-1. Review the Android app and Home Assistant integration together; ensure their version strings agree and Android `versionCode` increases.
+1. Review the client app and Home Assistant integration together; ensure their version strings agree and Android `versionCode` increases.
 2. Require green Python/HA, Android, HACS, Hassfest, security-coverage and device-instrumentation CI. Test real device enrollment, music, TTS, mute, DND, reconnect, and boot.
 3. Confirm the production-signing environment has the four secrets `ANDROID_RELEASE_KEYSTORE_BASE64`, `ANDROID_RELEASE_STORE_PASSWORD`, `ANDROID_RELEASE_KEY_ALIAS`, and `ANDROID_RELEASE_KEY_PASSWORD`. Configure required reviewers to require manual signing approval.
 4. After approval, tag the reviewed main commit with `v1.0.0` and push the tag. The workflow `.github/workflows/distribution-apk.yml` validates tag ancestry and version, runs tests, signs the release, verifies with `apksigner`, and publishes `HAMediaConnect.apk` and its SHA-256 checksum. Do not overwrite an existing release.
@@ -22,7 +22,7 @@ The repository already supports custom-repository installation. For official lis
 
 ### Suggested HACS submission description
 
-HAMediaConnect pairs a Home Assistant custom integration with an Android app, exposing Android phones and tablets as native media players for music and TTS announcements.
+HAMediaConnect pairs a Home Assistant custom integration with a client app (currently available for Android), exposing Android phones and tablets as native media players for music and TTS announcements.
 
 Repository: https://github.com/emarrero-personal/HAMediaConnect
 
@@ -31,7 +31,7 @@ Repository: https://github.com/emarrero-personal/HAMediaConnect
 - Android Studio / JDK 17; run `./gradlew testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage securityCodeCoverageReport verifySecurityCodeCoverage assembleDebug`.
 - Python: `python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85`.
 - Run `connectedDebugAndroidTest securityDeviceCoverageReport` with a disposable emulator when available. Never run destructive Keystore reset tests on a real installation containing credentials.
-- Install the integration on a test HA instance, restart HA, configure it in Devices & services, and connect the paired Android app.
+- Install the integration on a test HA instance, restart HA, configure it in Devices & services, and connect the paired client app.
 - Verify play, pause, stop, volume, mute, HTTP/HTTPS media, TTS announcement/resume, DND, disconnect availability, restart recovery, Bluetooth and lock-screen controls.
 - Test OAuth PKCE with a reachable HTTPS client identification endpoint; check state mismatch, expired callback, refresh, token revocation, and no credentials in logs.
 - For local HTTP-only HA, use the explicitly opt-in insecure HTTP setting with a least-privilege long-lived token on a trusted LAN; never expose it publicly.
