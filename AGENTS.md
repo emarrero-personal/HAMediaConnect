@@ -6,12 +6,12 @@ These repository-wide instructions apply to **all automated coding assistants**,
 
 HAMediaConnect turns an Android phone or tablet into a native Home Assistant `media_player`. It consists of two independently installed but protocol-coupled components:
 
-- **Android app** (`app/`): Kotlin, Android 10+ (minSdk 29), Media3/ExoPlayer and MediaSession, OkHttp WebSocket client, OAuth PKCE, Android Keystore-backed identity and encrypted credentials, foreground connection and playback services.
+- **Client app (currently Android)** (`app/`): Kotlin, Android 10+ (minSdk 29), Media3/ExoPlayer and MediaSession, OkHttp WebSocket client, OAuth PKCE, Android Keystore-backed identity and encrypted credentials, foreground connection and playback services.
 - **Home Assistant integration** (`custom_components/hamediaconnect/`): Python config flow, native media player entity, authenticated WebSocket API, device registry, ownership enforcement, state/command handling, media-source and TTS URL resolution.
 - **Tests**: `tests/` for Home Assistant/Python; Android unit, Robolectric, and instrumentation tests under `app/src/test/` and `app/src/androidTest/`.
 - **Distribution**: HACS installs only the Home Assistant integration. The Android APK is separately signed and distributed through GitHub Releases.
 
-The integration domain is **`hamediaconnect`**; retain it. Android package/application identifiers and OAuth callback scheme contain historical names for compatibility; do not rename them casually. The paired version target is **1.0.0**. Treat the on-disk manifests and build files as authoritative when verifying the current version.
+The integration domain is **`hamediaconnect`**; retain it. Android package/application identifiers and OAuth callback scheme contain historical names for compatibility; do not rename them casually. The paired version target is **1.0.0**. Use **client app** for platform-neutral protocol and product references; use **Android client app**, **Android Keystore**, **Media3**, etc., for platform-specific implementation details. iOS is a future possibility, not an existing implementation. Treat the on-disk manifests and build files as authoritative when verifying the current version.
 
 Read [README.md](README.md), [developer guide](docs/DEVELOPERS.md), [security architecture](docs/SECURITY_PHASE_2.md), and [maintainer handbook](docs/MAINTAINER.md) before significant changes.
 
