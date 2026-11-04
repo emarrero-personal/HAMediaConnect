@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
 
 class ConnectionService : Service() {
     companion object {
+        const val ACTION_RECONNECT = "reconnect_corrected_configuration"
         private const val CHANNEL_ID = "ha_connection"
         private const val NOTIFICATION_ID = 1001
     }
@@ -23,9 +24,9 @@ class ConnectionService : Service() {
     internal var tokenStoreFactory: () -> SecretStore = { SecureTokenStore(this) }
     internal var refreshCredentials: (String, String) -> JSONObject = { origin, refresh -> HaOAuth(origin).refresh(refresh) }
     internal var identityFactory: () -> DeviceSigner = { DeviceIdentity(this) }
-    internal var createConnection: (String, String, String, DeviceSigner, (String) -> Unit, (HaCommand) -> Unit, Boolean) -> HaConnection =
+    internal var createConnection: (String, String, String, DeviceSigner, (ConnectionEvent) -> Unit, (HaCommand) -> Unit, Boolean) -> HaConnection =
         { url, token, name, signer, status, command, allowHttp ->
-            HaWebSocketClient(url, token, name, signer, status, command, allowHttp)
+            HaWebSocketClient(url, token, name, signer, {}, command, allowHttp, status)
         }
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private var reconnectFuture: ScheduledFuture<*>? = null
@@ -33,6 +34,7 @@ class ConnectionService : Service() {
     @Volatile private var stopped = false
     private val generation = java.util.concurrent.atomic.AtomicLong()
     private var retryAttempt = 0
+    private var recovering = false
     @Volatile private var authenticationBlocked = false
     private lateinit var connectivity: ConnectivityManager
     private var defaultNetwork: Network? = null
@@ -46,22 +48,27 @@ class ConnectionService : Service() {
     @Synchronized private fun networkChanged(network: Network?) {
         if (stopped || defaultNetwork == network) return
         defaultNetwork = network
-        generation.incrementAndGet()
+        val transition = generation.incrementAndGet()
         client?.close()
         client = null
         scheduler.execute {
             reconnectFuture?.cancel(false)
             reconnectFuture = null
-            if (stopped || authenticationBlocked) return@execute
+            if (stopped || authenticationBlocked || transition != generation.get()) return@execute
             retryAttempt = 0
-            updateStatus(if (network == null) "Disconnected: waiting for network" else "Reconnecting")
-            if (network != null) scheduleReconnect()
+            recovering = true
+            updateStatus(ConnectionEvent(if (network == null) ConnectionPhase.DISCONNECTED else ConnectionPhase.RECONNECTING))
+            if (network != null) connect()
         }
     }
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        val blockedKind = AppPrefs.prefs(this).getString(AppPrefs.KEY_BLOCKED_FAILURE, null)?.let {
+            runCatching { ConnectionFailureKind.valueOf(it) }.getOrNull()
+        }?.takeUnless { it.retryable }
+        authenticationBlocked = blockedKind != null
         connectivity = getSystemService(ConnectivityManager::class.java)
         defaultNetwork = connectivity.activeNetwork
         connectivity.registerDefaultNetworkCallback(networkCallback)
@@ -72,11 +79,24 @@ class ConnectionService : Service() {
             )
         }
         startForeground(NOTIFICATION_ID, buildNotification("Starting…"))
+        blockedKind?.let { updateStatus(ConnectionEvent.failed(ConnectionFailure(it))) }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopped = false
-        scheduler.execute { if (reconnectFuture == null && client == null) connect() }
+        scheduler.execute {
+            if (intent?.action == ACTION_RECONNECT) {
+                authenticationBlocked = false
+                AppPrefs.prefs(this).edit().remove(AppPrefs.KEY_BLOCKED_FAILURE).apply()
+                generation.incrementAndGet()
+                client?.close()
+                client = null
+                reconnectFuture?.cancel(false)
+                reconnectFuture = null
+                retryAttempt = 0
+            }
+            if (reconnectFuture == null && client == null) connect()
+        }
         return START_STICKY
     }
 
@@ -85,16 +105,16 @@ class ConnectionService : Service() {
         reconnectFuture?.cancel(false)
         reconnectFuture = null
         val attempt = generation.incrementAndGet()
-        updateStatus("Connecting")
+        updateStatus(ConnectionEvent(if (recovering) ConnectionPhase.RECONNECTING else ConnectionPhase.CONNECTING))
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
         if (!AppPrefs.isAllowedUrl(baseUrl, prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))) {
-            updateStatus("Connection blocked: HTTPS required unless insecure HTTP is enabled")
+            handleFailure(ConnectionFailure(ConnectionFailureKind.CONFIGURATION))
             return
         }
         val secure = tokenStoreFactory()
         if (secure.get("credential_origin") != baseUrl.trimEnd('/')) {
-            updateStatus("Sign in or enter a token for this Home Assistant URL")
+            handleFailure(ConnectionFailure(ConnectionFailureKind.CONFIGURATION))
             return
         }
         val tokenMode = secure.get("auth_method") == "token"
@@ -104,7 +124,9 @@ class ConnectionService : Service() {
             (token.isBlank() || System.currentTimeMillis() >= prefs.getLong("oauth_expiry", 0) - 60_000)) {
             try {
                 val refreshed = refreshCredentials(baseUrl, refreshToken)
-                if (stopped || attempt != generation.get()) return
+                if (stopped || attempt != generation.get() ||
+                    prefs.getString(AppPrefs.KEY_URL, "") != baseUrl || secure.get("credential_origin") != baseUrl ||
+                    secure.get("auth_method") != "oauth" || secure.get("refresh_token") != refreshToken) return
                 token = refreshed.getString("access_token")
                 secure.put("access_token", token)
                 if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
@@ -112,18 +134,17 @@ class ConnectionService : Service() {
                     System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
             } catch (e: Exception) {
                 if (stopped || attempt != generation.get()) return
-                if (e is OAuthRejected) { authenticationBlocked = true; updateStatus("Authentication failed; sign in again") }
-                else { updateStatus("Token refresh unavailable; retrying"); scheduleReconnect() }
+                handleFailure(ConnectionFailure(if (e is OAuthRejected) ConnectionFailureKind.OAUTH_REJECTED else ConnectionFailureKind.OAUTH_UNAVAILABLE))
                 return
             }
         }
 
         val identity = try { identityFactory() } catch (_: Exception) {
-            updateStatus("Device key unavailable; reset identity in Settings")
+            handleFailure(ConnectionFailure(ConnectionFailureKind.KEY_UNAVAILABLE))
             return
         }
         if (baseUrl.isBlank() || token.isBlank()) {
-            updateStatus("Configure URL and sign in")
+            handleFailure(ConnectionFailure(ConnectionFailureKind.CONFIGURATION))
             stopSelf()
             return
         }
@@ -131,14 +152,15 @@ class ConnectionService : Service() {
         synchronized(this) {
             if (stopped || attempt != generation.get()) return
             client?.close()
-            val statusCallback: (String) -> Unit = { status ->
+            val statusCallback: (ConnectionEvent) -> Unit = { event ->
                 try { if (!stopped) scheduler.execute {
                     if (stopped || attempt != generation.get()) return@execute
-                    if (status.startsWith("Authentication failed") || status.startsWith("Device authentication rejected") ||
-                        status == "Protocol rejected" || status.startsWith("Device key unavailable")) authenticationBlocked = true
-                    updateStatus(status)
-                    if (status == "Connected") retryAttempt = 0
-                    else if (TransportPolicy.shouldReconnect(status)) scheduleReconnect()
+                    if (event.failure != null) handleFailure(event.failure)
+                    else {
+                        if (event.phase == ConnectionPhase.CONNECTED) { retryAttempt = 0; recovering = false }
+                        updateStatus(if (recovering && event.phase == ConnectionPhase.CONNECTING)
+                            ConnectionEvent(ConnectionPhase.RECONNECTING) else event)
+                    }
                 } } catch (_: java.util.concurrent.RejectedExecutionException) {
                     // The socket callback raced service destruction.
                 }
@@ -151,9 +173,21 @@ class ConnectionService : Service() {
         }
     }
 
-    private fun scheduleReconnect() {
+    private fun handleFailure(failure: ConnectionFailure) {
+        authenticationBlocked = !failure.retryable
+        AppPrefs.prefs(this).edit().apply {
+            if (authenticationBlocked) putString(AppPrefs.KEY_BLOCKED_FAILURE, failure.kind.name)
+            else remove(AppPrefs.KEY_BLOCKED_FAILURE)
+        }.apply()
+        if (authenticationBlocked) { reconnectFuture?.cancel(false); reconnectFuture = null }
+        updateStatus(ConnectionEvent.failed(failure))
+        if (failure.retryable) scheduleReconnect(failure)
+    }
+
+    private fun scheduleReconnect(failure: ConnectionFailure) {
         if (stopped || (reconnectFuture != null && !reconnectFuture!!.isDone)) return
-        updateStatus("Reconnecting — ${AppPrefs.prefs(this).getString(AppPrefs.KEY_STATUS, "transport unavailable")?.substringAfter("— ")}")
+        recovering = true
+        updateStatus(ConnectionEvent(ConnectionPhase.RECONNECTING, failure))
         val delay = TransportPolicy.reconnectDelay(retryAttempt)
         retryAttempt = (retryAttempt + 1).coerceAtMost(6)
         reconnectFuture = scheduler.schedule({
@@ -204,9 +238,10 @@ class ConnectionService : Service() {
         client?.fireState(payload)
     }
 
-    private fun updateStatus(status: String) {
+    private fun updateStatus(event: ConnectionEvent) {
+        val status = if (event.phase == ConnectionPhase.RECONNECTING && event.failure != null) "Reconnecting — ${event.message}" else event.message
         if (stopped) return
-        AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, status).apply()
+        AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, status).putString(AppPrefs.KEY_CONNECTION_PHASE, event.phase.name).apply()
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, buildNotification(status))
     }
@@ -245,7 +280,7 @@ class ConnectionService : Service() {
         reconnectFuture?.cancel(true)
         client?.close()
         scheduler.shutdownNow()
-        AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, "Stopped").apply()
+        AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, "Stopped").putString(AppPrefs.KEY_CONNECTION_PHASE, ConnectionPhase.DISCONNECTED.name).apply()
         super.onDestroy()
     }
 

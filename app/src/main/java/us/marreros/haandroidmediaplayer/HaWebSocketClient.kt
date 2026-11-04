@@ -21,7 +21,8 @@ class HaWebSocketClient(
     private val identity: DeviceSigner,
     private val onStatus: (String) -> Unit,
     private val onCommand: (HaCommand) -> Unit,
-    private val allowHttp: Boolean = false
+    private val allowHttp: Boolean = false,
+    private val onConnectionEvent: (ConnectionEvent) -> Unit = {}
 ) : HaConnection {
     companion object {
         const val MAX_MESSAGE = 16384
@@ -61,7 +62,7 @@ class HaWebSocketClient(
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS)
         .followRedirects(false).followSslRedirects(false).build()
     private val handler = Handler(Looper.getMainLooper())
-    private val timeout = Runnable { fail("Authentication timed out") }
+    private val timeout = Runnable { fail(ConnectionFailure(ConnectionFailureKind.HANDSHAKE_TIMEOUT)) }
     private var socket: WebSocket? = null
     private var stage = "new"
     private var nextId = 1
@@ -80,17 +81,27 @@ class HaWebSocketClient(
         stage = "ha_required"
         handler.postDelayed(timeout, 45000)
         socket = client.newWebSocket(Request.Builder().url(toWebSocketUrl(baseUrl)).build(), Listener())
-        onStatus("Connecting…")
+        emit(ConnectionEvent(ConnectionPhase.CONNECTING))
     }
     @Synchronized override fun close() {
         stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
     }
-    @Synchronized private fun fail(status: String) {
+    @Synchronized private fun fail(failure: ConnectionFailure) {
         if (stage == "closed") return
         stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
-        onStatus(status)
+        emit(ConnectionEvent.failed(failure))
+    }
+    private fun emit(event: ConnectionEvent) {
+        onConnectionEvent(event)
+        onStatus(event.message)
+    }
+    private fun failureStage() = when (stage) {
+        "challenge", "proof" -> FailureStage.REGISTRATION
+        "subscription" -> FailureStage.SUBSCRIPTION
+        "ready" -> FailureStage.STATE
+        else -> FailureStage.HANDSHAKE
     }
     private fun clearStateDeadline() {
         stateTimeout?.let(handler::removeCallbacks)
@@ -100,7 +111,7 @@ class HaWebSocketClient(
     private fun awaitStateAcknowledgment(id: Int) {
         val deadline = Runnable {
             synchronized(this) {
-                if (stage == "ready" && stateId == id) fail(STATE_ACK_TIMEOUT_STATUS)
+                if (stage == "ready" && stateId == id) fail(ConnectionFailure(ConnectionFailureKind.STATE_TIMEOUT))
             }
         }
         stateTimeout = deadline
@@ -133,7 +144,7 @@ class HaWebSocketClient(
                 .put("device_id", deviceId).put("state", state))
             awaitStateAcknowledgment(stateId)
             lastStateAt = now
-        } catch (_: Exception) { fail("Protocol rejected") }
+        } catch (_: Exception) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
     }
     private inner class Listener : WebSocketListener() {
         override fun onMessage(webSocket: WebSocket, text: String) = synchronized(this@HaWebSocketClient) {
@@ -162,21 +173,24 @@ class HaWebSocketClient(
                         stage = "challenge"
                         request(webSocket, "challenge", JSONObject().put("public_key", identity.publicKey).put("name", deviceName))
                     }
-                    "auth_invalid" -> fail("Authentication failed")
+                    "auth_invalid" -> fail(ConnectionFailure(ConnectionFailureKind.HA_REJECTED))
                     "result" -> {
                         val id = json.getInt("id")
                         val success = json.get("success")
                         require(success is Boolean)
                         if (id == stateId && stage == "ready") {
                             clearStateDeadline()
-                            check(success)
+                            if (!success) {
+                                fail(ConnectionFailure.response(json.optJSONObject("error")?.optString("code"), FailureStage.STATE))
+                                return@synchronized
+                            }
                         } else {
                             check(id == requestId)
                             if (!success) {
-                                val code = json.optJSONObject("error")?.optString("code")
-                                fail(if (code in setOf("subscription_busy", "storage_failed", "temporarily_unavailable"))
-                                    "Connection temporarily unavailable; retrying"
-                                else "Device authentication rejected; review registration")
+                                val error = json.optJSONObject("error")
+                                if (error?.has("code") == true) require(error.get("code") is String && error.getString("code").length in 1..128)
+                                val code = error?.optString("code")
+                                fail(ConnectionFailure.response(code, failureStage()))
                                 return@synchronized
                             }
                             when (stage) {
@@ -188,7 +202,7 @@ class HaWebSocketClient(
                                     check(result.get("expires_in") is Int && result.getInt("expires_in") in 1..30)
                                     stage = "proof"
                                     val signature = try { identity.sign(payload) } catch (_: Exception) {
-                                        fail("Device key unavailable; reset identity in Settings")
+                                        fail(ConnectionFailure(ConnectionFailureKind.KEY_UNAVAILABLE))
                                         return@synchronized
                                     }
                                     request(webSocket, "register", JSONObject().put("signature", signature))
@@ -200,7 +214,7 @@ class HaWebSocketClient(
                                     subscriptionId = requestId
                                 }
                                 "subscription" -> {
-                                    stage = "ready"; handler.removeCallbacks(timeout); onStatus("Connected")
+                                    stage = "ready"; handler.removeCallbacks(timeout); emit(ConnectionEvent(ConnectionPhase.CONNECTED))
                                 }
                                 else -> error("Unexpected response")
                             }
@@ -215,12 +229,12 @@ class HaWebSocketClient(
                     }
                     else -> error("Unexpected message")
                 }
-            } catch (_: Exception) { fail("Protocol rejected") }
+            } catch (_: Exception) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
         }
-        override fun onMessage(webSocket: WebSocket, bytes: ByteString) { fail("Protocol rejected") }
-        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(TransportPolicy.connectionFailure(t)) }
-        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { fail("Disconnected") }
-        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail("Disconnected") }
+        override fun onMessage(webSocket: WebSocket, bytes: ByteString) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
+        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(ConnectionFailure.transport(t)) }
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
     }
     private fun toWebSocketUrl(base: String): String = TransportPolicy.base(base, allowHttp).newBuilder()
         .addPathSegments("api/websocket").build().toString().let {

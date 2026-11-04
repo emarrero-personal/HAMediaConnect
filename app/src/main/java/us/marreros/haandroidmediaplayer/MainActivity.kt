@@ -216,7 +216,7 @@ class MainActivity : AppCompatActivity() {
             connectionStatus("Connecting")
             stopService(Intent(this, ConnectionService::class.java))
             requestNotificationsIfNeeded()
-            ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
+            ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java).setAction(ConnectionService.ACTION_RECONNECT))
         }
 
         findViewById<Button>(R.id.stopButton).setOnClickListener {
@@ -286,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                         connectionStatus("Connecting — authenticating device")
                         stopService(Intent(this, ConnectionService::class.java))
                         requestNotificationsIfNeeded()
-                        ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java))
+                        ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java).setAction(ConnectionService.ACTION_RECONNECT))
                     } catch (_: Exception) { connectionStatus("Credential storage unavailable; sign in again") }
                 }
             } catch (_: Exception) {

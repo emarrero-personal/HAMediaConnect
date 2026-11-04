@@ -167,8 +167,10 @@ class PlayerRegistry:
             raise PermissionError("No challenge")
         challenge, session.challenge = session.challenge, None  # Consume before verification, even on failure.
         expiry, payload, device_id, public_key, name = challenge
-        if expiry <= time.monotonic() or session.owner != connection.user.id:
-            raise PermissionError("Expired challenge")
+        if expiry <= time.monotonic():
+            raise RetryableDeviceError("Expired challenge")
+        if session.owner != connection.user.id:
+            raise PermissionError("Challenge owner mismatch")
         _, key = public_identity(public_key)
         try:
             key.verify(base64.b64decode(signature, validate=True), payload.encode(), ec.ECDSA(hashes.SHA256()))
@@ -189,7 +191,7 @@ class PlayerRegistry:
                 await self.save({**self.players, device_id: replace(player, name=name)})
                 player.name = name
             if self.sessions.get(connection) is not session:
-                raise PermissionError("Connection expired")
+                raise RetryableDeviceError("Connection expired")
             session.device_id = device_id
             session.cancel()
         self.hass.bus.async_fire(f"{DOMAIN}_registered", {"device_id": device_id})

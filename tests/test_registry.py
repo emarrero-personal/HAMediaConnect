@@ -121,6 +121,9 @@ async def test_challenge_replay_connection_binding_and_expiry(registry, monkeypa
     challenge = registry.challenge(expired, public, "Pixel")
     original = registry_module.time.monotonic()
     monkeypatch.setattr(registry_module.time, "monotonic", lambda: original + 31)
+    with pytest.raises(registry_module.RetryableDeviceError):
+        await registry.authenticate(expired, proof(key, challenge["payload"]))
+    assert registry.sessions[expired].challenge is None
     with pytest.raises(PermissionError):
         await registry.authenticate(expired, proof(key, challenge["payload"]))
 

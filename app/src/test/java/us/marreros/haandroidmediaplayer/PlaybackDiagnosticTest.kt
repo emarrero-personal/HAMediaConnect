@@ -37,11 +37,12 @@ class PlaybackDiagnosticTest {
     }
     @Test fun connectionFailuresAreSanitizedAndRetryable() {
         for (error in listOf(java.net.UnknownHostException("secret"), javax.net.ssl.SSLException("secret"), java.net.SocketTimeoutException("secret"), Exception("secret"))) {
-            val status = TransportPolicy.connectionFailure(error)
-            assertTrue(TransportPolicy.shouldReconnect(status))
+            val failure = ConnectionFailure.transport(error)
+            val status = failure.kind.message
+            assertTrue(failure.retryable)
             assertFalse(status.contains("secret"))
         }
-        assertTrue(TransportPolicy.shouldReconnect("Connection temporarily unavailable; retrying"))
-        assertFalse(TransportPolicy.shouldReconnect("Device authentication rejected; review registration"))
+        assertTrue(ConnectionFailureKind.TEMPORARY.retryable)
+        assertFalse(ConnectionFailureKind.DEVICE_REJECTED.retryable)
     }
 }

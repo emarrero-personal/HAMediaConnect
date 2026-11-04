@@ -235,3 +235,26 @@ async def test_overlap_preserves_single_subscriber_then_recovers(ws_module, env)
     await ws_module.ws_subscribe(hass, second, {**msg("subscribe_commands", device), "id": 4})
     registry.dispatch(device, {"action": "play"})
     second.send_event.assert_called_once_with(4, {"action": "play"})
+
+
+async def test_expired_challenge_is_consumed_and_retried_with_fresh_proof(ws_module, env, monkeypatch):
+    hass, registry = env
+    registry_module = sys.modules["custom_components.hamediaconnect.registry"]
+    conn = connection()
+    key, public = keypair()
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    old_payload = conn.send_result.call_args.args[1]["payload"]
+    now = registry_module.time.monotonic()
+    monkeypatch.setattr(registry_module.time, "monotonic", lambda: now + 31)
+    await ws_module.ws_register(hass, conn, {"id": 2, "type": "hamediaconnect/register", "signature": proof(key, old_payload)})
+    conn.send_error.assert_called_with(2, "temporarily_unavailable", "Retry later")
+    assert not registry.players
+    assert registry.sessions[conn].challenge is None
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 3, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    fresh_payload = conn.send_result.call_args.args[1]["payload"]
+    assert fresh_payload != old_payload
+    await ws_module.ws_register(hass, conn, {"id": 4, "type": "hamediaconnect/register", "signature": proof(key, fresh_payload)})
+    assert len(registry.players) == 1
+    assert registry.sessions[conn].device_id is not None
