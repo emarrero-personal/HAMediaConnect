@@ -72,7 +72,7 @@ See [Phase 2 authentication and transport design](SECURITY_PHASE_2.md) for the c
 
 ## Commands sent to the Android app
 
-The **native v0.2** interface uses the companion integration. These are command event payloads dispatched through the custom WebSocket subscription (not direct Home Assistant `fire_event` calls).
+The **native** interface uses the companion integration. These are command event payloads dispatched through the custom WebSocket subscription (not direct Home Assistant `fire_event` calls).
 
 | `action` | Additional fields | Behavior |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ Example command event data:
 {"action":"volume_mute","is_volume_muted":true}
 ```
 
-**Important:** `PlaybackService` contains a `seek` intent action, but the native WebSocket command decoder currently **does not expose seek**. Do not advertise it as a working remote command until implemented end-to-end. The older event-based MVP protocol mentioned in historical commits is not the current native v0.2 transport.
+**Important:** `PlaybackService` contains a `seek` intent action, but the native WebSocket command decoder currently **does not expose seek**. Do not advertise it as a working remote command until implemented end-to-end. The legacy event-based protocol is not supported.
 
 ## Commands from Home Assistant
 
@@ -157,13 +157,4 @@ When the companion integration receives a TTS media-source URL (`media-source://
 
 The app suppresses announcements when Android's interruption filter indicates Do Not Disturb. If DND activates during an announcement, the service ends it and restores previously interrupted playback. This behavior should be tested on target devices because Android audio policy and OEM behavior vary.
 
-## Development workflow
-
-1. Open the project in Android Studio and sync Gradle.
-2. Build and run on Android 10+ (minSdk 29). Test both OAuth and local token authentication.
-3. Copy the custom integration to a Home Assistant test instance and restart HA.
-4. Verify registration, media playback, TTS, mute, DND, reconnect and boot recovery.
-5. Run the Python integration tests where the Home Assistant test dependencies are available.
-6. Review [third-party notices](../THIRD_PARTY_NOTICES.md) before release.
-
-Do not treat this guide as a security or build certification. The branch still requires a complete compile/test pass, transitive dependency license review, and release packaging.
+For maintainer build, test, signing, and release instructions, see [Maintainer handbook](MAINTAINER.md).
