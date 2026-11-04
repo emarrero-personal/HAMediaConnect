@@ -1,6 +1,6 @@
 # Phase 2 authentication and transport design
 
-Version 1.0.0 is a breaking device protocol change. Update the Android app and custom integration together and sign in again. There is no UUID-only enrollment or plaintext credential migration. Normal HA media-player actions remain unchanged.
+Version 1.0.0 is a breaking device protocol change. Update the client app and custom integration together and sign in again. There is no UUID-only enrollment or plaintext credential migration. Normal HA media-player actions remain unchanged.
 
 ## Trust boundary and identity
 
@@ -12,8 +12,8 @@ Initial enrollment is trust-on-first-proof within the authenticated HA account, 
 
 ## Registration, authentication, reconnect
 
-1. HA sends `auth_required`. Android sends its native HA `auth` message. No device protocol messages are accepted before HA authentication.
-2. After `auth_ok`, Android sends:
+1. HA sends `auth_required`. the Android client app sends its native HA `auth` message. No device protocol messages are accepted before HA authentication.
+2. After `auth_ok`, the Android client app sends:
 
    ```json
    {"id":1,"type":"hamediaconnect/challenge","public_key":"BASE64_DER_P256_SPKI","name":"Kitchen Tablet"}
