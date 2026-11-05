@@ -5,6 +5,8 @@ on:
     paths:
       - 'custom_components/**'
       - 'tests/**'
+      - 'scripts/verify_signing_approval.py'
+      - '.github/workflows/distribution-apk.yml'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
@@ -13,6 +15,8 @@ on:
     paths:
       - 'custom_components/**'
       - 'tests/**'
+      - 'scripts/verify_signing_approval.py'
+      - '.github/workflows/distribution-apk.yml'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'

@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: read
     steps:
       - name: Check out release source
         uses: actions/checkout@v4
@@ -31,6 +32,12 @@ jobs:
           ref: ${{ inputs.release_tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Require manual signing approval protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - name: Verify tag is on protected main
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
@@ -102,6 +109,7 @@ jobs:
       name: production-signing
     permissions:
       contents: write
+      actions: read
     steps:
       - name: Check out verified release source
         uses: actions/checkout@v4
@@ -109,6 +117,12 @@ jobs:
           ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Require manual signing approval protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - name: Revalidate release tag against main
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}

@@ -176,3 +176,8 @@ and the SHA-256 digest before playback. Temporary audio lives only under
 accepts only a verified file in that directory. Revocation drops the device's
 pending transfers. No HTTP endpoint, token or credential is added, and playback
 reports carry fixed enums, never URLs or exception text.
+
+
+### Production signing approval
+
+The distribution workflow requires the production-signing environment to expose a nonempty required-reviewer rule. A branch-only rule, missing environment, unreadable API response or malformed reviewer list stops the workflow before signing. GitHub's environment protection enforces approval before the signing job starts; the preflight detects configuration drift. Owners must configure the actual reviewer separately. No signing workflow or test invokes production signing during a PR.
