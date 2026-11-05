@@ -45,6 +45,11 @@ source-supported evidence, not a captured Pixel network trace.
 
 ### Remote TTS
 
+> **Superseded for HA-generated TTS** by in-band delivery over the authenticated
+> WebSocket: no phone-reachable media URL is needed. See [TTS delivery](TTS_DELIVERY.md).
+> The URL selection below still applies to non-TTS media, legacy clients, and the
+> fallback used when in-process rendering is unavailable.
+
 The pipeline remains `tts.speak` → HA media-source resolution → HA media-path signing
 where required → HA endpoint selection → authenticated command → a separate,
 unauthenticated Media3 HTTP client. `AndroidMediaPlayer.async_play_media` now passes
@@ -130,6 +135,28 @@ launcher-size renderings. OEM launcher appearance still needs Pixel verification
 Results are recorded for this branch, independently of the historical PR #22
 results in `TTS_PLAYBACK.md`. Coverage exclusions and 85% thresholds are unchanged.
 
+### In-band TTS delivery run (latest)
+
+- Python compileall, dependency installation and suite: 90 tests passed; combined
+  line/branch coverage 97.05% (gate 85%).
+- Android: 110 JVM/Robolectric tests passed after a clean test rerun; application line
+  coverage 97.78%, security line coverage 90.30% (HaWebSocketClient included; gates 85%).
+  `assembleDebug` and `assembleDebugAndroidTest` passed. Lint: 0 errors, 92 warnings
+  (89 before; the new one in transfer code is the advisory `UsableSpace` check).
+- The real Media3 path decoded generated WAV audio from transferred files and from a
+  local HTTP fixture under Robolectric. This does not establish OEM decoder, AudioTrack,
+  or Bluetooth behavior.
+- Instrumentation: **not run.** The only local AVDs are Google Play images, which need
+  an on-screen adb authorization that a headless run can't give. The attached physical
+  phone was deliberately not used, because `connectedDebugAndroidTest` installs over and
+  then uninstalls the app, destroying the enrolled Keystore identity. The new
+  `DirectTransferDeviceTest` compiles and should be run on a disposable device.
+- Hosted `validate-ha.yml`, `android-apk.yml`, `hacs.yml`, `hassfest.yml`: not run (no
+  push-triggered results inspected yet). `manifest.json` adds `after_dependencies: ["tts"]`
+  for Hassfest's import check; confirm in CI.
+
+### Earlier run (before in-band delivery)
+
 - Python compileall and dependency installation: completed.
 - Python: 64 tests passed; combined line/branch coverage 96.14%.
 - Android: 71 JVM/Robolectric tests passed; application line coverage 99.54%, security
@@ -176,10 +203,11 @@ audible outcome for each item.
   touching Settings, resetting identity, or signing in. While idle, verify the Playback
   card changes to Waiting for Home Assistant connection and then Ready. Confirm only one HA player
   and one command recipient. Repeat several times without rapid retry loops.
-- [ ] On cellular, generate fresh TTS through `tts.speak`. Confirm HTTPS/Nabu Casa
-  diagnostics, Playing, audible output, then Ready. A working WebSocket alone is
-  insufficient. If it fails, record the fixed DNS/TLS/HTTP/decoding/timeout message
-  and endpoint class; investigate the live tunnel/media route separately.
+- [ ] On cellular, generate fresh TTS through `tts.speak`. Confirm "Direct transfer ·
+  Home Assistant connection", Downloading audio → Playing → Completed, audible output,
+  and `delivery_method: direct` / `delivery_phase: completed` in HA. Run the complete
+  [TTS delivery acceptance tests](TTS_DELIVERY.md#physical-acceptance-tests), including
+  network transitions during a transfer.
 - [ ] Restore Wi-Fi and confirm automatic reconnection. Repeat with music playing.
 - [ ] Temporarily remove all network access. Confirm idle says Unavailable, while
   already buffered music may continue with its actual position. Restore access; confirm recovery with

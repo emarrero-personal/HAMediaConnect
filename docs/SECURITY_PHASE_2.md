@@ -63,7 +63,10 @@ Revoked-key tombstones count against the finite identity quotas. There is no sil
 
 | Resource | Limit |
 | --- | --- |
-| Integration request / Android received or sent JSON | 16 KiB UTF-8 |
+| Integration request / Android received or sent JSON | 16 KiB UTF-8 (except chunk results below) |
+| Android received chunk result (only for an outstanding chunk request) | 132 KiB raw frame; decoded `data` ≤ 65536 Base64 characters (48 KiB audio) |
+| In-band TTS transfer | 4 MiB each; one per device; 8 live and 16 MiB total in HA; 120 s HA expiry; 90 s Android deadline |
+| Chunk / report requests | 600 / 240 per user per minute; 4 outstanding chunk requests and 16 auxiliary requests per Android connection |
 | Android JSON nesting | 8 levels |
 | Public-key Base64 / signature Base64 | 256 / 128 characters |
 | Device fingerprint / name | exactly 64 lowercase hex / 128 characters |
@@ -147,3 +150,22 @@ queries and opaque TTS tokens survive the actual request but are redacted from U
 and logs. The separate media client has no bearer credentials or cookie store.
 Redirects with another origin, a downgrade, userinfo, fragments, malformed locations,
 or excessive hops are refused. No TLS bypass or additional public endpoint is introduced.
+
+
+### In-band TTS transfer
+
+HA-generated TTS audio can be pulled over the authenticated device WebSocket instead
+of from a media URL ([design](diagnostics/TTS_DELIVERY.md)). The audio comes only
+from HA's in-process TTS manager; the device can't name a URL, path or foreign
+transfer. Every `media_chunk`, `media_release` and `playback_report` request goes
+through the same `owned()` proof/owner/revocation check as `state`. Other devices of
+the same user and unproven connections can't read a transfer. Transfer errors
+(`media_unavailable`) and rejected reports are transfer-scoped and never change
+connection authorization. Feature negotiation is two-step (server advertises in the
+`register` result, client opts in on `subscribe_commands`), so neither side ever sends
+fields its peer would reject as a protocol error. Android validates offsets, lengths
+and the SHA-256 digest before playback. Temporary audio lives only under
+`cacheDir/transfers/` with unpredictable names and is deleted after use. Playback
+accepts only a verified file in that directory. Revocation drops the device's
+pending transfers. No HTTP endpoint, token or credential is added, and playback
+reports carry fixed enums, never URLs or exception text.

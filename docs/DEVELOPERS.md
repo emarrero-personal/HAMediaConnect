@@ -41,6 +41,8 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `ConnectionService.kt` | Foreground WebSocket connection, reconnect, command routing |
 | `ConnectionState.kt` | Typed connection failures, stages and retry policy |
 | `MediaRedirectPolicy.kt` | Bounded same-origin media redirects |
+| `MediaTransfer.kt` | In-band TTS transfer: offer validation, chunk pulling, resume, integrity, temporary files |
+| `DeliveryStatus.kt` | Typed delivery phases/reasons, the latest-request tracker and sanitized card labels |
 | `HaWebSocketClient.kt` | Native Home Assistant WebSocket protocol |
 | `HaCommand.kt` | Parsed command model |
 | `PlaybackService.kt` | Media3 playback, announcements, volume, mute and DND |
@@ -54,7 +56,8 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `__init__.py` | Registers custom WebSocket API and config entry |
 | `config_flow.py` | Integration setup |
 | `media_player.py` | Home Assistant entity and media actions |
-| `registry.py` | Connected-device registry and command dispatch |
+| `registry.py` | Connected-device registry, feature-gated command dispatch and delivery reports |
+| `transfer.py` | Bounded, device-bound store of in-process-rendered TTS audio served in chunks |
 | `websocket_api.py` | WebSocket registration, subscriptions and state messages |
 | `oauth_view.py` | OAuth support endpoint |
 
@@ -105,7 +108,7 @@ The **native** interface uses the companion integration. These are command event
 
 | `action` | Additional fields | Behavior |
 | --- | --- | --- |
-| `play_media` | `media_content_id` (absolute audio URL), optional `media_content_type`, `media_title`, `announce` | Load and play audio |
+| `play_media` | Either `media_content_id` (absolute audio URL) **or** an in-band transfer offer (`transfer_id`, `media_size`, `media_sha256`, `chunk_size`, audio `media_content_type`); optional `media_content_type`, `media_title`, `announce`, `request_id` | Load and play audio |
 | `play` | none | Resume |
 | `pause` | none | Pause |
 | `stop` | none | Stop and clear playback |
@@ -125,6 +128,10 @@ Example command event data:
 ```json
 {"action":"volume_mute","is_volume_muted":true}
 ```
+
+Transfer offers and `request_id` are sent only to clients that negotiated
+`media_transfer_v1` / `playback_report_v1` when subscribing; see
+[TTS delivery](diagnostics/TTS_DELIVERY.md) for the chunk, release and report messages.
 
 **Important:** `PlaybackService` contains a `seek` intent action, but the native WebSocket command decoder currently **does not expose seek**. Do not advertise it as a working remote command until implemented end-to-end. The legacy event-based protocol is not supported.
 
@@ -180,6 +187,12 @@ The client app sends a native WebSocket state message resembling:
 
 The `state` object may omit media metadata when unavailable. Supported playback states include `idle`, `buffering`, `playing` and `paused`; the current Android client implementation normalizes `error` to `idle` before publishing.
 
+Playback progress for a dispatched request is reported separately with
+`hamediaconnect/playback_report` (phase plus an enum reason). HA exposes the last report
+as `delivery_phase`, `delivery_reason`, `delivery_method` and `delivery_request_id`
+entity attributes and fires `hamediaconnect_playback` events. State `media_content_id`
+is omitted while playing transferred audio.
+
 ## Announcements, audio focus and DND
 
 When the companion integration receives a TTS media-source URL (`media-source://tts/...`), it resolves it to a playable URL and sets `announce=true`. For an announcement, the current Android client player saves its own current media item, playback position and playing/paused status, then restores them when the announcement finishes. Audio from another Android app is not directly controlled by this playback service.
@@ -187,6 +200,18 @@ When the companion integration receives a TTS media-source URL (`media-source://
 The app suppresses announcements when Android's interruption filter indicates Do Not Disturb. If DND activates during an announcement, the service ends it and restores previously interrupted playback. This behavior should be tested on target devices because Android audio policy and OEM behavior vary.
 
 For maintainer build, test, signing, and release instructions, see [Maintainer handbook](MAINTAINER.md).
+
+## TTS delivery
+
+HA-generated TTS (`media-source://tts/...`) is rendered in-process with
+`tts.async_get_media_source_audio` and pulled by the device in 48 KiB chunks over the
+already-authenticated WebSocket. No media URL has to be reachable from the phone, so
+announcements behave the same on Wi-Fi and cellular and resume across network changes.
+HA selects one delivery method per command. URL delivery (below) remains for all other
+media, for legacy clients, and when in-process rendering is unavailable or the audio
+exceeds 4 MiB. Architecture, rejected alternatives, protocol, limits, security controls,
+troubleshooting and the physical acceptance procedure are in
+[TTS delivery](diagnostics/TTS_DELIVERY.md).
 
 ## Media endpoint selection and diagnostics
 
