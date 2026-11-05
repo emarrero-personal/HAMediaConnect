@@ -29,7 +29,7 @@ jobs:
       - name: Check out release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
           fetch-depth: 0
           persist-credentials: false
       - name: Verify tag is on protected main
@@ -41,6 +41,7 @@ jobs:
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           TAG_COMMIT="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
           MAIN_COMMIT="$(git rev-parse refs/remotes/origin/main)"
+          [[ "$(git rev-parse HEAD)" == "$TAG_COMMIT" ]] || { echo "::error::Checked-out source differs from release tag"; exit 1; }
           git merge-base --is-ancestor "$TAG_COMMIT" "$MAIN_COMMIT" || {
             echo "::error::Release tag does not point to a commit on main"
             exit 1
@@ -114,7 +115,7 @@ jobs:
       - name: Check out verified release source
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
           persist-credentials: false
           fetch-depth: 0
       - name: Revalidate release tag against main
@@ -124,7 +125,9 @@ jobs:
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" refs/remotes/origin/main
+          TAG_COMMIT="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
+          [[ "$(git rev-parse HEAD)" == "$TAG_COMMIT" ]] || { echo "::error::Checked-out source differs from release tag"; exit 1; }
+          git merge-base --is-ancestor "$TAG_COMMIT" refs/remotes/origin/main
       - name: Require manual signing approval protection
         env:
           GH_TOKEN: ${{ github.token }}

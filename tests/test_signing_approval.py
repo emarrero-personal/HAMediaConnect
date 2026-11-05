@@ -45,3 +45,14 @@ def test_command_rejects_invalid_or_branch_only_environment_without_dumping_inpu
 def test_command_accepts_required_reviewers():
     result = subprocess.run([sys.executable, str(SCRIPT)], input=json.dumps(environment()), text=True, capture_output=True, check=False)
     assert result.returncode == 0
+
+
+def test_distribution_uses_exact_tag_source_and_checks_ancestry_before_executing_guard():
+    workflow = SCRIPT.parents[1] / ".github" / "workflows" / "distribution-apk.yml"
+    source = workflow.read_text()
+    assert source.count("ref: refs/tags/${{ inputs.release_tag || github.ref_name }}") == 2
+    validation, publish = source.split("\n  publish:", 1)
+    for job in (validation, publish):
+        assert job.index('git rev-parse HEAD') < job.index('scripts/verify_signing_approval.py')
+        assert job.index('git merge-base --is-ancestor') < job.index('scripts/verify_signing_approval.py')
+    assert publish.index('scripts/verify_signing_approval.py') < publish.index('Decode release signing key')
