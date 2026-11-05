@@ -37,6 +37,15 @@ class ConnectionService : Service() {
     private var recovering = false
     @Volatile private var authenticationBlocked = false
     private lateinit var connectivity: ConnectivityManager
+    // Scheduler-thread state: one in-band transfer, and which delivery phases HA has acknowledged.
+    private lateinit var transfers: TransferController
+    private var transferCommand: Pair<String, HaCommand>? = null
+    private val sentReports = object : LinkedHashMap<String, MutableSet<DeliveryPhase>>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, MutableSet<DeliveryPhase>>?) = size > 16
+    }
+    private val deliveryObserver: (DeliveryStatus) -> Unit = { status ->
+        try { scheduler.execute { report(status) } } catch (_: java.util.concurrent.RejectedExecutionException) {}
+    }
     private var defaultNetwork: Network? = null
     private val networkCallback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) = networkChanged(network)
@@ -57,6 +66,7 @@ class ConnectionService : Service() {
             if (stopped || authenticationBlocked || transition != generation.get()) return@execute
             retryAttempt = 0
             recovering = true
+            transfers.detach()
             updateStatus(ConnectionEvent(if (network == null) ConnectionPhase.DISCONNECTED else ConnectionPhase.RECONNECTING))
             if (network != null) connect()
         }
@@ -69,6 +79,11 @@ class ConnectionService : Service() {
             runCatching { ConnectionFailureKind.valueOf(it) }.getOrNull()
         }?.takeUnless { it.retryable }
         authenticationBlocked = blockedKind != null
+        TransferFiles.purgeStale(cacheDir)
+        transfers = TransferController(cacheDir, scheduler,
+            onComplete = { key, _, file -> playTransferred(key, file) },
+            onStatus = { key, phase, reason, resuming -> DeliveryTracker.update(key, phase, reason, resuming) })
+        DeliveryTracker.observe(deliveryObserver)
         connectivity = getSystemService(ConnectivityManager::class.java)
         defaultNetwork = connectivity.activeNetwork
         connectivity.registerDefaultNetworkCallback(networkCallback)
@@ -91,6 +106,7 @@ class ConnectionService : Service() {
                 generation.incrementAndGet()
                 client?.close()
                 client = null
+                transfers.detach()
                 reconnectFuture?.cancel(false)
                 reconnectFuture = null
                 retryAttempt = 0
@@ -157,7 +173,12 @@ class ConnectionService : Service() {
                     if (stopped || attempt != generation.get()) return@execute
                     if (event.failure != null) handleFailure(event.failure)
                     else {
-                        if (event.phase == ConnectionPhase.CONNECTED) { retryAttempt = 0; recovering = false }
+                        if (event.phase == ConnectionPhase.CONNECTED) {
+                            retryAttempt = 0; recovering = false
+                            // A transfer interrupted by a network change resumes on the fresh proof.
+                            client?.let { transfers.attach(it) }
+                            report(DeliveryTracker.latest)
+                        }
                         updateStatus(if (recovering && event.phase == ConnectionPhase.CONNECTING)
                             ConnectionEvent(ConnectionPhase.RECONNECTING) else event)
                     }
@@ -175,6 +196,8 @@ class ConnectionService : Service() {
 
     private fun handleFailure(failure: ConnectionFailure) {
         authenticationBlocked = !failure.retryable
+        transfers.detach()
+        if (authenticationBlocked) transfers.cancel(DeliveryReason.INTERRUPTED)
         AppPrefs.prefs(this).edit().apply {
             if (authenticationBlocked) putString(AppPrefs.KEY_BLOCKED_FAILURE, failure.kind.name)
             else remove(AppPrefs.KEY_BLOCKED_FAILURE)
@@ -197,6 +220,26 @@ class ConnectionService : Service() {
     }
 
     private fun dispatchCommand(command: HaCommand) {
+        var key: String? = null
+        if (command.command == PlaybackService.CMD_PLAY_MEDIA) {
+            val deliveryKey = command.requestId ?: DeliveryTracker.localKey()
+            val offer = command.transfer
+            if (offer != null) {
+                scheduler.execute {
+                    if (!transfers.accepts(offer) || !DeliveryTracker.begin(deliveryKey, command.requestId,
+                            DeliveryMethod.DIRECT, command.announce)) return@execute
+                    transferCommand = deliveryKey to command
+                    transfers.start(deliveryKey, offer)
+                }
+                return
+            }
+            if (!DeliveryTracker.begin(deliveryKey, command.requestId, DeliveryMethod.URL, command.announce)) return
+            key = deliveryKey
+        }
+        if (command.command == PlaybackService.CMD_PLAY_MEDIA || command.command == PlaybackService.CMD_STOP) {
+            val reason = if (command.command == PlaybackService.CMD_STOP) DeliveryReason.STOPPED else DeliveryReason.SUPERSEDED
+            scheduler.execute { transfers.cancel(reason) }
+        }
         val intent = Intent(this, PlaybackService::class.java).apply {
             action = command.command
             command.url?.let { putExtra(PlaybackService.EXTRA_URL, resolveUrl(it)) }
@@ -206,8 +249,33 @@ class ConnectionService : Service() {
             command.position?.let { putExtra(PlaybackService.EXTRA_POSITION, it) }
             putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
             command.muted?.let { putExtra(PlaybackService.EXTRA_MUTED, it) }
+            key?.let { putExtra(PlaybackService.EXTRA_DELIVERY_KEY, it) }
         }
         startService(InternalPlayback.authorize(intent))
+    }
+
+    private fun playTransferred(key: String, file: java.io.File) {
+        val command = transferCommand?.takeIf { it.first == key }?.second
+        transferCommand = null
+        // A newer command superseded this transfer while its last chunk was in flight.
+        if (command == null || DeliveryTracker.latest?.key != key) return TransferFiles.delete(cacheDir, file)
+        val intent = Intent(this, PlaybackService::class.java).apply {
+            action = PlaybackService.CMD_PLAY_MEDIA
+            putExtra(PlaybackService.EXTRA_FILE, file.absolutePath)
+            command.title?.let { putExtra(PlaybackService.EXTRA_TITLE, it) }
+            putExtra(PlaybackService.EXTRA_CONTENT_TYPE, command.transfer?.mime)
+            putExtra(PlaybackService.EXTRA_ANNOUNCE, command.announce)
+            putExtra(PlaybackService.EXTRA_DELIVERY_KEY, key)
+        }
+        startService(InternalPlayback.authorize(intent))
+    }
+
+    /** Each phase is reported at most once per request; missed phases are sent after reconnect. */
+    private fun report(status: DeliveryStatus?) {
+        val requestId = status?.requestId ?: return
+        val sent = sentReports.getOrPut(requestId) { mutableSetOf() }
+        if (status.phase in sent) return
+        if (client?.reportDelivery(requestId, status.phase.wire, status.reason?.wire) == true) sent += status.phase
     }
 
     private fun resolveUrl(url: String): String = TransportPolicy.resolveMedia(
@@ -276,7 +344,9 @@ class ConnectionService : Service() {
         stopped = true
         generation.incrementAndGet()
         connectivity.unregisterNetworkCallback(networkCallback)
+        DeliveryTracker.unobserve(deliveryObserver)
         PlayerStateBus.listener = null
+        try { scheduler.submit { transfers.cancel(DeliveryReason.STOPPED) }.get(2, TimeUnit.SECONDS) } catch (_: Exception) {}
         reconnectFuture?.cancel(true)
         client?.close()
         scheduler.shutdownNow()

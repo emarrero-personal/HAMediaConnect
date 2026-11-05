@@ -22,5 +22,7 @@ data class PlayerSnapshot(
     val title: String?,
     val contentId: String?,
     val error: String? = null,
-    val notice: String? = null
+    val notice: String? = null,
+    /** Playing a completed in-band transfer rather than a media URL. */
+    val direct: Boolean = false
 )

@@ -8,5 +8,7 @@ data class HaCommand(
     val volume: Float? = null,
     val position: Long? = null,
     val muted: Boolean? = null,
-    val announce: Boolean = false
+    val announce: Boolean = false,
+    val requestId: String? = null,
+    val transfer: TransferOffer? = null
 )

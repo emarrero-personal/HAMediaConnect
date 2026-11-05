@@ -57,11 +57,13 @@ class MainActivity : AppCompatActivity() {
     }
     private fun renderPlayback(snapshot: PlayerSnapshot? = PlayerStateBus.latest) {
         val idle = PlayerSnapshot("idle", 0f, false, 0, 0, null, null)
-        findViewById<TextView>(R.id.playbackStatus).text = PlaybackDiagnostic.summary(snapshot ?: idle, playbackConnection())
+        findViewById<TextView>(R.id.playbackStatus).text =
+            PlaybackDiagnostic.summary(snapshot ?: idle, playbackConnection(), DeliveryTracker.latest)
     }
     private val playbackObserver: (PlayerSnapshot) -> Unit = { snapshot ->
         runOnUiThread { renderPlayback(snapshot) }
     }
+    private val deliveryObserver: (DeliveryStatus) -> Unit = { runOnUiThread { renderPlayback() } }
 
     private val notificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -114,6 +116,7 @@ class MainActivity : AppCompatActivity() {
         openSettings = { showScreen(settingsScreen) }
         if (awaitingConnection) showScreen(settingsScreen)
         PlayerStateBus.observer = playbackObserver
+        DeliveryTracker.observe(deliveryObserver)
         renderPlayback()
         findViewById<android.view.View>(R.id.settingsButton).setOnClickListener { showScreen(settingsScreen) }
         findViewById<android.view.View>(R.id.helpButton).setOnClickListener { showScreen(helpScreen) }
@@ -334,6 +337,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         if (PlayerStateBus.observer === playbackObserver) PlayerStateBus.observer = null
+        DeliveryTracker.unobserve(deliveryObserver)
         AppPrefs.prefs(this).unregisterOnSharedPreferenceChangeListener(prefListener)
         oauthExecutor.shutdown()
         super.onDestroy()

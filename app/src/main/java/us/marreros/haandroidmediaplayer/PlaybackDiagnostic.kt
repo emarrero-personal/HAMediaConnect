@@ -2,6 +2,8 @@ package us.marreros.haandroidmediaplayer
 
 /** Deliberately omit hostnames, all query values and arbitrary path identifiers. */
 object PlaybackDiagnostic {
+    const val DIRECT = "Direct transfer · Home Assistant connection"
+
     fun endpoint(value: String?): String {
         if (value == null || !TransportPolicy.media(value)) return "No media endpoint"
         val uri = java.net.URI(value)
@@ -24,7 +26,30 @@ object PlaybackDiagnostic {
         return "${uri.scheme.uppercase()} · $category · $route"
     }
 
-    fun summary(snapshot: PlayerSnapshot, connection: ConnectionPhase = ConnectionPhase.CONNECTED): String {
+    /** Delivery progress first: a received command is never presented as playback. */
+    fun summary(snapshot: PlayerSnapshot, connection: ConnectionPhase = ConnectionPhase.CONNECTED,
+                delivery: DeliveryStatus? = null): String {
+        val playback = playback(snapshot, connection)
+        val pending = delivery != null && (delivery.phase == DeliveryPhase.RECEIVED ||
+            (delivery.phase == DeliveryPhase.RETRIEVING && delivery.method == DeliveryMethod.DIRECT))
+        val line = when {
+            delivery == null -> null
+            pending -> delivery.label()
+            delivery.reason == DeliveryReason.STOPPED || delivery.reason == DeliveryReason.SUPERSEDED -> null
+            // Media3 failures already appear below; this covers failures before playback began.
+            (delivery.phase == DeliveryPhase.FAILED || delivery.phase == DeliveryPhase.SUPPRESSED) && snapshot.error == null -> delivery.label()
+            else -> null
+        }
+        val idle = playback.startsWith("Ready")
+        val trailing = when {
+            pending && delivery?.method == DeliveryMethod.DIRECT -> DIRECT
+            delivery?.phase == DeliveryPhase.COMPLETED && idle -> "Last delivery: Completed"
+            else -> null
+        }
+        return listOfNotNull(line, playback.takeUnless { pending && idle }, trailing).joinToString("\n")
+    }
+
+    private fun playback(snapshot: PlayerSnapshot, connection: ConnectionPhase): String {
         val label = if (snapshot.error != null) "Failed" else when (snapshot.state) {
             "buffering" -> "Buffering"
             "playing" -> "Playing"
@@ -42,7 +67,7 @@ object PlaybackDiagnostic {
         // Metadata may itself contain a signed URL. Never render a URL as a title.
         val title = snapshot.title?.takeUnless { it.contains("://") || it.contains('?') }
             ?.filter { !it.isISOControl() }?.take(512)
-        return listOfNotNull(label, title, endpoint(snapshot.contentId),
+        return listOfNotNull(label, title, if (snapshot.direct) DIRECT else endpoint(snapshot.contentId),
             "${snapshot.positionMs / 1000}s / ${snapshot.durationMs / 1000}s", snapshot.error?.let { if (it.contains("timed out")) "Load/buffering stage: $it" else it }, snapshot.notice).joinToString("\n")
     }
 }
