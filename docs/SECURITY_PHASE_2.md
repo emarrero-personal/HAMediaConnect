@@ -122,6 +122,11 @@ HTTP audio URLs, including HA TTS, remain enabled independently of this switch. 
 
 HTTP is not made secure by device signatures: an on-path attacker can steal HA bearer tokens, observe/alter traffic, or actively relay a live challenge. The signatures prevent offline replay and unauthorized device claims without possession of the key; TLS is required against active network attackers. Rooted/compromised Android, compromised HA, malicious trusted notification listeners, and a stolen unlocked device remain outside this protection. No certificate pinning, self-signed-certificate bypass, external service, or plaintext migration is introduced.
 
+
+### Runtime dependency advisories
+
+Guava's Android runtime version is constrained to at least 33.7.2-android for GHSA-xxph-c9ww-hj94. The dependency-audit workflow resolves the complete release runtime module graph and queries OSV on dependency changes and nightly. Any advisory, incomplete response, lookup failure or unresolved dependency fails the check; no severity or package exclusions are applied. A match identifies an affected dependency and still needs application reachability analysis.
+
 ## Validation
 
 For security test commands, coverage gates, and release checklists, see the [Maintainer handbook](MAINTAINER.md).
@@ -176,8 +181,3 @@ and the SHA-256 digest before playback. Temporary audio lives only under
 accepts only a verified file in that directory. Revocation drops the device's
 pending transfers. No HTTP endpoint, token or credential is added, and playback
 reports carry fixed enums, never URLs or exception text.
-
-
-### Runtime dependency advisories
-
-Guava's Android runtime version is constrained to at least 33.7.2-android for GHSA-xxph-c9ww-hj94. The dependency-audit workflow resolves the complete release runtime module graph and queries OSV on dependency changes and nightly. Any advisory, incomplete response, lookup failure or unresolved dependency fails the check; no severity or package exclusions are applied. A match identifies an affected dependency and still needs application reachability analysis.
