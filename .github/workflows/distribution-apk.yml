@@ -32,12 +32,6 @@ jobs:
           ref: ${{ inputs.release_tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Require manual signing approval protection
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - name: Verify tag is on protected main
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
@@ -65,6 +59,12 @@ jobs:
             echo "::error::Tag $RELEASE_TAG must match Android versionName ($ACTUAL_VERSION) and integration version ($INTEGRATION_VERSION), with a valid versionCode ($VERSION_CODE)"
             exit 1
           }
+      - name: Require manual signing approval protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -117,12 +117,6 @@ jobs:
           ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
           fetch-depth: 0
-      - name: Require manual signing approval protection
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - name: Revalidate release tag against main
         env:
           RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
@@ -131,6 +125,12 @@ jobs:
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           git merge-base --is-ancestor "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" refs/remotes/origin/main
+      - name: Require manual signing approval protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/environments/production-signing" | python3 scripts/verify_signing_approval.py
       - name: Refuse to modify an already published release
         env:
           GH_TOKEN: ${{ github.token }}
