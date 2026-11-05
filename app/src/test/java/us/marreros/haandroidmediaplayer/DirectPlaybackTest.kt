@@ -92,15 +92,19 @@ class DirectPlaybackTest {
     }
 
     @Test fun announcementInterruptsTransferredMusicAndRestoresItsPosition() {
-        val music = wav('M', 5_000)
+        val music = wav('M', 60_000)
         play(music, "M".repeat(16), announce = false)
-        runUntil { player().isPlaying && player().currentPosition > 0 }
-        val position = player().currentPosition
+        runUntil { player().isPlaying }
+        // Robolectric's audio output does not pace decoding, so a busy machine can report the
+        // whole track as played before the test looks. Interrupt at a known position instead,
+        // in the same main-thread turn, so the saved position cannot race to the end.
+        val position = 10_000L
+        player().seekTo(position)
         val announcement = wav('B', 200)
         play(announcement, "B".repeat(16), announce = true)
         runUntil { DeliveryTracker.latest?.key == "B".repeat(16) && DeliveryTracker.latest?.phase == DeliveryPhase.COMPLETED }
-        assertEquals(music.absolutePath, player().currentMediaItem!!.localConfiguration!!.uri.path)
-        assertTrue(player().currentPosition >= position)
+        assertEquals(music.absolutePath, player().currentMediaItem?.localConfiguration?.uri?.path)
+        assertTrue("restored ${player().currentPosition} < saved $position", player().currentPosition >= position)
         assertTrue(player().playWhenReady)
         assertTrue("restored music file must remain", music.exists())
         assertFalse(announcement.exists())
