@@ -1,4 +1,4 @@
-name: Tag and publish release
+name: Tag approved release
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   release:
-    name: Create immutable release tag and GitHub release
+    name: Create immutable release tag after CI
     runs-on: ubuntu-latest
     steps:
       - name: Validate requested release
@@ -124,31 +124,23 @@ jobs:
             [[ "$existing_commit" == "${{ steps.release-commit.outputs.sha }}" ]] || { echo "::error::Tag changed during release workflow"; exit 1; }
           fi
 
-      - name: Create missing tag and release
+      - name: Create missing immutable tag
         env:
           GH_TOKEN: ${{ steps.release-token.outputs.token }}
           VERSION: ${{ inputs.version }}
-          PRERELEASE: ${{ inputs.prerelease }}
         shell: bash
         run: |
           set -euo pipefail
-          args=(--target "$GITHUB_SHA" --title "HAMediaConnect $VERSION" --generate-notes --verify-tag)
-          # Create the tag explicitly against the checked-out main SHA.
-          if ! git show-ref --verify --quiet "refs/tags/$VERSION"; then
-            git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com tag -a "$VERSION" -m "HAMediaConnect $VERSION" "$GITHUB_SHA"
-          # Persist the tag before creating the release. No force pushes.
-          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "refs/tags/$VERSION"
-          fi
-          if [[ "$PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
-          if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Release already exists; leaving unchanged."
+          if git show-ref --verify --quiet "refs/tags/$VERSION"; then
+            echo "Verified existing tag $VERSION; no changes."
             exit 0
           fi
-          gh release create "$VERSION" "${args[@]}"
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com tag -a "$VERSION" -m "HAMediaConnect $VERSION" "$GITHUB_SHA"
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "refs/tags/$VERSION"
 
       - name: Summarize release
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          echo "Verified release $VERSION at commit ${{ steps.release-commit.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "Verified release tag $VERSION at commit ${{ steps.release-commit.outputs.sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "The distribution workflow builds, signs, and publishes the release with assets." >> "$GITHUB_STEP_SUMMARY"
