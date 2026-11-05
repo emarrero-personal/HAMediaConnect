@@ -5,12 +5,14 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/hassfest.yml'
+      - '.github/workflows/manual-release.yml'
       - 'docs/**'
       - 'custom_components/**'
   pull_request:
     branches: [main]
     paths:
       - '.github/workflows/hassfest.yml'
+      - '.github/workflows/manual-release.yml'
       - 'docs/**'
       - 'custom_components/**'
   workflow_dispatch:
