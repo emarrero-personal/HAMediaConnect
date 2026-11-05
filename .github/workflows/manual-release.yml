@@ -1,0 +1,88 @@
+name: Tag and publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semantic version, e.g. v1.0.1'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark this as a prerelease'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Create immutable release tag and GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate requested release
+        env:
+          VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$REF_TYPE" != "branch" || "$REF_NAME" != "main" ]]; then
+            echo "::error::Run this workflow from the main branch only."
+            exit 1
+          fi
+          if [[ ! "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must be a valid v-prefixed release version (e.g. v1.0.1)."
+            exit 1
+          fi
+
+      - name: Checkout exact main commit
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Ensure tag and release do not exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$VERSION" >/dev/null; then
+            echo "::error::Tag $VERSION already exists. Existing tags are never overwritten."
+            exit 1
+          fi
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::error::Release $VERSION already exists."
+            exit 1
+          fi
+
+      - name: Create tag and GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--target "$GITHUB_SHA" --title "HAMediaConnect $VERSION" --generate-notes --verify-tag)
+          # Create the tag explicitly against the checked-out main SHA.
+          git -c user.name=github-actions -c user.email=41898282+github-actions[bot]@users.noreply.github.com tag -a "$VERSION" -m "HAMediaConnect $VERSION" "$GITHUB_SHA"
+          # Persist the tag before creating the release. No force pushes.
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin "refs/tags/$VERSION"
+          if [[ "$PRERELEASE" == "true" ]]; then args+=(--prerelease); fi
+          gh release create "$VERSION" "${args[@]}"
+
+      - name: Summarize release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "Created release $VERSION at commit $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/$VERSION" >> "$GITHUB_STEP_SUMMARY"
