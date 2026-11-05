@@ -11,6 +11,37 @@ object PlaybackFailure {
     const val BUFFER_TIMEOUT_MS = 30_000L
     const val TIMEOUT = "Playback timed out; check media endpoint reachability and retry"
 
+    /** Machine-readable reason reported to Home Assistant; mirrors [describe] without any free text. */
+    fun reason(error: PlaybackException): DeliveryReason {
+        var cause: Throwable? = error
+        repeat(12) {
+            when (val current = cause) {
+                is HttpDataSource.InvalidResponseCodeException -> return when (current.responseCode) {
+                    401, 403 -> DeliveryReason.ACCESS_DENIED
+                    404, 410 -> DeliveryReason.MISSING
+                    in 300..399 -> DeliveryReason.REDIRECT
+                    in 500..599 -> DeliveryReason.SERVER_ERROR
+                    else -> DeliveryReason.UNREACHABLE
+                }
+                is HttpDataSource.InvalidContentTypeException -> return DeliveryReason.CONTENT_TYPE
+                is SocketTimeoutException -> return DeliveryReason.TIMEOUT
+                is UnknownHostException -> return DeliveryReason.DNS
+                is SSLException -> return DeliveryReason.TLS
+            }
+            cause = cause?.cause
+        }
+        return when (error.errorCode) {
+            PlaybackException.ERROR_CODE_IO_NO_PERMISSION, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -> DeliveryReason.UNREACHABLE
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, PlaybackException.ERROR_CODE_TIMEOUT -> DeliveryReason.TIMEOUT
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> DeliveryReason.MISSING
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_DECODING_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED -> DeliveryReason.DECODE
+            else -> DeliveryReason.OTHER
+        }
+    }
+
     fun describe(error: PlaybackException): String {
         var cause: Throwable? = error
         repeat(12) {

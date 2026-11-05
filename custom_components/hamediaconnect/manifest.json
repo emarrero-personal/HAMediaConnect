@@ -1,6 +1,9 @@
 {
   "domain": "hamediaconnect",
   "name": "HAMediaConnect",
+  "after_dependencies": [
+    "tts"
+  ],
   "codeowners": [
     "@emarrero-personal"
   ],

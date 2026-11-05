@@ -91,7 +91,7 @@ async def test_full_protocol_and_disconnect(ws_module, env):
     await ws_module.ws_state(hass, conn, msg("state", device_id, state={"state": "playing", "volume_level": .5}))
     assert registry.players[device_id].state["state"] == "playing"
     await ws_module.ws_subscribe(hass, conn, {**msg("subscribe_commands", device_id), "id": 4})
-    conn.send_error.assert_called_with(4, "device_auth_failed", "Device request rejected")
+    conn.send_error.assert_called_with(4, "subscription_busy", "Previous connection is closing; retry")
     # Native HA invokes all subscription cleanup callbacks on disconnect.
     for cleanup in conn.subscriptions.values():
         cleanup()
@@ -161,7 +161,7 @@ async def test_subscribe_unsubscribe_identity_and_registration_validation(ws_mod
 def test_handlers(ws_module):
     websocket = sys.modules["homeassistant.components.websocket_api"]
     ws_module.async_register_websocket_commands(Mock())
-    assert websocket.async_register_command.call_count == 5
+    assert websocket.async_register_command.call_count == 8
 
 
 async def test_disconnect_reconnect_cleanup_does_not_remove_new_subscription(ws_module, env):
@@ -196,3 +196,65 @@ async def test_disconnect_reconnect_cleanup_does_not_remove_new_subscription(ws_
         del second.subscriptions[key]
     assert not second.subscriptions and not registry.sessions
     assert not registry.dispatch(device, {"action": "pause"})
+
+
+async def test_rate_limit_is_retryable_not_identity_rejection(ws_module, env):
+    hass, registry = env
+    conn = connection()
+    key, public = keypair()
+    for i in range(11):
+        await ws_module.ws_challenge(hass, connection(), {
+            "id": i + 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 12, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    conn.send_error.assert_called_once_with(12, "temporarily_unavailable", "Retry later")
+    assert not registry.players
+
+
+async def test_overlap_preserves_single_subscriber_then_recovers(ws_module, env):
+    hass, registry = env
+    key, public = keypair()
+    async def enroll(conn):
+        await ws_module.ws_challenge(hass, conn, {
+            "id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+        challenge = conn.send_result.call_args.args[1]
+        await ws_module.ws_register(hass, conn, {
+            "id": 2, "type": "hamediaconnect/register", "signature": proof(key, challenge["payload"])})
+        return challenge["device_id"]
+    first, second = connection(), connection()
+    device = await enroll(first)
+    await ws_module.ws_subscribe(hass, first, msg("subscribe_commands", device))
+    await enroll(second)
+    await ws_module.ws_subscribe(hass, second, msg("subscribe_commands", device))
+    second.send_error.assert_called_once_with(3, "subscription_busy", "Previous connection is closing; retry")
+    registry.dispatch(device, {"action": "pause"})
+    first.send_event.assert_called_once()
+    second.send_event.assert_not_called()
+    for cleanup in first.subscriptions.values():
+        cleanup()
+    await ws_module.ws_subscribe(hass, second, {**msg("subscribe_commands", device), "id": 4})
+    registry.dispatch(device, {"action": "play"})
+    second.send_event.assert_called_once_with(4, {"action": "play"})
+
+
+async def test_expired_challenge_is_consumed_and_retried_with_fresh_proof(ws_module, env, monkeypatch):
+    hass, registry = env
+    registry_module = sys.modules["custom_components.hamediaconnect.registry"]
+    conn = connection()
+    key, public = keypair()
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 1, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    old_payload = conn.send_result.call_args.args[1]["payload"]
+    now = registry_module.time.monotonic()
+    monkeypatch.setattr(registry_module.time, "monotonic", lambda: now + 31)
+    await ws_module.ws_register(hass, conn, {"id": 2, "type": "hamediaconnect/register", "signature": proof(key, old_payload)})
+    conn.send_error.assert_called_with(2, "temporarily_unavailable", "Retry later")
+    assert not registry.players
+    assert registry.sessions[conn].challenge is None
+    await ws_module.ws_challenge(hass, conn, {
+        "id": 3, "type": "hamediaconnect/challenge", "public_key": public, "name": "Pixel"})
+    fresh_payload = conn.send_result.call_args.args[1]["payload"]
+    assert fresh_payload != old_payload
+    await ws_module.ws_register(hass, conn, {"id": 4, "type": "hamediaconnect/register", "signature": proof(key, fresh_payload)})
+    assert len(registry.players) == 1
+    assert registry.sessions[conn].device_id is not None

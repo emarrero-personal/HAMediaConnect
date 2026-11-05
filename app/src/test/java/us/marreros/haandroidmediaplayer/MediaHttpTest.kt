@@ -45,6 +45,35 @@ class MediaHttpTest {
             } finally { controller.destroy(); executor.shutdownNow() }
         }
     }
+    @Test fun productionDataSourceFollowsOnlySameOriginRedirectAndPreservesSignatures() {
+        ServerSocket(0).use { server ->
+            server.soTimeout = 5000
+            val executor = Executors.newSingleThreadExecutor()
+            val requests = executor.submit<List<List<String>>> {
+                (0..1).map { index -> server.accept().use { socket ->
+                    socket.soTimeout = 5000
+                    val reader = socket.getInputStream().bufferedReader()
+                    val lines = mutableListOf<String>()
+                    while (true) { val line = reader.readLine() ?: break; if (line.isEmpty()) break; lines += line }
+                    val response = if (index == 0) "HTTP/1.1 302 Found\r\nLocation: /api/tts_proxy/fresh?authSig=a%2Fb&x=1&x=2\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    else "HTTP/1.1 200 OK\r\nContent-Type: audio/mpeg\r\nContent-Length: 3\r\nConnection: close\r\n\r\nabc"
+                    socket.getOutputStream().write(response.toByteArray())
+                    lines
+                } }
+            }
+            val controller = Robolectric.buildService(PlaybackService::class.java).create()
+            try {
+                val source = controller.get().mediaDataSourceFactory.createDataSource()
+                try {
+                    assertEquals(3, source.open(DataSpec(Uri.parse("http://127.0.0.1:${server.localPort}/start?authSig=fixture"))))
+                    val bytes = ByteArray(3); assertEquals(3, source.read(bytes, 0, 3)); assertEquals("abc", String(bytes))
+                } finally { source.close() }
+                val headers = requests.get(5, TimeUnit.SECONDS)
+                assertTrue(headers.last().first().contains("authSig=a%2Fb&x=1&x=2"))
+                assertFalse(headers.flatten().any { it.startsWith("Authorization:", true) || it.startsWith("Cookie:", true) })
+            } finally { controller.destroy(); executor.shutdownNow() }
+        }
+    }
     @Test fun localHttpLoadsAudioBytesWithoutControlCredentials() {
         response(200) { url, service ->
             val source = service.mediaDataSourceFactory.createDataSource()
@@ -57,7 +86,7 @@ class MediaHttpTest {
         }
     }
     @Test fun httpErrorsAndRedirectsSurfaceThroughMedia3() {
-        for (code in listOf(401, 403, 404, 500, 503, 302, 307)) response(code) { url, service ->
+        for (code in listOf(401, 403, 404, 410, 500, 503, 302, 307)) response(code) { url, service ->
             val source = service.mediaDataSourceFactory.createDataSource()
             try {
                 source.open(DataSpec(Uri.parse(url)))

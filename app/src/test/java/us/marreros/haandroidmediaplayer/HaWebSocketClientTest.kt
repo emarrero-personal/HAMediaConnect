@@ -18,6 +18,7 @@ import java.time.Duration
 class HaWebSocketClientTest {
     private class Harness {
         val statuses = mutableListOf<String>()
+        val events = mutableListOf<ConnectionEvent>()
         val commands = mutableListOf<HaCommand>()
         val sent = mutableListOf<JSONObject>()
         var queued = 0L
@@ -39,7 +40,7 @@ class HaWebSocketClientTest {
             val context = RuntimeEnvironment.getApplication() as android.content.Context
             AppPrefs.prefs(context).edit().clear().commit()
             identity = DeviceIdentity(context, keys)
-            client = HaWebSocketClient("https://ha.example", "SECRET_TOKEN", "Pixel", identity, statuses::add, commands::add)
+            client = HaWebSocketClient("https://ha.example", "SECRET_TOKEN", "Pixel", identity, statuses::add, commands::add, onConnectionEvent = events::add)
             set("stage", "ha_required"); set("socket", socket)
             val type = Class.forName("us.marreros.haandroidmediaplayer.HaWebSocketClient\$Listener")
             listener = type.getDeclaredConstructor(HaWebSocketClient::class.java).apply { isAccessible = true }.newInstance(client) as WebSocketListener
@@ -48,13 +49,49 @@ class HaWebSocketClientTest {
         fun message(text: String) = listener.onMessage(socket, text)
         fun result(id: Int, result: JSONObject = JSONObject()) = message(JSONObject().put("type", "result").put("id", id).put("success", true).put("result", result).toString())
         fun start() { message("{\"type\":\"auth_required\"}"); message("{\"type\":\"auth_ok\"}") }
-        fun ready() {
+        fun proofAccepted() {
             start()
             result(1, JSONObject().put("device_id", identity.deviceId).put("expires_in", 30)
                 .put("payload", "HAMediaConnect/v1\n${"a".repeat(43)}\nowner\n${identity.deviceId}"))
-            result(2, JSONObject().put("device_id", identity.deviceId)); result(3)
+            result(2, JSONObject().put("device_id", identity.deviceId))
         }
+        fun ready() { proofAccepted(); result(3) }
         fun event(data: JSONObject) = message(JSONObject().put("type", "event").put("id", 3).put("event", data).toString())
+    }
+    @Test fun legacySubscriptionConflictRetriesButFreshProofDenialIsPermanent() {
+        val h = Harness(); h.proofAccepted()
+        h.message(JSONObject().put("type", "result").put("id", 3).put("success", false)
+            .put("error", JSONObject().put("code", "device_auth_failed")).toString())
+        assertTrue(h.cancelled)
+        assertTrue(h.events.last().failure!!.retryable)
+        assertEquals(FailureStage.SUBSCRIPTION, h.events.last().failure!!.stage)
+        assertFalse(h.events.any { it.phase == ConnectionPhase.CONNECTED })
+        val rejected = Harness(); rejected.start()
+        rejected.message(JSONObject().put("type", "result").put("id", 1).put("success", false)
+            .put("error", JSONObject().put("code", "device_auth_failed")).toString())
+        assertFalse(rejected.events.last().failure!!.retryable)
+        assertEquals(ConnectionPhase.AUTHENTICATION_REJECTED, rejected.events.last().phase)
+    }
+    @Test fun serverClosingCancelsAndRetriesWithoutDisplayingCloseReason() {
+        val h = Harness(); h.ready()
+        h.listener.onClosing(h.socket, 1001, "SECRET_TOKEN")
+        assertTrue(h.cancelled)
+        assertEquals("Disconnected", h.statuses.last())
+        assertTrue(h.events.last().failure!!.retryable)
+        h.listener.onClosed(h.socket, 1001, "SECRET_TOKEN")
+        assertEquals(1, h.statuses.count { it == "Disconnected" })
+    }
+    @Test fun temporaryServerFailuresRetryButAuthorizationRejectionStops() {
+        for (code in listOf("subscription_busy", "storage_failed", "temporarily_unavailable", "device_auth_failed", "unknown")) {
+            val h = Harness(); h.start()
+            h.message(JSONObject().put("type", "result").put("id", 1).put("success", false)
+                .put("error", JSONObject().put("code", code).put("message", "SECRET_TOKEN")).toString())
+            assertTrue(h.cancelled)
+            assertFalse(h.statuses.last().contains("SECRET_TOKEN"))
+            assertEquals(code != "device_auth_failed",
+                h.events.last().failure!!.retryable)
+            h.client.close()
+        }
     }
     @Test fun signsFreshChallengeBeforeSubscribingAndMapsCommands() {
         val h = Harness(); h.ready()
@@ -140,7 +177,8 @@ class HaWebSocketClientTest {
         assertTrue(h.sent.isEmpty())
         val rejected = Harness(); rejected.start()
         rejected.message("{\"type\":\"result\",\"id\":1,\"success\":false,\"error\":{\"message\":\"SECRET_TOKEN\"}}")
-        assertEquals("Device authentication rejected; review registration", rejected.statuses.last())
+        assertEquals("Protocol rejected", rejected.statuses.last())
+        assertFalse(rejected.events.last().failure!!.retryable)
         val disconnected = Harness(); disconnected.listener.onClosed(disconnected.socket, 1000, "SECRET_TOKEN")
         assertEquals("Disconnected", disconnected.statuses.last())
         val timedOut = Harness()
@@ -170,7 +208,7 @@ class HaWebSocketClientTest {
         org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(1))
         assertTrue(h.cancelled)
         assertEquals(HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS, h.statuses.last())
-        assertTrue(TransportPolicy.shouldReconnect(h.statuses.last()))
+        assertTrue(h.events.last().failure!!.retryable)
         h.result(4) // A late acknowledgment cannot revive a closed client.
         h.listener.onFailure(h.socket, RuntimeException(), null)
         assertEquals(1, h.statuses.count { it == HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS })
@@ -203,10 +241,10 @@ class HaWebSocketClientTest {
             loop.idleFor(Duration.ofSeconds(20))
             assertEquals(statuses, h.statuses)
         }
-        assertFalse(TransportPolicy.shouldReconnect("Authentication failed"))
-        assertFalse(TransportPolicy.shouldReconnect("Protocol rejected"))
-        assertTrue(TransportPolicy.shouldReconnect("Disconnected"))
-        assertTrue(TransportPolicy.shouldReconnect("Authentication timed out"))
+        assertFalse(ConnectionFailureKind.HA_REJECTED.retryable)
+        assertFalse(ConnectionFailureKind.PROTOCOL.retryable)
+        assertTrue(ConnectionFailureKind.TRANSPORT.retryable)
+        assertTrue(ConnectionFailureKind.HANDSHAKE_TIMEOUT.retryable)
     }
     @Test fun controlUrlsUseExplicitHttpPolicyAndDisableRedirects() {
         val h = Harness()

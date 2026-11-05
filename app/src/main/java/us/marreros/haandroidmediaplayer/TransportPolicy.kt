@@ -31,9 +31,6 @@ object TransportPolicy {
         return resolved
     }
 
-    fun shouldReconnect(status: String): Boolean = status == "Disconnected" ||
-        status == "Authentication timed out" || status == HaWebSocketClient.STATE_ACK_TIMEOUT_STATUS
-
     fun reconnectDelay(attempt: Int, random: Double = java.security.SecureRandom().nextDouble()): Long {
         val ceiling = (5000L * (1L shl attempt.coerceIn(0, 6))).coerceAtMost(300000L)
         return (ceiling / 2 + random.coerceIn(0.0, 1.0) * ceiling / 2).toLong()

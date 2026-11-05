@@ -10,6 +10,7 @@ import androidx.media3.session.*
 import com.google.common.collect.ImmutableList
 
 /** Immutable, narrowly-scoped notification capabilities; raw exported service intents do nothing. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackNotifications(private val context: Context,
     private val delegate: MediaNotification.Provider = DefaultMediaNotificationProvider(context)
 ) : MediaNotification.Provider {

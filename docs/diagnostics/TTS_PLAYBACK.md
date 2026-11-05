@@ -1,5 +1,7 @@
 # TTS investigation
 
+The later [v1.0.1 device corrections](V1_0_1_FINAL_CORRECTIONS.md) supersede the endpoint-priority, UI-status, and validation conclusions below. This document records the preceding investigation and its historical test results.
+
 ## Findings before implementation
 
 At the start of this investigation, the reported Pixel failure had not been
@@ -95,8 +97,10 @@ repeats the resulting state, so HA's rate-limited state sender can deliver it.
 No new WebSocket fields are sent; registered devices and command schemas remain
 compatible. A future compatible extension would negotiate a `playback_diagnostics`
 capability before adding a bounded, enum-only `last_playback_error` field to state;
-clients must omit that field when talking to older integrations. This extension is
-proposed, not implemented.
+clients must omit that field when talking to older integrations. **Superseded:** the
+negotiated `playback_report_v1` message implements this as a separate, acknowledged
+report rather than a state field, because state updates are throttled and intermediate
+ones are dropped. See [TTS delivery](TTS_DELIVERY.md).
 
 ## Physical-device acceptance procedure (not yet performed)
 

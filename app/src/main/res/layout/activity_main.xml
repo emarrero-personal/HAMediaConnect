@@ -21,8 +21,7 @@
                 </LinearLayout>
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="♫  Playback" android:textColor="#291C52" android:textStyle="bold" android:textSize="21sp" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Ready" android:textColor="#51436D" android:textSize="17sp" />
-                    <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="Waiting for audio from Home Assistant" android:textColor="#655A7A" android:textSize="14sp" />
+                    <TextView android:id="@+id/playbackStatus" android:textIsSelectable="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Ready — Waiting for audio from Home Assistant" android:textColor="#51436D" android:textSize="17sp" />
                 </LinearLayout>
                 <LinearLayout android:id="@+id/gettingStartedCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ⓘ  Getting started" android:textColor="#291C52" android:textStyle="bold" android:textSize="20sp" />
@@ -37,6 +36,7 @@
             <TextView android:id="@+id/settingsBack" android:layout_width="match_parent" android:layout_height="64dp" android:gravity="center_vertical" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground" android:paddingBottom="24dp" android:text="‹   Settings" android:textColor="#21153E" android:textSize="25sp" android:textStyle="bold" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Connection" android:textColor="#5123A6" android:textSize="19sp" android:textStyle="bold" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Connection method" android:textColor="#291C52" android:textSize="17sp" android:textStyle="bold" />
+            <TextView android:id="@+id/settingsStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:padding="12dp" android:text="Disconnected" android:textColor="#291C52" android:textStyle="bold" android:textSize="18sp" />
             <RadioGroup android:id="@+id/authMethodGroup" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:background="@drawable/card_surface" android:padding="12dp">
                 <RadioButton android:id="@+id/oauthChoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="OAuth (recommended for HTTPS)" android:checked="true" android:textColor="#291C52" />
                 <RadioButton android:id="@+id/tokenChoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Long-lived access token (local HTTP supported)" android:textColor="#291C52" />

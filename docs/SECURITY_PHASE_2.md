@@ -41,7 +41,7 @@ Initial enrollment is trust-on-first-proof within the authenticated HA account, 
    Only a connection that proved this identity can subscribe or send `hamediaconnect/state`. Only one live command subscriber per device is allowed. Native HA disconnect/unsubscribe callbacks remove subscriptions; a separate cleanup callback also removes the authenticated connection state. Incomplete handshakes are removed after 30 seconds, even if the socket stays open.
 7. Reconnect repeats native HA authentication and a fresh device challenge. Challenges and authenticated sessions are never persisted. Captured signatures cannot authenticate another connection or answer a later challenge.
 
-Android permits only the expected handshake sequence and response IDs. HA authentication rejection, device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
+Android permits only the expected handshake sequence and response IDs. Temporary subscription conflicts, rate/session exhaustion, and storage failures retry without granting authorization or adding a second subscriber. HA authentication rejection, confirmed device proof rejection, malformed protocol, and invalidated signing keys stop the connection until the user intervenes. A state request must receive its matching acknowledgment within 15 seconds. Expiry closes the socket and triggers reconnect; acknowledgments, explicit shutdown, and failures cancel the deadline. Each later state request gets a new deadline, so a stale timer cannot terminate it. Transient disconnections, missing state acknowledgments, and handshake timeouts use exponential equal-jitter backoff, starting at 2.5–5 seconds and capped at 150–300 seconds. Token refresh rejection requires sign-in; transient refresh failures back off.
 
 ## Persistence, revocation, key loss
 
@@ -55,6 +55,13 @@ An HA administrator deliberately revokes a device over an authenticated HA WebSo
 
 The fingerprint is shown in Android Settings and is the device identifier in HA. Revocation is persisted before success, clears live command delivery and authentication sessions, and prevents that public key from re-enrolling. Revocation does not revoke the HA OAuth/access token; revoke that separately in the HA user profile if compromised.
 
+**Deleting** a device from the Home Assistant device page (`async_remove_config_entry_device`) is separate from revocation. Only HA administrators can do it, because the HA device-registry API requires an administrator.
+- If the device has a proven session or a live command subscription, the integration refuses the delete, so the device cannot re-register at once.
+- For a disconnected, unrevoked device, the integration first persists removal of the stored owner/key binding, then drops pending transfers. The device and entity are removed only after that succeeds. A storage failure keeps both.
+- The same key can enroll again later. It must prove possession with a fresh challenge, and it receives a new owner binding.
+- A revoked device's tombstone is never removed. Deleting a revoked device removes only its HA device and entity, and the key stays blocked.
+- Revoked identities no longer create entities at HA startup.
+
 To re-register, revoke the old fingerprint first, then use **Reset device identity** in Android Settings and confirm. The new key creates a new HA player/entity identity. Old entities are deliberately not transferred. An absent previously-created or invalidated Keystore key never triggers fallback to UUID-only or token-only device authorization. Reset is explicit. **Forget Home Assistant credentials** separately disconnects and clears encrypted credentials, pending OAuth, and the encryption key so sign-in can recover from an invalidated credential key without resetting the device identity.
 
 Revoked-key tombstones count against the finite identity quotas. There is no silent tombstone eviction or automatic trust reset. HA backup/configuration integrity matters: restoring an older HA backup can restore older revocation state. Android excludes preferences from backup/device transfer and disables application backup; Keystore private keys are not exportable or transferred.
@@ -63,7 +70,10 @@ Revoked-key tombstones count against the finite identity quotas. There is no sil
 
 | Resource | Limit |
 | --- | --- |
-| Integration request / Android received or sent JSON | 16 KiB UTF-8 |
+| Integration request / Android received or sent JSON | 16 KiB UTF-8 (except chunk results below) |
+| Android received chunk result (only for an outstanding chunk request) | 132 KiB raw frame; decoded `data` ≤ 65536 Base64 characters (48 KiB audio) |
+| In-band TTS transfer | 4 MiB each; one per device; 8 live and 16 MiB total in HA; 120 s HA expiry; 90 s Android deadline |
+| Chunk / report requests | 600 / 240 per user per minute; 4 outstanding chunk requests and 16 auxiliary requests per Android connection |
 | Android JSON nesting | 8 levels |
 | Public-key Base64 / signature Base64 | 256 / 128 characters |
 | Device fingerprint / name | exactly 64 lowercase hex / 128 characters |
@@ -118,11 +128,51 @@ For security test commands, coverage gates, and release checklists, see the [Mai
 
 ### Media delivery diagnostics update
 
-HA-owned media prefers HA's supported external HTTPS endpoint when configured;
+HA-owned media prefers HA's supported Cloud HTTPS endpoint when available, then configured external HTTPS;
 raw paths and signatures survive endpoint selection. Public streams keep their
 origins. Media uses a separate unauthenticated Media3 OkHttp client with TLS
-validation, no redirects, bounded connect/read and buffering deadlines, and fixed
+validation, at most five redirects within the identical scheme/host/port, bounded connect/read and buffering deadlines, and fixed
 sanitized diagnostics. It never receives HA bearer tokens. Android 17 local access
 requires the Local network runtime permission. HTTP audio retains its existing
 independent capability. See [TTS investigation](diagnostics/TTS_PLAYBACK.md) for
 security tradeoffs, compatible diagnostics proposal, and unverified device cases.
+
+
+### Typed recovery and media provenance
+
+Retry decisions use `ConnectionFailure` kind/stage, not display strings. Unknown
+server error codes retry a fresh proof; explicit identity rejection during challenge
+or proof stops. A legacy coarse rejection at subscription retries from challenge,
+where revocation/owner/signature enforcement still applies. Expired challenges are
+consumed and rejected before a fresh attempt; captured proofs remain unusable.
+The sanitized permanent failure kind persists across service/process restart; only
+explicit Settings connection actions can clear that block. OAuth
+refresh results cannot replace credentials whose origin, auth method or refresh
+token changed during the request.
+
+HA ownership is recorded before relative resources are made absolute. Only those
+resources and origins verified by `is_hass_url` select HA's external endpoint;
+Android never guesses ownership from a third-party URL's path. Path signatures,
+queries and opaque TTS tokens survive the actual request but are redacted from UI
+and logs. The separate media client has no bearer credentials or cookie store.
+Redirects with another origin, a downgrade, userinfo, fragments, malformed locations,
+or excessive hops are refused. No TLS bypass or additional public endpoint is introduced.
+
+
+### In-band TTS transfer
+
+HA-generated TTS audio can be pulled over the authenticated device WebSocket instead
+of from a media URL ([design](diagnostics/TTS_DELIVERY.md)). The audio comes only
+from HA's in-process TTS manager; the device can't name a URL, path or foreign
+transfer. Every `media_chunk`, `media_release` and `playback_report` request goes
+through the same `owned()` proof/owner/revocation check as `state`. Other devices of
+the same user and unproven connections can't read a transfer. Transfer errors
+(`media_unavailable`) and rejected reports are transfer-scoped and never change
+connection authorization. Feature negotiation is two-step (server advertises in the
+`register` result, client opts in on `subscribe_commands`), so neither side ever sends
+fields its peer would reject as a protocol error. Android validates offsets, lengths
+and the SHA-256 digest before playback. Temporary audio lives only under
+`cacheDir/transfers/` with unpredictable names and is deleted after use. Playback
+accepts only a verified file in that directory. Revocation drops the device's
+pending transfers. No HTTP endpoint, token or credential is added, and playback
+reports carry fixed enums, never URLs or exception text.

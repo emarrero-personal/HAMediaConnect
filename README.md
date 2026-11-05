@@ -47,6 +47,12 @@ Only install APKs from this project's GitHub Releases. GitHub Actions debug APKs
 
 Version 0.10.0 introduced a new device authentication protocol. Version 1.0.0 updates the project branding and version while retaining that protocol. Keep the Android app and Home Assistant integration on matching versions; update both sides together and sign in again after the 0.10.0 protocol upgrade. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
 
+### Remove a device
+
+To remove a phone or tablet and its `media_player` entity, open **Settings → Devices & services → HAMediaConnect**, select the device, and choose **⋮ → Delete**. Delete works only while the device is disconnected. If it is still connected, Home Assistant shows an error. Before deleting, use **Forget Home Assistant credentials** in the app's Settings, uninstall the app, or revoke the device.
+
+Deleting does not block the device. If the same app connects again with its original key, it enrolls again and gets a new entity. To permanently block a device key, revoke it first (see the [security guide](docs/SECURITY_PHASE_2.md#persistence-revocation-key-loss)), then delete it. A revoked device keeps its block after you delete it. After a Home Assistant restart, a revoked device's leftover entity shows as no longer provided, and you can delete it from the entity's settings.
+
 ## Play audio, TTS, and Music Assistant
 
 After the app connects, find its `media_player` entity in Home Assistant. For a direct audio URL, use **Media player → Play media** or an action such as:
@@ -76,7 +82,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
 - **HTTP connection is refused:** Enable **Allow insecure HTTP connections** in Android Settings only if your Home Assistant URL is HTTP. HTTPS/WSS does not require this setting.
-- **No sound or TTS:** Check Android media volume and mute, confirm the media URL is reachable from the phone, and verify your Home Assistant TTS provider works with another media player.
+- **No sound or TTS:** Check Android media volume and mute. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `received`/`retrieving` followed by `failed` means the command arrived but the audio did not; `playing` then `completed` means the device played it. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
 ## Documentation
@@ -98,11 +104,18 @@ If denied, enable it in Android's app permissions before using LAN media or LAN
 Home Assistant control. Chrome has separate permissions; a working browser GET
 does not prove the app can load the same audio.
 
+Home Assistant TTS doesn't need a phone-reachable media URL. When the app and
+integration are both this version, the integration renders the speech and the app
+downloads it over its existing authenticated connection. Announcements therefore
+work wherever the app shows **Connected**, including on cellular, and an in-progress
+download resumes after a Wi-Fi/cellular switch. The rest of this section applies to
+music and other non-TTS media, and to TTS with older app versions.
+
 For playback away from home, enable Home Assistant Cloud remote access or configure
 a valid external **HTTPS** URL in Home Assistant's network settings. Configure the
 app's Home Assistant connection with that reachable HTTPS origin and authenticate
 there once. Use this same origin on Wi-Fi and cellular. The integration prefers
-HA's external HTTPS endpoint for HA-owned media, including TTS. It keeps local
+HA's Cloud HTTPS endpoint when available, then a configured external HTTPS endpoint for HA-owned media, including TTS. It keeps local
 media when no external HTTPS endpoint is configured. A local-only HTTP connection
 cannot reconnect from cellular; do not expose port 8123 publicly.
 
@@ -112,11 +125,21 @@ remote access, expired media, or missing media routes can prevent playback even
 when the WebSocket connects. The Android app reports sanitized playback errors in
 its status and `HARemotePlayback` logs, and stops continuous buffering after
 30 seconds. Regenerate expired TTS after restoring connectivity. Media redirects
-are refused; use a direct audio URL for public streams that otherwise redirect.
+are allowed only within the same origin, up to five hops. Cross-origin redirects
+and HTTPS downgrades are refused; use a direct audio endpoint in those cases.
 When an announcement fails and music is restored, Home Assistant receives the
-restored music state. The announcement failure is retained in Android status and
-sanitized logs; it is not independently reported to Home Assistant. See the
-investigation below for the proposed capability-negotiated diagnostics extension.
+restored music state and, separately, the announcement's `failed` delivery report with
+a sanitized reason (see the player's `delivery_*` attributes and `hamediaconnect_playback` events).
 
-See the [TTS investigation and device test procedure](docs/diagnostics/TTS_PLAYBACK.md)
-for evidence, limitations, and Wi-Fi/cellular verification.
+See [TTS delivery](docs/diagnostics/TTS_DELIVERY.md) for the current architecture and
+physical acceptance tests, and the earlier [TTS investigation](docs/diagnostics/TTS_PLAYBACK.md)
+for the history.
+
+For the v1.0.1 corrections, sanitized Playback diagnostics, and the pending Pixel 10
+acceptance checklist, see [device corrections](docs/diagnostics/V1_0_1_FINAL_CORRECTIONS.md).
+
+Network changes retry immediately with the saved credentials and device key.
+Temporary transport, server and subscription failures back off automatically; confirmed
+authentication failures require correcting the credentials or registration in Settings,
+then Save and Connect. Idle Playback shows whether it is waiting for a connection;
+currently playing audio and playback failures remain visible during reconnection.

@@ -16,12 +16,15 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import java.io.File
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackService : MediaSessionService() {
     companion object {
         private const val TAG = "HARemotePlayback"
@@ -32,6 +35,9 @@ class PlaybackService : MediaSessionService() {
         const val EXTRA_POSITION = "position"
         const val EXTRA_ANNOUNCE = "announce"
         const val EXTRA_MUTED = "muted"
+        /** App-cache path of a completed in-band transfer; accepted only inside the transfer directory. */
+        const val EXTRA_FILE = "transfer_file"
+        const val EXTRA_DELIVERY_KEY = "delivery_key"
 
         const val CMD_PLAY_MEDIA = "play_media"
         const val CMD_PLAY = "play"
@@ -48,20 +54,30 @@ class PlaybackService : MediaSessionService() {
     private val handler = Handler(Looper.getMainLooper())
     private var currentUrl: String? = null
     private var currentTitle: String? = null
+    private var currentFile: File? = null
+    private var currentKey: String? = null
+    private val recentKeys = ArrayDeque<String>()
     private var playbackFailed = false
+    private var playbackError: String? = null
+    private var playbackNotice: String? = null
     private val bufferingTimeout = Runnable {
-        if (player.playbackState == Player.STATE_BUFFERING) failPlayback(PlaybackFailure.TIMEOUT)
+        if (player.playbackState == Player.STATE_BUFFERING) failPlayback(PlaybackFailure.TIMEOUT, DeliveryReason.TIMEOUT)
     }
 
-    private fun failPlayback(reason: String) {
+    private fun failPlayback(reason: String, kind: DeliveryReason) {
+        DeliveryTracker.update(currentKey, DeliveryPhase.FAILED, kind)
         handler.removeCallbacks(bufferingTimeout)
         Log.w(TAG, reason) // Never attach the Throwable or its message/URL.
         AppPrefs.prefs(this).edit().putString("playback_error", reason).apply()
         playbackFailed = true
-        if (announcing) restoreMedia() else {
+        playbackError = reason
+        if (announcing) {
+            if (savedMedia != null) playbackNotice = "Announcement failed — ${endpoint()}\n$reason"
+            restoreMedia()
+        } else {
             replacePlaybackListener()
             player.stop()
-            currentTitle = reason
+            releaseFile(currentFile.also { currentFile = null })
             publishState("idle")
         }
     }
@@ -70,7 +86,8 @@ class PlaybackService : MediaSessionService() {
         val positionMs: Long,
         val wasPlaying: Boolean,
         val url: String?,
-        val title: String?
+        val title: String?,
+        val file: File?
     )
     private var savedMedia: SavedMedia? = null
     private var announcing = false
@@ -79,6 +96,7 @@ class PlaybackService : MediaSessionService() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (isDndActive() && announcing) {
                 Log.i(TAG, "DND enabled; ending announcement and restoring media")
+                DeliveryTracker.update(currentKey, DeliveryPhase.SUPPRESSED, DeliveryReason.DND)
                 restoreMedia()
             }
         }
@@ -111,31 +129,49 @@ class PlaybackService : MediaSessionService() {
 
     private fun createPlaybackListener(generation: Long) = object : Player.Listener {
         private var announcementReady = false
+        private var started = false
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (generation != playbackGeneration) return
             Log.d(TAG, "state=$playbackState announcing=$announcing saved=${savedMedia != null}")
             handler.removeCallbacks(bufferingTimeout)
             if (playbackState == Player.STATE_BUFFERING) {
                 handler.postDelayed(bufferingTimeout, PlaybackFailure.BUFFER_TIMEOUT_MS)
+                DeliveryTracker.update(currentKey, DeliveryPhase.BUFFERING)
             }
-            if (announcing && playbackState == Player.STATE_READY) announcementReady = true
+            if (playbackState == Player.STATE_READY) {
+                if (!started) DeliveryTracker.update(currentKey, if (player.isPlaying) DeliveryPhase.PLAYING else DeliveryPhase.READY)
+                if (announcing) announcementReady = true
+            }
             if (announcing && playbackState == Player.STATE_ENDED) {
                 if (announcementReady) {
+                    DeliveryTracker.update(currentKey, DeliveryPhase.COMPLETED)
                     restoreMedia()
                 } else if (player.playbackState == Player.STATE_ENDED) {
                     // A real empty/failed stream can end without reaching READY.
                     // A stale ENDED while the new item loads must not restore it.
-                    failPlayback("Announcement ended without playable audio; regenerate TTS")
+                    failPlayback("Announcement ended without playable audio; regenerate TTS", DeliveryReason.DECODE)
                 }
+            }
+            if (generation != playbackGeneration) return
+            if (!announcing && playbackState == Player.STATE_ENDED && !playbackFailed) {
+                DeliveryTracker.update(currentKey, DeliveryPhase.COMPLETED)
+                currentUrl = null
+                currentTitle = null
+                currentKey = null
+                releaseFile(currentFile.also { currentFile = null })
+                replacePlaybackListener()
+                player.clearMediaItems()
             }
             publishState()
         }
         override fun onIsPlayingChanged(isPlaying: Boolean) {
-            if (generation == playbackGeneration) publishState()
+            if (generation != playbackGeneration) return
+            if (isPlaying && !started) { started = true; DeliveryTracker.update(currentKey, DeliveryPhase.PLAYING) }
+            publishState()
         }
         override fun onPlayerError(error: PlaybackException) {
             if (generation != playbackGeneration) return
-            failPlayback(PlaybackFailure.describe(error))
+            failPlayback(PlaybackFailure.describe(error), PlaybackFailure.reason(error))
         }
         override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
             if (generation != playbackGeneration) return
@@ -150,6 +186,7 @@ class PlaybackService : MediaSessionService() {
         // Separate from authenticated HA control: never attach bearer tokens.
         // Refuse redirects so signatures cannot cross origins or downgrade TLS.
         val mediaHttp = OkHttpClient.Builder()
+            .addInterceptor(MediaRedirectPolicy())
             .followRedirects(false).followSslRedirects(false)
             .connectTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS)
             .build()
@@ -158,9 +195,11 @@ class PlaybackService : MediaSessionService() {
                 val mime = type.substringBefore(';').trim().lowercase()
                 mime != "text/html" && mime != "application/json"
             }
+        // HTTP(S) still goes through the credential-free OkHttp client; file:// only ever names
+        // a verified transfer file because playMedia accepts no other local URI.
         player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(DefaultMediaSourceFactory(this)
-                .setDataSourceFactory(mediaDataSourceFactory))
+                .setDataSourceFactory(DefaultDataSource.Factory(this, mediaDataSourceFactory)))
             .build()
         replacePlaybackListener()
         mediaSession = MediaSession.Builder(this, player).setCallback(object : MediaSession.Callback {
@@ -184,21 +223,33 @@ class PlaybackService : MediaSessionService() {
         when (intent.action) {
             CMD_PLAY_MEDIA -> playMedia(
                 intent.getStringExtra(EXTRA_URL),
+                intent.getStringExtra(EXTRA_FILE),
                 intent.getStringExtra(EXTRA_TITLE),
                 intent.getBooleanExtra(EXTRA_ANNOUNCE, false),
-                intent.getStringExtra(EXTRA_CONTENT_TYPE)
+                intent.getStringExtra(EXTRA_CONTENT_TYPE),
+                intent.getStringExtra(EXTRA_DELIVERY_KEY)
             )
             "notification_toggle" -> if (player.isPlaying) player.pause() else player.play()
             CMD_PLAY -> player.play()
             CMD_PAUSE -> player.pause()
             CMD_STOP -> {
+                DeliveryTracker.update(currentKey, DeliveryPhase.FAILED, DeliveryReason.STOPPED)
+                handler.removeCallbacks(bufferingTimeout)
+                playbackFailed = false
+                playbackError = null
+                playbackNotice = null
+                AppPrefs.prefs(this).edit().remove("playback_error").apply()
                 announcing = false
+                val saved = savedMedia?.file
                 savedMedia = null
+                releaseFile(saved)
                 replacePlaybackListener()
                 player.stop()
                 player.clearMediaItems()
                 currentUrl = null
                 currentTitle = null
+                currentKey = null
+                releaseFile(currentFile.also { currentFile = null })
             }
             CMD_MUTE -> {
                 if (intent.hasExtra(EXTRA_MUTED)) {
@@ -218,14 +269,39 @@ class PlaybackService : MediaSessionService() {
         return super.onStartCommand(intent, flags, startId)
     }
 
-    private fun playMedia(url: String?, title: String?, announce: Boolean, contentType: String?) {
-        if (url.isNullOrBlank() || !TransportPolicy.media(url)) return
+    private fun endpoint() = if (currentFile != null) "Direct transfer" else PlaybackDiagnostic.endpoint(currentUrl)
+
+    /** Deletes transferred audio once neither the current nor the saved item refers to it. */
+    private fun releaseFile(file: File?) {
+        if (file != null && file != currentFile && file != savedMedia?.file) TransferFiles.delete(cacheDir, file)
+    }
+
+    private fun playMedia(url: String?, filePath: String?, title: String?, announce: Boolean, contentType: String?, key: String?) {
+        val file = filePath?.let(::File)
+        val uri = when {
+            file != null -> if (TransferFiles.owned(cacheDir, file)) android.net.Uri.fromFile(file).toString() else null
+            !url.isNullOrBlank() && TransportPolicy.media(url) -> url
+            else -> null
+        }
+        if (uri == null) {
+            DeliveryTracker.update(key, DeliveryPhase.FAILED, DeliveryReason.OTHER)
+            return
+        }
+        if (key != null) {
+            if (key in recentKeys) return // Duplicate delivery of a request already played.
+            recentKeys.addLast(key)
+            while (recentKeys.size > 16) recentKeys.removeFirst()
+        }
         if (announce && isDndActive()) {
             Log.i(TAG, "Suppressing announcement while DND is active")
+            DeliveryTracker.update(key, DeliveryPhase.SUPPRESSED, DeliveryReason.DND)
+            if (file != null) TransferFiles.delete(cacheDir, file)
             return
         }
         handler.removeCallbacks(bufferingTimeout)
         playbackFailed = false
+        playbackError = null
+        playbackNotice = null
         AppPrefs.prefs(this).edit().remove("playback_error").apply()
         Log.i(TAG, "playMedia announce=$announce items=${player.mediaItemCount}")
         if (announce) {
@@ -237,26 +313,36 @@ class PlaybackService : MediaSessionService() {
                         player.currentPosition.coerceAtLeast(0L),
                         player.playWhenReady,
                         currentUrl,
-                        currentTitle
+                        currentTitle,
+                        currentFile
                     )
                 }
             }
             announcing = true
         } else {
             announcing = false
+            val saved = savedMedia?.file
             savedMedia = null
+            releaseFile(saved)
         }
-        currentUrl = url
+        val replaced = currentFile
+        currentUrl = if (file != null) null else url
         currentTitle = title
+        currentFile = file
+        currentKey = key
+        releaseFile(replaced)
         val metadata = MediaMetadata.Builder()
             .setTitle(title ?: "Home Assistant")
             .build()
         val item = MediaItem.Builder()
-            .setUri(url)
+            .setUri(uri)
             .setMimeType(contentType?.takeIf { it.startsWith("audio/") || it.startsWith("video/") || it == "application/x-mpegURL" })
             .setMediaMetadata(metadata)
             .build()
         replacePlaybackListener()
+        // Retrieval starts now (prepare emits BUFFERING synchronously); only later Media3
+        // transitions prove that audio actually played.
+        if (file == null) DeliveryTracker.update(key, DeliveryPhase.RETRIEVING)
         player.setMediaItem(item)
         player.prepare()
         player.play()
@@ -269,11 +355,19 @@ class PlaybackService : MediaSessionService() {
         savedMedia = null
         handler.removeCallbacks(bufferingTimeout)
         replacePlaybackListener()
+        val announcementFile = currentFile
+        currentKey = null
+        currentFile = previous?.file
+        releaseFile(announcementFile)
         if (previous == null) {
-            currentUrl = null
-            currentTitle = if (playbackFailed) AppPrefs.prefs(this).getString("playback_error", null) else null
+            if (!playbackFailed) {
+                currentUrl = null
+                currentTitle = null
+            }
             player.clearMediaItems()
         } else {
+            playbackFailed = false
+            playbackError = null
             currentUrl = previous.url
             currentTitle = previous.title
             player.setMediaItem(previous.item, previous.positionMs)
@@ -303,7 +397,7 @@ class PlaybackService : MediaSessionService() {
             player.playbackState == Player.STATE_READY && !player.playWhenReady -> "paused"
             else -> "idle"
         }
-        PlayerStateBus.listener?.invoke(
+        PlayerStateBus.publish(
             PlayerSnapshot(
                 state = state,
                 volume = systemVolume(),
@@ -311,17 +405,34 @@ class PlaybackService : MediaSessionService() {
                 positionMs = player.currentPosition.coerceAtLeast(0L),
                 durationMs = player.duration.takeIf { it > 0 } ?: 0L,
                 title = currentTitle,
-                contentId = currentUrl
+                contentId = currentUrl,
+                error = playbackError,
+                notice = playbackNotice,
+                direct = currentFile != null
             )
         )
     }
 
     override fun onDestroy() {
+        DeliveryTracker.update(currentKey, DeliveryPhase.FAILED, DeliveryReason.STOPPED)
         handler.removeCallbacks(ticker)
         handler.removeCallbacks(bufferingTimeout)
         unregisterReceiver(dndReceiver)
         playbackGeneration++
         player.removeListener(playbackListener)
+        player.stop()
+        player.clearMediaItems()
+        currentUrl = null
+        currentTitle = null
+        currentKey = null
+        savedMedia?.file?.let { TransferFiles.delete(cacheDir, it) }
+        currentFile?.let { TransferFiles.delete(cacheDir, it) }
+        savedMedia = null
+        currentFile = null
+        playbackError = null
+        playbackNotice = null
+        AppPrefs.prefs(this).edit().remove("playback_error").apply()
+        publishState("idle")
         mediaSession.release()
         player.release()
         super.onDestroy()

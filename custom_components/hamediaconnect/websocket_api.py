@@ -1,6 +1,7 @@
 """Device proof layered on HA's native authenticated WebSocket transport."""
 from __future__ import annotations
 
+import base64
 import functools
 import json
 import math
@@ -9,7 +10,8 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
-from .registry import MAX_MESSAGE
+from .registry import FEATURES, MAX_MESSAGE, PHASES, REASONS, REQUEST_ID, RetryableDeviceError
+from .transfer import TransferUnavailable
 
 REGISTRY_KEY = f"{DOMAIN}_registry"
 def TEXT(maximum):
@@ -22,6 +24,13 @@ def finite_number(value):
     return value
 
 DEVICE = vol.All(TEXT(64), vol.Match(r"^[a-f0-9]{64}$"))
+TRANSFER = vol.All(TEXT(22), vol.Match(r"^[A-Za-z0-9_-]{22}$"))
+
+
+def offset(value):
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise vol.Invalid("Offset required")
+    return value
 STATE = vol.Schema({
     vol.Optional("state"): vol.In(["off", "idle", "playing", "paused", "buffering", "unavailable"]),
     vol.Optional("volume_level"): vol.All(finite_number, vol.Range(min=0, max=1)),
@@ -45,6 +54,11 @@ def command(kind, fields):
                     raise ValueError("Message too large")
                 schema(msg)
                 await fn(hass, connection, msg)
+            except TransferUnavailable:
+                # Transfer-scoped: the device fails that delivery, not its connection.
+                connection.send_error(msg["id"], "media_unavailable", "Media transfer unavailable")
+            except RetryableDeviceError:
+                connection.send_error(msg["id"], "temporarily_unavailable", "Retry later")
             except (ValueError, PermissionError, vol.Invalid, RecursionError, TypeError):
                 connection.send_error(msg["id"], "device_auth_failed", "Device request rejected")
             except OSError:
@@ -62,7 +76,8 @@ async def ws_challenge(hass, connection, msg):
 @command("register", {vol.Required("signature"): TEXT(128)})
 async def ws_register(hass, connection, msg):
     player = await hass.data[REGISTRY_KEY].authenticate(connection, msg["signature"])
-    connection.send_result(msg["id"], {"device_id": player.device_id})
+    # Older clients ignore unknown result keys; newer clients opt in when subscribing.
+    connection.send_result(msg["id"], {"device_id": player.device_id, "features": list(FEATURES)})
 
 
 @command("state", {vol.Required("device_id"): DEVICE, vol.Required("state"): STATE})
@@ -73,18 +88,21 @@ async def ws_state(hass, connection, msg):
     connection.send_result(msg["id"])
 
 
-@command("subscribe_commands", {vol.Required("device_id"): DEVICE})
+@command("subscribe_commands", {vol.Required("device_id"): DEVICE,
+                                 vol.Optional("features"): vol.All([TEXT(32)], vol.Length(max=8))})
 async def ws_subscribe(hass, connection, msg):
     registry = hass.data[REGISTRY_KEY]
     registry.budget(connection.user.id, "subscribe", 10)
     player = registry.owned(connection, msg["device_id"])
     if player.send_command is not None:
-        raise PermissionError("Already subscribed")
+        connection.send_error(msg["id"], "subscription_busy", "Previous connection is closing; retry")
+        return
 
     @callback
     def send(command):
         connection.send_event(msg["id"], command)
     send.connection = connection
+    send.features = frozenset(f for f in msg.get("features", ()) if f in FEATURES)
 
     @callback
     def unsubscribe():
@@ -97,6 +115,34 @@ async def ws_subscribe(hass, connection, msg):
     hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": player.device_id})
 
 
+@command("media_chunk", {vol.Required("device_id"): DEVICE, vol.Required("transfer_id"): TRANSFER,
+                         vol.Required("offset"): offset})
+async def ws_media_chunk(hass, connection, msg):
+    registry = hass.data[REGISTRY_KEY]
+    registry.budget(connection.user.id, "chunk", 600)
+    player = registry.owned(connection, msg["device_id"])
+    data = registry.transfers.chunk(player.device_id, msg["transfer_id"], msg["offset"])
+    connection.send_result(msg["id"], {"offset": msg["offset"], "data": base64.b64encode(data).decode()})
+
+
+@command("media_release", {vol.Required("device_id"): DEVICE, vol.Required("transfer_id"): TRANSFER})
+async def ws_media_release(hass, connection, msg):
+    registry = hass.data[REGISTRY_KEY]
+    player = registry.owned(connection, msg["device_id"])
+    registry.transfers.release(player.device_id, msg["transfer_id"])
+    connection.send_result(msg["id"])
+
+
+@command("playback_report", {vol.Required("device_id"): DEVICE,
+                             vol.Required("request_id"): vol.All(TEXT(16), vol.Match(REQUEST_ID)),
+                             vol.Required("phase"): vol.In(PHASES), vol.Optional("reason"): vol.In(REASONS)})
+async def ws_playback_report(hass, connection, msg):
+    registry = hass.data[REGISTRY_KEY]
+    registry.budget(connection.user.id, "report", 240)
+    registry.report(connection, msg["device_id"], msg["request_id"], msg["phase"], msg.get("reason"))
+    connection.send_result(msg["id"])
+
+
 @command("revoke", {vol.Required("device_id"): DEVICE})
 async def ws_revoke(hass, connection, msg):
     if not connection.user.is_admin:
@@ -107,5 +153,6 @@ async def ws_revoke(hass, connection, msg):
 
 @callback
 def async_register_websocket_commands(hass: HomeAssistant):
-    for handler in (ws_challenge, ws_register, ws_state, ws_subscribe, ws_revoke):
+    for handler in (ws_challenge, ws_register, ws_state, ws_subscribe, ws_media_chunk,
+                    ws_media_release, ws_playback_report, ws_revoke):
         websocket_api.async_register_command(hass, handler)

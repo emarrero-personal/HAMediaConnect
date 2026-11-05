@@ -7,6 +7,17 @@ import okio.ByteString
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
+interface HaConnection : ChunkSource {
+    fun connect()
+    fun close()
+    fun fireState(event: JSONObject)
+    /** Features both sides negotiated for the current, ready connection. */
+    fun supports(feature: String): Boolean = false
+    override fun requestChunk(transferId: String, offset: Int, callback: (ChunkResult) -> Unit): Boolean = false
+    /** Best effort; returns whether the report was sent. Never affects connection state. */
+    fun reportDelivery(requestId: String, phase: String, reason: String?): Boolean = false
+}
+
 /** One HA connection, one proof, one command subscription; no application message queue. */
 class HaWebSocketClient(
     private val baseUrl: String,
@@ -15,14 +26,26 @@ class HaWebSocketClient(
     private val identity: DeviceSigner,
     private val onStatus: (String) -> Unit,
     private val onCommand: (HaCommand) -> Unit,
-    private val allowHttp: Boolean = false
-) {
+    private val allowHttp: Boolean = false,
+    private val onConnectionEvent: (ConnectionEvent) -> Unit = {}
+) : HaConnection {
     companion object {
         const val MAX_MESSAGE = 16384
         const val STATE_ACK_TIMEOUT_MS = 15000L
         const val STATE_ACK_TIMEOUT_STATUS = "State acknowledgment timed out"
-        fun boundedJson(text: String): JSONObject {
-            require(text.length <= MAX_MESSAGE && text.toByteArray().size <= MAX_MESSAGE)
+        /**
+         * Only a result for an outstanding chunk request may use this larger frame bound. JSON
+         * encoders may legally escape every Base64 '/' as "\/", so the raw frame allows twice the
+         * encoded chunk; the decoded `data` string itself is still capped at 64 KiB.
+         */
+        const val MAX_CHUNK_MESSAGE = TransferOffer.MAX_ENCODED_CHUNK * 2 + 1024
+        const val MAX_AUX_REQUESTS = 16
+        const val FEATURE_TRANSFER = "media_transfer_v1"
+        const val FEATURE_REPORT = "playback_report_v1"
+        val SUPPORTED_FEATURES = setOf(FEATURE_TRANSFER, FEATURE_REPORT)
+        private val REQUEST_ID = Regex("[A-Za-z0-9_-]{16}")
+        fun boundedJson(text: String, limit: Int = MAX_MESSAGE): JSONObject {
+            require(text.length <= limit && text.toByteArray().size <= limit)
             android.util.JsonReader(java.io.StringReader(text)).use { reader ->
                 reader.isLenient = false
                 fun value(depth: Int) {
@@ -55,7 +78,7 @@ class HaWebSocketClient(
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(0, TimeUnit.MILLISECONDS)
         .followRedirects(false).followSslRedirects(false).build()
     private val handler = Handler(Looper.getMainLooper())
-    private val timeout = Runnable { fail("Authentication timed out") }
+    private val timeout = Runnable { fail(ConnectionFailure(ConnectionFailureKind.HANDSHAKE_TIMEOUT)) }
     private var socket: WebSocket? = null
     private var stage = "new"
     private var nextId = 1
@@ -67,24 +90,91 @@ class HaWebSocketClient(
     private var commandWindow = 0L
     private var commandCount = 0
     private val deviceId get() = identity.deviceId
+    private var negotiated: Set<String> = emptySet()
+    private val auxRequests = mutableMapOf<Int, (Boolean, JSONObject) -> Unit>()
+    private val chunkRequests = mutableMapOf<Int, (ChunkResult) -> Unit>()
 
-    @Synchronized fun connect() {
+    @Synchronized override fun connect() {
         require(stage == "new")
         require(token.length in 1..8192 && deviceName.length in 1..128)
         stage = "ha_required"
         handler.postDelayed(timeout, 45000)
         socket = client.newWebSocket(Request.Builder().url(toWebSocketUrl(baseUrl)).build(), Listener())
-        onStatus("Connecting…")
+        emit(ConnectionEvent(ConnectionPhase.CONNECTING))
     }
-    @Synchronized fun close() {
+    @Synchronized override fun close() {
         stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
+        abandonRequests()
     }
-    @Synchronized private fun fail(status: String) {
+    @Synchronized private fun fail(failure: ConnectionFailure) {
         if (stage == "closed") return
         stage = "closed"; handler.removeCallbacks(timeout); clearStateDeadline()
         socket?.cancel(); socket = null
-        onStatus(status)
+        abandonRequests()
+        emit(ConnectionEvent.failed(failure))
+    }
+    private fun abandonRequests() {
+        val callbacks = chunkRequests.values.toList()
+        chunkRequests.clear(); auxRequests.clear()
+        callbacks.forEach { it(ChunkResult.Disconnected) }
+    }
+    @Synchronized override fun supports(feature: String) = stage == "ready" && feature in negotiated
+    private fun auxiliary(type: String, fields: JSONObject, handler: (Boolean, JSONObject) -> Unit): Int? {
+        val ws = socket ?: return null
+        if (stage != "ready" || auxRequests.size >= MAX_AUX_REQUESTS) return null
+        val id = nextId++
+        return try {
+            send(ws, fields.put("id", id).put("type", "hamediaconnect/$type").put("device_id", deviceId))
+            auxRequests[id] = handler
+            id
+        } catch (_: Exception) { null } // Full send buffer: the caller retries later.
+    }
+    @Synchronized override fun requestChunk(transferId: String, offset: Int, callback: (ChunkResult) -> Unit): Boolean {
+        if (!supports(FEATURE_TRANSFER) || !transferId.matches(TransferOffer.ID) || offset < 0) return false
+        val id = auxiliary("media_chunk", JSONObject().put("transfer_id", transferId).put("offset", offset)) { success, json ->
+            chunkRequests.remove(json.getInt("id"))
+            callback(if (success) chunkData(json, offset) else when (errorCode(json)) {
+                "temporarily_unavailable" -> ChunkResult.Retry
+                else -> ChunkResult.Unavailable
+            })
+        } ?: return false
+        chunkRequests[id] = callback
+        return true
+    }
+    @Synchronized override fun releaseTransfer(transferId: String) {
+        if (supports(FEATURE_TRANSFER) && transferId.matches(TransferOffer.ID))
+            auxiliary("media_release", JSONObject().put("transfer_id", transferId)) { _, _ -> }
+    }
+    @Synchronized override fun reportDelivery(requestId: String, phase: String, reason: String?): Boolean {
+        if (!supports(FEATURE_REPORT) || !requestId.matches(REQUEST_ID)) return false
+        val fields = JSONObject().put("request_id", requestId).put("phase", phase)
+        reason?.let { fields.put("reason", it) }
+        // A rejected report is informational only; it never closes the device connection.
+        return auxiliary("playback_report", fields) { _, _ -> } != null
+    }
+    private fun errorCode(json: JSONObject): String? {
+        val error = json.optJSONObject("error") ?: return null
+        if (error.has("code")) require(error.get("code") is String && error.getString("code").length in 1..128)
+        return error.optString("code")
+    }
+    private fun chunkData(json: JSONObject, offset: Int): ChunkResult {
+        val result = json.getJSONObject("result")
+        require(result.keys().asSequence().toSet() == setOf("offset", "data"))
+        require(result.get("offset") == offset)
+        val data = result.get("data")
+        require(data is String && data.length in 4..TransferOffer.MAX_ENCODED_CHUNK && data.length % 4 == 0)
+        return ChunkResult.Data(offset, java.util.Base64.getDecoder().decode(data))
+    }
+    private fun emit(event: ConnectionEvent) {
+        onConnectionEvent(event)
+        onStatus(event.message)
+    }
+    private fun failureStage() = when (stage) {
+        "challenge", "proof" -> FailureStage.REGISTRATION
+        "subscription" -> FailureStage.SUBSCRIPTION
+        "ready" -> FailureStage.STATE
+        else -> FailureStage.HANDSHAKE
     }
     private fun clearStateDeadline() {
         stateTimeout?.let(handler::removeCallbacks)
@@ -94,7 +184,7 @@ class HaWebSocketClient(
     private fun awaitStateAcknowledgment(id: Int) {
         val deadline = Runnable {
             synchronized(this) {
-                if (stage == "ready" && stateId == id) fail(STATE_ACK_TIMEOUT_STATUS)
+                if (stage == "ready" && stateId == id) fail(ConnectionFailure(ConnectionFailureKind.STATE_TIMEOUT))
             }
         }
         stateTimeout = deadline
@@ -109,7 +199,7 @@ class HaWebSocketClient(
         requestId = nextId++
         send(ws, fields.put("id", requestId).put("type", "hamediaconnect/$type"))
     }
-    @Synchronized fun fireState(event: JSONObject) {
+    @Synchronized override fun fireState(event: JSONObject) {
         val now = android.os.SystemClock.elapsedRealtime()
         if (stage != "ready" || stateId != -1 || now - lastStateAt < 1000) return
         val ws = socket ?: return
@@ -127,15 +217,17 @@ class HaWebSocketClient(
                 .put("device_id", deviceId).put("state", state))
             awaitStateAcknowledgment(stateId)
             lastStateAt = now
-        } catch (_: Exception) { fail("Protocol rejected") }
+        } catch (_: Exception) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
     }
     private inner class Listener : WebSocketListener() {
         override fun onMessage(webSocket: WebSocket, text: String) = synchronized(this@HaWebSocketClient) {
             if (stage == "closed") return@synchronized
             try {
-                val json = boundedJson(text)
+                val json = boundedJson(text, if (chunkRequests.isEmpty()) MAX_MESSAGE else MAX_CHUNK_MESSAGE)
                 val type = json.get("type")
                 require(type is String)
+                if (text.length > MAX_MESSAGE || text.toByteArray().size > MAX_MESSAGE)
+                    require(type == "result" && json.opt("id").let { it is Int && it in chunkRequests })
                 val fields = when (type) {
                     "auth_required", "auth_ok" -> setOf("type", "ha_version")
                     "auth_invalid" -> setOf("type", "message")
@@ -156,17 +248,30 @@ class HaWebSocketClient(
                         stage = "challenge"
                         request(webSocket, "challenge", JSONObject().put("public_key", identity.publicKey).put("name", deviceName))
                     }
-                    "auth_invalid" -> fail("Authentication failed")
+                    "auth_invalid" -> fail(ConnectionFailure(ConnectionFailureKind.HA_REJECTED))
                     "result" -> {
                         val id = json.getInt("id")
                         val success = json.get("success")
                         require(success is Boolean)
-                        if (id == stateId && stage == "ready") {
+                        val aux = auxRequests.remove(id)
+                        if (aux != null) {
+                            check(stage == "ready")
+                            aux(success, json)
+                        } else if (id == stateId && stage == "ready") {
                             clearStateDeadline()
-                            check(success)
+                            if (!success) {
+                                fail(ConnectionFailure.response(json.optJSONObject("error")?.optString("code"), FailureStage.STATE))
+                                return@synchronized
+                            }
                         } else {
                             check(id == requestId)
-                            if (!success) { fail("Device authentication rejected; review registration"); return@synchronized }
+                            if (!success) {
+                                val error = json.optJSONObject("error")
+                                if (error?.has("code") == true) require(error.get("code") is String && error.getString("code").length in 1..128)
+                                val code = error?.optString("code")
+                                fail(ConnectionFailure.response(code, failureStage()))
+                                return@synchronized
+                            }
                             when (stage) {
                                 "challenge" -> {
                                     val result = json.getJSONObject("result")
@@ -176,19 +281,30 @@ class HaWebSocketClient(
                                     check(result.get("expires_in") is Int && result.getInt("expires_in") in 1..30)
                                     stage = "proof"
                                     val signature = try { identity.sign(payload) } catch (_: Exception) {
-                                        fail("Device key unavailable; reset identity in Settings")
+                                        fail(ConnectionFailure(ConnectionFailureKind.KEY_UNAVAILABLE))
                                         return@synchronized
                                     }
                                     request(webSocket, "register", JSONObject().put("signature", signature))
                                 }
                                 "proof" -> {
-                                    check(json.getJSONObject("result").getString("device_id") == deviceId)
+                                    val result = json.getJSONObject("result")
+                                    check(result.getString("device_id") == deviceId)
+                                    // Older integrations advertise nothing; never send fields they would reject.
+                                    val offered = result.opt("features")?.let { list ->
+                                        require(list is org.json.JSONArray && list.length() <= 8)
+                                        (0 until list.length()).map { index ->
+                                            list.get(index).also { require(it is String && it.length in 1..32) } as String
+                                        }.toSet()
+                                    } ?: emptySet()
+                                    negotiated = offered intersect SUPPORTED_FEATURES
                                     stage = "subscription"
-                                    request(webSocket, "subscribe_commands", JSONObject().put("device_id", deviceId))
+                                    val fields = JSONObject().put("device_id", deviceId)
+                                    if (negotiated.isNotEmpty()) fields.put("features", org.json.JSONArray(negotiated.sorted()))
+                                    request(webSocket, "subscribe_commands", fields)
                                     subscriptionId = requestId
                                 }
                                 "subscription" -> {
-                                    stage = "ready"; handler.removeCallbacks(timeout); onStatus("Connected")
+                                    stage = "ready"; handler.removeCallbacks(timeout); emit(ConnectionEvent(ConnectionPhase.CONNECTED))
                                 }
                                 else -> error("Unexpected response")
                             }
@@ -203,18 +319,21 @@ class HaWebSocketClient(
                     }
                     else -> error("Unexpected message")
                 }
-            } catch (_: Exception) { fail("Protocol rejected") }
+            } catch (_: Exception) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
         }
-        override fun onMessage(webSocket: WebSocket, bytes: ByteString) { fail("Protocol rejected") }
-        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail("Disconnected") }
-        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail("Disconnected") }
+        override fun onMessage(webSocket: WebSocket, bytes: ByteString) { fail(ConnectionFailure(ConnectionFailureKind.PROTOCOL)) }
+        override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { fail(ConnectionFailure.transport(t)) }
+        override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
+        override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
     }
     private fun toWebSocketUrl(base: String): String = TransportPolicy.base(base, allowHttp).newBuilder()
         .addPathSegments("api/websocket").build().toString().let {
             if (it.startsWith("https:")) "wss:" + it.removePrefix("https:") else "ws:" + it.removePrefix("http:")
         }
     private fun parseCommand(data: JSONObject): HaCommand {
-        val allowed = setOf("action", "media_content_id", "media_title", "media_content_type", "volume_level", "is_volume_muted", "announce")
+        val allowed = setOf("action", "media_content_id", "media_title", "media_content_type", "volume_level", "is_volume_muted", "announce") +
+            (if (FEATURE_REPORT in negotiated) setOf("request_id") else emptySet()) +
+            (if (FEATURE_TRANSFER in negotiated) setOf("transfer_id", "media_size", "media_sha256", "chunk_size") else emptySet())
         require(data.keys().asSequence().all { it in allowed })
         val action = data.getString("action")
         require(action in setOf("play", "pause", "stop", "play_media", "volume_set", "volume_mute"))
@@ -222,8 +341,18 @@ class HaWebSocketClient(
             require(it is String && it.length in 1..max); it
         }
         fun flag(key: String): Boolean? = if (!data.has(key)) null else data.get(key).let { require(it is Boolean); it }
+        fun integer(key: String): Int = data.get(key).let { require(it is Int); it }
         val url = text("media_content_id", 2048)
-        require(action != "play_media" || url != null)
+        val requestId = text("request_id", 16)?.also { require(it.matches(REQUEST_ID)) }
+        val transfer = if (!data.has("transfer_id")) null else {
+            require(action == "play_media" && url == null)
+            TransferOffer(text("transfer_id", 22)!!, integer("media_size"), text("media_sha256", 64)!!,
+                integer("chunk_size"), text("media_content_type", 128) ?: "")
+        }
+        require(transfer == null || setOf("media_size", "media_sha256", "chunk_size").all(data::has))
+        require(transfer != null || setOf("media_size", "media_sha256", "chunk_size").none(data::has))
+        require(action == "play_media" || requestId == null)
+        require(action != "play_media" || (url != null) != (transfer != null))
         val volume = if (data.has("volume_level")) data.get("volume_level").let {
             require(it is Number && it.toDouble().isFinite() && it.toDouble() in 0.0..1.0); it.toFloat()
         } else null
@@ -231,6 +360,7 @@ class HaWebSocketClient(
         val muted = flag("is_volume_muted")
         require(action != "volume_mute" || muted != null)
         return HaCommand(if (action == "volume_set") PlaybackService.CMD_SET_VOLUME else action,
-            url, text("media_title", 512), text("media_content_type", 128), volume, null, muted, flag("announce") ?: false)
+            url, text("media_title", 512), text("media_content_type", 128), volume, null, muted, flag("announce") ?: false,
+            requestId, transfer)
     }
 }

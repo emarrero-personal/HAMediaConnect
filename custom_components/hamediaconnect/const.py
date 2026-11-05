@@ -2,3 +2,5 @@
 DOMAIN = "hamediaconnect"
 OAUTH_CLIENT_PATH = "/api/hamediaconnect/oauth-client"
 ANDROID_REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
+FEATURE_TRANSFER = "media_transfer_v1"
+FEATURE_REPORT = "playback_report_v1"

@@ -31,6 +31,29 @@ class PlaybackDeliveryTest {
             .putExtra(PlaybackService.EXTRA_CONTENT_TYPE, "audio/mpeg")
             .putExtra(PlaybackService.EXTRA_ANNOUNCE, announce)), 0, 1)
     }
+    @Test fun failureRemainsLiveUntilStopWithoutChangingConnectionStatus() {
+        val controller = Robolectric.buildService(PlaybackService::class.java).create()
+        val service = controller.get()
+        val prefs = AppPrefs.prefs(service)
+        prefs.edit().putString(AppPrefs.KEY_STATUS, "Connected").commit()
+        try {
+            play(service, "https://remote.ui.nabu.casa/api/tts_proxy/opaque?token=secret", true)
+            assertEquals("buffering", PlayerStateBus.latest!!.state)
+            val old = service.playbackListener
+            old.onPlayerError(PlaybackException("secret", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT))
+            assertTrue(PlaybackDiagnostic.summary(PlayerStateBus.latest!!).startsWith("Failed"))
+            assertTrue(PlaybackDiagnostic.summary(PlayerStateBus.latest!!).contains("HTTPS · Nabu Casa"))
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+            assertEquals(PlaybackFailure.TIMEOUT, PlayerStateBus.latest!!.error)
+            assertEquals("Connected", prefs.getString(AppPrefs.KEY_STATUS, ""))
+            service.onStartCommand(InternalPlayback.authorize(Intent().setAction(PlaybackService.CMD_STOP)), 0, 1)
+            old.onPlayerError(PlaybackException("late secret", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED))
+            assertNull(PlayerStateBus.latest!!.error)
+            assertNull(prefs.getString("playback_error", null))
+            assertNull(PlayerStateBus.latest!!.contentId)
+            assertTrue(PlaybackDiagnostic.summary(PlayerStateBus.latest!!).startsWith("Ready"))
+        } finally { controller.destroy() }
+    }
     @Test fun announcementFailureRestoresMusicAndKeepsSanitizedDiagnostic() {
         val controller = Robolectric.buildService(PlaybackService::class.java).create()
         val service = controller.get()
@@ -75,7 +98,7 @@ class PlaybackDeliveryTest {
                 shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(PlaybackFailure.BUFFER_TIMEOUT_MS))
                 assertEquals(Player.STATE_IDLE, player(service).playbackState)
                 assertEquals("idle", snapshot!!.state)
-                assertEquals(PlaybackFailure.TIMEOUT, snapshot!!.title)
+                assertEquals(PlaybackFailure.TIMEOUT, snapshot!!.error)
             } finally {
                 release.countDown()
                 PlayerStateBus.listener = null
@@ -199,6 +222,8 @@ class PlaybackDeliveryTest {
                 // HA receives the restored media snapshot, with no independent error field.
                 assertEquals("https://public.example/paused.mp3", snapshot!!.contentId)
                 assertFalse(snapshot!!.title.orEmpty().contains("decoding failed"))
+                assertTrue(snapshot!!.notice!!.contains("Announcement failed"))
+                assertFalse(snapshot!!.notice!!.contains("secret"))
             } finally { PlayerStateBus.listener = null; controller.destroy() }
         }
     }
