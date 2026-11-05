@@ -72,6 +72,8 @@ def platform(monkeypatch):
     package.__path__ = [str(PACKAGE)]
     const = module("custom_components.hamediaconnect.const")
     const.DOMAIN = "hamediaconnect"
+    const.FEATURE_TRANSFER = "media_transfer_v1"
+    const.FEATURE_REPORT = "playback_report_v1"
     ws = module("custom_components.hamediaconnect.websocket_api")
     ws.REGISTRY_KEY = "hamediaconnect_registry"
     spec = importlib.util.spec_from_file_location(

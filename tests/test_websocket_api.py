@@ -161,7 +161,7 @@ async def test_subscribe_unsubscribe_identity_and_registration_validation(ws_mod
 def test_handlers(ws_module):
     websocket = sys.modules["homeassistant.components.websocket_api"]
     ws_module.async_register_websocket_commands(Mock())
-    assert websocket.async_register_command.call_count == 5
+    assert websocket.async_register_command.call_count == 8
 
 
 async def test_disconnect_reconnect_cleanup_does_not_remove_new_subscription(ws_module, env):

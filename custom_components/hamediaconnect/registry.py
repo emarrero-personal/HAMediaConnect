@@ -8,6 +8,7 @@ import json
 import math
 import secrets
 import time
+from collections import deque
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable
 
@@ -18,12 +19,19 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from homeassistant.core import HomeAssistant, callback
 
-from .const import DOMAIN
+from .const import DOMAIN, FEATURE_REPORT, FEATURE_TRANSFER
+from .transfer import CHUNK_SIZE, MAX_TRANSFER_BYTES, TransferStore
 
 MAX_MESSAGE = 16384
 MAX_DEVICES = 512
 MAX_SESSIONS = 256
 SESSION_KEY = "hamediaconnect_identity"
+FEATURES = (FEATURE_TRANSFER, FEATURE_REPORT)
+PHASES = ("received", "retrieving", "buffering", "ready", "playing", "completed", "failed", "suppressed")
+REASONS = ("unreachable", "dns", "tls", "timeout", "access_denied", "missing", "server_error", "redirect",
+           "content_type", "decode", "integrity", "too_large", "interrupted", "superseded", "stopped",
+           "dnd", "unavailable", "other")
+REQUEST_ID = r"^[A-Za-z0-9_-]{16}$"
 
 
 COMMAND_SCHEMA = vol.Schema({
@@ -34,7 +42,13 @@ COMMAND_SCHEMA = vol.Schema({
     vol.Optional("volume_level"): vol.All(vol.Any(int, float), vol.Range(min=0, max=1)),
     vol.Optional("is_volume_muted"): bool,
     vol.Optional("announce"): bool,
+    vol.Optional("request_id"): vol.All(str, vol.Match(REQUEST_ID)),
+    vol.Optional("transfer_id"): vol.All(str, vol.Match(r"^[A-Za-z0-9_-]{22}$")),
+    vol.Optional("media_size"): vol.All(int, vol.Range(min=1, max=MAX_TRANSFER_BYTES)),
+    vol.Optional("media_sha256"): vol.All(str, vol.Match(r"^[a-f0-9]{64}$")),
+    vol.Optional("chunk_size"): vol.All(int, vol.In([CHUNK_SIZE])),
 }, extra=vol.PREVENT_EXTRA)
+TRANSFER_FIELDS = {"transfer_id", "media_size", "media_sha256", "chunk_size"}
 
 
 def valid_command(command):
@@ -43,7 +57,16 @@ def valid_command(command):
         volume = command.get("volume_level", 0)
         if isinstance(volume, bool) or not math.isfinite(volume):
             return False
-        required = {"play_media": "media_content_id", "volume_set": "volume_level", "volume_mute": "is_volume_muted"}
+        transfer = TRANSFER_FIELDS & command.keys()
+        if command["action"] == "play_media":
+            # Exactly one delivery method: a URL or a complete in-band transfer offer.
+            if transfer:
+                return transfer == TRANSFER_FIELDS and "media_content_id" not in command \
+                    and not isinstance(command["media_size"], bool)
+            return "media_content_id" in command
+        if transfer or "request_id" in command:
+            return False
+        required = {"volume_set": "volume_level", "volume_mute": "is_volume_muted"}
         field = required.get(command["action"])
         return field is None or field in command
     except (vol.Invalid, TypeError):
@@ -72,6 +95,12 @@ class Player:
     revoked: bool = False
     state: dict[str, Any] = field(default_factory=dict)
     send_command: Callable[[dict[str, Any]], None] | None = None
+    requests: deque = field(default_factory=lambda: deque(maxlen=8))
+    delivery: dict[str, Any] = field(default_factory=dict)
+
+    def supports(self, feature: str) -> bool:
+        """Features are negotiated by, and live only as long as, the command subscription."""
+        return feature in getattr(self.send_command, "features", ())
 
 
 @dataclass
@@ -94,6 +123,7 @@ class PlayerRegistry:
         self.sessions: dict[Any, Session] = {}
         self.rates: dict[tuple, tuple] = {}
         self.lock = asyncio.Lock()
+        self.transfers = TransferStore()
 
     async def async_load(self):
         data = await self.store.async_load()
@@ -215,6 +245,7 @@ class PlayerRegistry:
             await self.save(updated)
             self.players = updated
             player.send_command = None
+            self.transfers.drop_device(device_id)
             for connection, session in list(self.sessions.items()):
                 if session.device_id == device_id:
                     cleanup = connection.subscriptions.pop(SESSION_KEY, None)
@@ -234,9 +265,31 @@ class PlayerRegistry:
             return False
         if not valid_command(command) or len(json.dumps(command).encode()) > MAX_MESSAGE:
             return False
+        # Never send fields a client did not negotiate: older apps reject them as protocol errors.
+        if ("transfer_id" in command and not player.supports(FEATURE_TRANSFER)) or \
+                ("request_id" in command and not player.supports(FEATURE_REPORT)):
+            return False
         try:
             self.budget(device_id, "command", 120)
         except ValueError:
             return False
         player.send_command(command)
+        if "request_id" in command:
+            player.requests.append(command["request_id"])
+            player.delivery = {"request_id": command["request_id"], "phase": "dispatched",
+                               "method": "direct" if "transfer_id" in command else "url"}
+            self.hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": device_id})
         return True
+
+    @callback
+    def report(self, connection, device_id, request_id, phase, reason=None):
+        """Record a device's playback progress for a request this integration dispatched."""
+        player = self.owned(connection, device_id)
+        if request_id not in player.requests:
+            raise ValueError("Unknown request")
+        player.delivery = {"request_id": request_id, "phase": phase, "method": player.delivery.get("method")
+                           if player.delivery.get("request_id") == request_id else None}
+        if reason is not None:
+            player.delivery["reason"] = reason
+        self.hass.bus.async_fire(f"{DOMAIN}_playback", {"device_id": device_id, **player.delivery})
+        self.hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": device_id})
