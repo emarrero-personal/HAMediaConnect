@@ -1,21 +1,22 @@
 # HAMediaConnect — Maintainer handbook
 
-This document is for project maintainers, release engineers, and contributors with repository access. For user installation see [README](../README.md) and [integration installation](HA_INTEGRATION_INSTALL.md). The supported release target for this documentation is **1.0.2**. Verify the code and published tag before release; documentation alone does not change runtime versions.
+This document is for project maintainers, release engineers, and contributors with repository access. For user installation see [README](../README.md) and [integration installation](HA_INTEGRATION_INSTALL.md). The supported release target for this documentation is **1.0.5 (unreleased)**. Verify the code and published tag before release; documentation alone does not change runtime versions.
 
 ## Release management
 
 1. Review the client app and Home Assistant integration together; ensure their version strings agree and Android `versionCode` increases.
 2. Require green Python/HA, Android, HACS, Hassfest, security-coverage and device-instrumentation CI. Test real device enrollment, music, TTS, mute, DND, reconnect, and boot.
 3. Confirm the production-signing environment has the four secrets `ANDROID_RELEASE_KEYSTORE_BASE64`, `ANDROID_RELEASE_STORE_PASSWORD`, `ANDROID_RELEASE_KEY_ALIAS`, and `ANDROID_RELEASE_KEY_PASSWORD`. Configure required reviewers to require manual signing approval.
-4. After approval, tag the reviewed main commit with `v1.0.2` and push the tag. The workflow `.github/workflows/distribution-apk.yml` validates tag ancestry and version, runs tests, signs the release, verifies with `apksigner`, and publishes `HAMediaConnect.apk` and its SHA-256 checksum. Do not overwrite an existing release.
+4. After approval, tag the reviewed main commit with `v1.0.5` and push the tag. The workflow `.github/workflows/distribution-apk.yml` validates tag ancestry and version, runs tests, signs the release, verifies with `apksigner`, and publishes `HAMediaConnect.apk` and its SHA-256 checksum. Do not overwrite an existing release.
 5. Check the published APK signature and checksum independently, and verify that no signing keys or secrets were included.
 
 ## HACS default catalog submission
 
-The repository already supports custom-repository installation. For official listing, confirm the current HACS requirements at https://hacs.dev/docs/publish/include/ and https://hacs.dev/docs/publish/integration/.
+The repository already supports custom-repository installation. For official listing, follow the current [Marketplace catalog guide](https://contributors.home-assistant.io/marketplace/guides/catalog/) and the upstream `hacs/default` PR template. See [submission readiness](HACS_SUBMISSION.md) for the audit and release dependency.
 
 - Verify public repository, description/topics, Issues, README, license, root `hacs.json`, manifest, and integration layout.
 - Require passing `.github/workflows/hacs.yml` and `.github/workflows/hassfest.yml` runs on the release candidate. Verify the latest published GitHub Release points to the approved version.
+- Ship complete custom-integration UI translations in `custom_components/hamediaconnect/translations/en.json`; `strings.json` alone is not loaded for custom integrations.
 - Check Home Assistant local brand assets under `custom_components/hamediaconnect/brand/` and current Home Assistant brand guidance.
 - After approval, fork `hacs/default`, add `"emarrero-personal/HAMediaConnect"` to the alphabetized root `integration` list, and open a PR against its default branch. Include passing validation links and the latest release. Do not open an external submission PR without approval.
 - The Android APK is distributed through GitHub Releases, **not** through HACS.
