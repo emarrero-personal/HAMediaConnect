@@ -6,7 +6,7 @@
 
 Turn an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
-HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required.
+HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
 
 ## Install Home Assistant integration
 

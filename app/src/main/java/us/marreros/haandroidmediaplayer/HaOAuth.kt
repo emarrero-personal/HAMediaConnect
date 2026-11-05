@@ -13,7 +13,9 @@ import java.util.concurrent.TimeUnit
 /** Home Assistant authorization-code + PKCE client. Never invoke token exchange on the UI thread. */
 class OAuthRejected : IllegalStateException("OAuth authorization rejected")
 
-class HaOAuth(base: String) {
+class HaOAuth(base: String, private val http: OkHttpClient = OkHttpClient.Builder()
+    .connectTimeout(15, TimeUnit.SECONDS).callTimeout(25, TimeUnit.SECONDS)
+    .followRedirects(false).followSslRedirects(false).build()) {
     companion object {
         const val CLIENT_PATH = "/api/hamediaconnect/oauth-client"
         const val REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
@@ -29,10 +31,16 @@ class HaOAuth(base: String) {
     private val baseUrl = TransportPolicy.base(base, false).toString().trimEnd('/')
     private val clientId: String = baseUrl.trimEnd('/') + CLIENT_PATH
 
-    private val http = OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS)
-        .callTimeout(25, TimeUnit.SECONDS).followRedirects(false).followSslRedirects(false).build()
-
-
+    /** Check the configured HTTPS origin; never follow discovery redirects or trust cached support. */
+    fun requirePkceSupport() {
+        val request = Request.Builder().url("$baseUrl/.well-known/oauth-authorization-server").build()
+        http.newCall(request).execute().use { response ->
+            check(response.isSuccessful) { "OAuth server discovery unavailable" }
+            val methods = readJson(response).getJSONArray("code_challenge_methods_supported")
+            require(methods.length() in 1..8 && (0 until methods.length()).all { methods.get(it) is String } &&
+                (0 until methods.length()).any { methods.getString(it) == "S256" }) { "S256 PKCE required" }
+        }
+    }
 
     fun authorizationUrl(state: String, verifier: String): Uri =
         Uri.parse("${baseUrl.trimEnd('/')}/auth/authorize").buildUpon()
@@ -44,11 +52,14 @@ class HaOAuth(base: String) {
             .appendQueryParameter("code_challenge_method", "S256")
             .build()
 
-    fun exchange(code: String, verifier: String): JSONObject = tokenRequest(
-        FormBody.Builder().add("grant_type", "authorization_code")
-            .add("code", code).add("client_id", clientId)
-            .add("redirect_uri", REDIRECT_URI).add("code_verifier", verifier).build()
-    ).also { require(it.optString("refresh_token").length in 1..8192) }
+    fun exchange(code: String, verifier: String): JSONObject {
+        requirePkceSupport() // Also covers callbacks from attempts started before an app update.
+        return tokenRequest(
+            FormBody.Builder().add("grant_type", "authorization_code")
+                .add("code", code).add("client_id", clientId)
+                .add("redirect_uri", REDIRECT_URI).add("code_verifier", verifier).build()
+        ).also { require(it.optString("refresh_token").length in 1..8192) }
+    }
 
     fun refresh(refreshToken: String): JSONObject = tokenRequest(
         FormBody.Builder().add("grant_type", "refresh_token")
@@ -64,15 +75,19 @@ class HaOAuth(base: String) {
         return tokens
     }
 
+    private fun readJson(response: okhttp3.Response): JSONObject {
+        val source = requireNotNull(response.body).source()
+        source.request(16385)
+        require(source.buffer.size <= 16384) { "OAuth response too large" }
+        return HaWebSocketClient.boundedJson(source.readUtf8())
+    }
+
     private fun tokenRequest(body: FormBody): JSONObject {
         val request = Request.Builder().url("${baseUrl.trimEnd('/')}/auth/token").post(body).build()
         http.newCall(request).execute().use { response ->
             if (response.code in listOf(400, 401, 403) || response.isRedirect) throw OAuthRejected()
             check(response.isSuccessful) { "Token endpoint unavailable" }
-            val source = requireNotNull(response.body).source()
-            source.request(16385)
-            require(source.buffer.size <= 16384) { "Token response too large" }
-            return validateTokens(HaWebSocketClient.boundedJson(source.readUtf8()))
+            return validateTokens(readJson(response))
         }
     }
 }
