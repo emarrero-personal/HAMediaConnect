@@ -5,6 +5,7 @@ on:
     paths:
       - 'custom_components/**'
       - 'tests/**'
+      - 'scripts/audit_runtime_dependencies.py'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'custom_components/**'
       - 'tests/**'
+      - 'scripts/audit_runtime_dependencies.py'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
