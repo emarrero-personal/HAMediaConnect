@@ -15,6 +15,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 concurrency:
   group: release-${{ inputs.version }}
@@ -47,6 +48,42 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Verify release versions match requested tag
+        env:
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="${VERSION#v}"
+          android_version="$(sed -nE 's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/p' app/build.gradle.kts | head -1)"
+          integration_version="$(python3 -c 'import json; print(json.load(open("custom_components/hamediaconnect/manifest.json"))["version"])')"
+          if [[ "$android_version" != "$expected" || "$integration_version" != "$expected" ]]; then
+            echo "::error::Requested $VERSION does not match Android ($android_version) and integration ($integration_version) versions."
+            exit 1
+          fi
+
+      - name: Require passing CI for the exact main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # All four workflows must have completed successfully on this exact main commit.
+          # A successful PR check or a check on an older commit is insufficient.
+          workflows=(android-apk.yml validate-ha.yml hacs.yml hassfest.yml)
+          for workflow in "${workflows[@]}"; do
+            echo "Checking $workflow for $RELEASE_SHA"
+            runs="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/$workflow/runs" \
+              -f head_sha="$RELEASE_SHA" -f branch=main -f per_page=100)"
+            success="$(jq -r --arg sha "$RELEASE_SHA" \
+              '[.workflow_runs[] | select(.head_sha == $sha and .event == "push" and .status == "completed" and .conclusion == "success")] | length' <<< "$runs")"
+            if [[ "$success" -lt 1 ]]; then
+              echo "::error::No successful main push run for $workflow at $RELEASE_SHA. Wait for CI or fix failures before tagging."
+              exit 1
+            fi
+          done
 
       - name: Generate release bot token
         id: release-token
