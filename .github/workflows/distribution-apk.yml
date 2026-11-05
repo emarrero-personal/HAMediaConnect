@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - 'v[0-9]*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to publish missing APK assets to (e.g. v1.0.1)'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: distribution-${{ inputs.release_tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -22,16 +28,17 @@ jobs:
       - name: Check out release source
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.release_tag || github.ref }}
           fetch-depth: 0
           persist-credentials: false
       - name: Verify tag is on protected main
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::Invalid release tag"; exit 1; }
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          TAG_COMMIT="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          TAG_COMMIT="$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")"
           MAIN_COMMIT="$(git rev-parse refs/remotes/origin/main)"
           git merge-base --is-ancestor "$TAG_COMMIT" "$MAIN_COMMIT" || {
             echo "::error::Release tag does not point to a commit on main"
@@ -40,7 +47,7 @@ jobs:
           echo "Verified $RELEASE_TAG at $TAG_COMMIT is on main ($MAIN_COMMIT)"
       - name: Verify Android and integration versions match release tag
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
           EXPECTED_VERSION="${RELEASE_TAG#v}"
@@ -82,7 +89,7 @@ jobs:
       - name: Archive release dependency inventory
         uses: actions/upload-artifact@v4
         with:
-          name: release-runtime-dependencies-${{ github.ref_name }}
+          name: release-runtime-dependencies-${{ inputs.release_tag || github.ref_name }}
           path: build/release-compliance/releaseRuntimeClasspath.txt
           if-no-files-found: error
 
@@ -99,24 +106,29 @@ jobs:
       - name: Check out verified release source
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.release_tag || github.ref }}
           persist-credentials: false
           fetch-depth: 0
       - name: Revalidate release tag against main
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
-          git merge-base --is-ancestor "$(git rev-parse "${GITHUB_REF}^{commit}")" refs/remotes/origin/main
-      - name: Refuse to overwrite an existing release
+          git merge-base --is-ancestor "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" refs/remotes/origin/main
+      - name: Check release assets are not already published
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
+          set -euo pipefail
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            echo "::error::Release already exists; refusing to overwrite"
-            exit 1
+            assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+            if grep -Fxq 'HAMediaConnect.apk' <<< "$assets" || grep -Fxq 'HAMediaConnect.apk.sha256' <<< "$assets"; then
+              echo "::error::One or more distribution assets already exist; refusing to overwrite or partially update."
+              exit 1
+            fi
           fi
       - uses: actions/setup-java@v4
         with:
@@ -160,14 +172,25 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           cp "$APK" HAMediaConnect.apk
           sha256sum HAMediaConnect.apk > HAMediaConnect.apk.sha256
-      - name: Publish GitHub Release
+      - name: Publish APK assets without overwriting existing release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" HAMediaConnect.apk HAMediaConnect.apk.sha256 \
-            --title "HAMediaConnect $GITHUB_REF_NAME" \
-            --generate-notes \
-            --verify-tag
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            assets="$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')"
+            if grep -Fxq 'HAMediaConnect.apk' <<< "$assets" || grep -Fxq 'HAMediaConnect.apk.sha256' <<< "$assets"; then
+              echo "::error::Release assets appeared during build; refusing to overwrite."
+              exit 1
+            fi
+            gh release upload "$RELEASE_TAG" HAMediaConnect.apk HAMediaConnect.apk.sha256
+          else
+            gh release create "$RELEASE_TAG" HAMediaConnect.apk HAMediaConnect.apk.sha256 \
+              --title "HAMediaConnect $RELEASE_TAG" \
+              --generate-notes \
+              --verify-tag
+          fi
       - name: Remove signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/hamediaconnect-release.jks"
