@@ -263,15 +263,32 @@ class MainActivity : AppCompatActivity() {
             connectionStatus("OAuth requires a valid HTTPS Home Assistant URL")
             return
         }
-        oauthGeneration++
-        try {
-            val (state, verifier) = OAuthAttempt(SecureTokenStore(this)).begin(url)
-            AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_URL, url).apply()
-            connectionStatus("Connecting — waiting for OAuth sign-in")
-            CustomTabsIntent.Builder().build().launchUrl(this, HaOAuth(url).authorizationUrl(state, verifier))
-        } catch (_: Exception) {
-            runCatching { OAuthAttempt(SecureTokenStore(this)).cancel() }
-            connectionStatus("Unable to start OAuth; credential storage unavailable")
+        val generation = ++oauthGeneration
+        connectionStatus("Checking secure OAuth support…")
+        oauthExecutor.execute {
+            try {
+                // Probe before creating a pending login or giving the browser a callback code.
+                val oauth = HaOAuth(url)
+                oauth.requirePkceSupport()
+                runOnUiThread {
+                    if (generation != oauthGeneration || isDestroyed || urlInput.text.toString().trim().trimEnd('/') != url)
+                        return@runOnUiThread
+                    try {
+                        val (state, verifier) = OAuthAttempt(SecureTokenStore(this)).begin(url)
+                        AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_URL, url).apply()
+                        connectionStatus("Connecting — waiting for OAuth sign-in")
+                        CustomTabsIntent.Builder().build().launchUrl(this, oauth.authorizationUrl(state, verifier))
+                    } catch (_: Exception) {
+                        runCatching { OAuthAttempt(SecureTokenStore(this)).cancel() }
+                        connectionStatus("Unable to start OAuth; credential storage unavailable")
+                    }
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    if (generation == oauthGeneration && !isDestroyed)
+                        connectionStatus("OAuth requires Home Assistant 2026.10 or newer with reachable S256 discovery")
+                }
+            }
         }
     }
 

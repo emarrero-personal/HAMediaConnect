@@ -6,7 +6,7 @@
 
 Turn an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
-HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required.
+HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
 
 ## Install Home Assistant integration
 
@@ -78,6 +78,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 
 ## Troubleshooting
 
+- **Home Assistant Core upgrade required:** HAMediaConnect will not start on Core versions older than 2026.10.0, including manual installations. Check **Settings → System → Repairs** for the version error, upgrade Home Assistant Core, and restart it. The repair clears automatically after the upgrade.
 - **No HAMediaConnect integration in Add integration:** Confirm the integration is installed under `custom_components/hamediaconnect/`, restart Home Assistant, then refresh the browser.
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.

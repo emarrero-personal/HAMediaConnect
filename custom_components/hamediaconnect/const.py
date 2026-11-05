@@ -1,5 +1,6 @@
 """Shared constants for the HA Remote Media Player integration."""
 DOMAIN = "hamediaconnect"
+MIN_HA_VERSION = "2026.10.0"
 OAUTH_CLIENT_PATH = "/api/hamediaconnect/oauth-client"
 ANDROID_REDIRECT_URI = "haandroidmediaplayer://oauth/callback"
 FEATURE_TRANSFER = "media_transfer_v1"
