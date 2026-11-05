@@ -1,0 +1,14 @@
+{
+  "title": "HAMediaConnect",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up HAMediaConnect",
+        "description": "Add the integration to Home Assistant so Android devices can securely register as media players."
+      }
+    },
+    "abort": {
+      "already_configured": "HAMediaConnect is already configured."
+    }
+  }
+}
