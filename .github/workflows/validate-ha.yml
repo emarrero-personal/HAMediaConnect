@@ -8,6 +8,7 @@ on:
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
+      - '.github/workflows/manual-release.yml'
   pull_request:
     paths:
       - 'custom_components/**'
@@ -15,6 +16,7 @@ on:
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
+      - '.github/workflows/manual-release.yml'
 
 jobs:
   python-checks:
