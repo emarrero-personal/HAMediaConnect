@@ -36,19 +36,24 @@ async def async_setup_entry(hass, entry, async_add_entities):
     registry = hass.data[REGISTRY_KEY]
     known = set()
 
+    def add(device_id):
+        if device_id in known:
+            return
+        known.add(device_id)
+        entity = AndroidMediaPlayer(registry, device_id)
+        # A device deleted in the HA UI removes its entity; a later re-enrollment adds it again.
+        entity.async_on_remove(lambda: known.discard(device_id))
+        async_add_entities([entity])
+
     @callback
     def add_registered(event):
-        device_id = event.data["device_id"]
-        if device_id not in known:
-            known.add(device_id)
-            async_add_entities([AndroidMediaPlayer(registry, device_id)])
+        add(event.data["device_id"])
 
-    unsub = hass.bus.async_listen(f"{DOMAIN}_registered", add_registered)
-    entry.async_on_unload(unsub)
-    for device_id in registry.players:
-        if device_id not in known:
-            known.add(device_id)
-            async_add_entities([AndroidMediaPlayer(registry, device_id)])
+    entry.async_on_unload(hass.bus.async_listen(f"{DOMAIN}_registered", add_registered))
+    for device_id, player in registry.players.items():
+        # Revoked keys can never reconnect; their old entities stay deletable in the HA UI.
+        if player.revoked is not True:
+            add(device_id)
 
 
 class AndroidMediaPlayer(MediaPlayerEntity):
@@ -71,7 +76,9 @@ class AndroidMediaPlayer(MediaPlayerEntity):
 
     @property
     def device_info(self):
-        player = self.registry.players[self.device_id]
+        player = self.registry.players.get(self.device_id)
+        if player is None:
+            return None
         return DeviceInfo(
             identifiers={(DOMAIN, self.device_id)},
             name=player.name,

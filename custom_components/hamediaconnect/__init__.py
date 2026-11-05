@@ -1,11 +1,12 @@
 """Home Assistant integration for Android remote media players."""
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 
 from .const import DOMAIN
 from .oauth_view import OAuthClientView
-from .registry import PlayerRegistry
+from .registry import DeviceConnectedError, PlayerRegistry
 from .websocket_api import REGISTRY_KEY, async_register_websocket_commands
 
 PLATFORMS = ["media_player"]
@@ -31,3 +32,19 @@ async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry) -> bool:
     """Unload native entities."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_config_entry_device(hass: HomeAssistant, entry, device_entry) -> bool:
+    """Let an administrator delete a disconnected player device and its entity from the HA UI."""
+    registry = hass.data[REGISTRY_KEY]
+    for domain, device_id in device_entry.identifiers:
+        if domain != DOMAIN:
+            continue
+        try:
+            await registry.forget(device_id)
+        except DeviceConnectedError as err:
+            raise HomeAssistantError(
+                "This device is connected. Disconnect it in the HAMediaConnect app, or revoke it, "
+                "then delete it."
+            ) from err
+    return True

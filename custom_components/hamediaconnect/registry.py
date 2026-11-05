@@ -115,6 +115,10 @@ class RetryableDeviceError(ValueError):
     """Temporary resource exhaustion; device authorization is unchanged."""
 
 
+class DeviceConnectedError(RuntimeError):
+    """A device cannot be forgotten while it is connected; it would re-register at once."""
+
+
 class PlayerRegistry:
     def __init__(self, hass: HomeAssistant, store=None) -> None:
         self.hass = hass
@@ -252,6 +256,30 @@ class PlayerRegistry:
                     if cleanup:
                         cleanup()
             self.hass.bus.async_fire(f"{DOMAIN}_state", {"device_id": device_id})
+
+    def connected(self, device_id) -> bool:
+        """True while any connection holds a proven session or live subscription for the device."""
+        player = self.players.get(device_id)
+        return (player is not None and player.send_command is not None) or any(
+            session.device_id == device_id for session in self.sessions.values())
+
+    async def forget(self, device_id):
+        """Forget a disconnected identity after an administrator deletes its HA device.
+
+        Revoked keys keep their persisted tombstone so they still cannot re-enroll.
+        A forgotten, unrevoked key can enroll again by proving possession, which
+        creates a fresh owner binding and entity.
+        """
+        async with self.lock:
+            player = self.players.get(device_id)
+            if player is None or player.revoked:
+                return
+            if self.connected(device_id):
+                raise DeviceConnectedError("Device is connected")
+            updated = {key: value for key, value in self.players.items() if key != device_id}
+            await self.save(updated)
+            self.players = updated
+            self.transfers.drop_device(device_id)
 
     @callback
     def update(self, player, state):

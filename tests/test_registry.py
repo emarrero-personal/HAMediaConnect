@@ -261,3 +261,41 @@ async def test_outbound_command_schemas(registry, command):
     player.send_command = Mock()
     assert not registry.dispatch(player.device_id, command)
     player.send_command.assert_not_called()
+
+
+async def test_forget_removes_only_disconnected_unrevoked_identities(registry, registry_module):
+    conn = connection()
+    player, key, public = await enroll(registry, conn)
+    # A proven session, even before subscribing, counts as connected.
+    with pytest.raises(registry_module.DeviceConnectedError):
+        await registry.forget(player.device_id)
+    registry.sessions.pop(conn)
+    player.send_command = Mock()
+    with pytest.raises(registry_module.DeviceConnectedError):
+        await registry.forget(player.device_id)
+    assert player.device_id in registry.players
+    player.send_command = None
+    registry.store.async_save.side_effect = OSError("disk full")
+    with pytest.raises(OSError):
+        await registry.forget(player.device_id)
+    assert player.device_id in registry.players  # Persistence failure keeps the identity.
+    registry.store.async_save.side_effect = None
+    await registry.forget(player.device_id)
+    assert player.device_id not in registry.players
+    assert registry.store.async_save.call_args.args[0] == {"devices": []}
+    await registry.forget(player.device_id)  # Already gone: nothing to do.
+    # The same key can prove possession and enroll again under a fresh binding.
+    again, _, _ = await enroll(registry, connection("new-owner"), key, public)
+    assert again.device_id == player.device_id and again.owner_id == "new-owner"
+
+
+async def test_forget_keeps_revocation_tombstones(registry):
+    player, _, public = await enroll(registry, connection())
+    registry.sessions.clear()
+    await registry.revoke(player.device_id)
+    saves = registry.store.async_save.await_count
+    await registry.forget(player.device_id)
+    assert registry.store.async_save.await_count == saves
+    assert registry.players[player.device_id].revoked
+    with pytest.raises(PermissionError):
+        registry.challenge(connection(), public, "Revoked")

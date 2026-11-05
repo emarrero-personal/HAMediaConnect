@@ -49,7 +49,7 @@ def platform(monkeypatch):
 
     class Entity:
         def async_on_remove(self, callback):
-            pass
+            self.removed = callback
 
         async def async_added_to_hass(self):
             pass
@@ -125,6 +125,22 @@ def test_platform_registration_and_listener_cleanup(platform):
     listeners["hamediaconnect_registered"](event)
     add.assert_called_once()
     entry.async_on_unload.assert_called_once()
+    # Deleting the device in HA removes the entity; a re-enrollment adds it back.
+    add.call_args.args[0][0].removed()
+    listeners["hamediaconnect_registered"](event)
+    assert add.call_count == 2
+
+
+def test_revoked_players_get_no_entity_after_restart(platform):
+    hass = Mock()
+    registry = Mock()
+    registry.players = {"old": types.SimpleNamespace(revoked=True), "live": types.SimpleNamespace(revoked=False)}
+    hass.data = {"hamediaconnect_registry": registry}
+    add = Mock()
+    asyncio.run(platform.async_setup_entry(hass, Mock(), add))
+    assert [call.args[0][0].device_id for call in add.call_args_list] == ["live"]
+    del registry.players["live"]
+    assert add.call_args.args[0][0].device_info is None
 
 
 def test_direct_audio_url(platform):

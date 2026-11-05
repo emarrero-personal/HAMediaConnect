@@ -24,6 +24,8 @@ def modules(monkeypatch):
     core = stub("homeassistant.core")
     core.HomeAssistant = object
     core.callback = lambda f: f
+    exceptions = stub("homeassistant.exceptions")
+    exceptions.HomeAssistantError = type("HomeAssistantError", (Exception,), {})
     entries = stub("homeassistant.config_entries")
     class ConfigFlow:
         def __init_subclass__(cls, **kwargs):
@@ -108,3 +110,18 @@ def test_oauth_client_document(modules):
     assert oauth.REDIRECT_URI in response.text
     assert response.content_type == "text/html"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_device_deletion_forgets_disconnected_players(modules):
+    integration, _, _, _ = modules
+    hass = Mock()
+    hass.data = {}
+    asyncio.run(integration.async_setup(hass, {}))
+    registry = hass.data["hamediaconnect_registry"]
+    registry.forget = AsyncMock()
+    device = types.SimpleNamespace(identifiers={("other", "x"), ("hamediaconnect", "abc")})
+    assert asyncio.run(integration.async_remove_config_entry_device(hass, Mock(), device)) is True
+    registry.forget.assert_awaited_once_with("abc")
+    registry.forget.side_effect = sys.modules[f"{PKG}.registry"].DeviceConnectedError()
+    with pytest.raises(sys.modules["homeassistant.exceptions"].HomeAssistantError, match="connected"):
+        asyncio.run(integration.async_remove_config_entry_device(hass, Mock(), device))

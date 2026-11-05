@@ -55,6 +55,13 @@ An HA administrator deliberately revokes a device over an authenticated HA WebSo
 
 The fingerprint is shown in Android Settings and is the device identifier in HA. Revocation is persisted before success, clears live command delivery and authentication sessions, and prevents that public key from re-enrolling. Revocation does not revoke the HA OAuth/access token; revoke that separately in the HA user profile if compromised.
 
+**Deleting** a device from the Home Assistant device page (`async_remove_config_entry_device`) is separate from revocation. Only HA administrators can do it, because the HA device-registry API requires an administrator.
+- If the device has a proven session or a live command subscription, the integration refuses the delete, so the device cannot re-register at once.
+- For a disconnected, unrevoked device, the integration first persists removal of the stored owner/key binding, then drops pending transfers. The device and entity are removed only after that succeeds. A storage failure keeps both.
+- The same key can enroll again later. It must prove possession with a fresh challenge, and it receives a new owner binding.
+- A revoked device's tombstone is never removed. Deleting a revoked device removes only its HA device and entity, and the key stays blocked.
+- Revoked identities no longer create entities at HA startup.
+
 To re-register, revoke the old fingerprint first, then use **Reset device identity** in Android Settings and confirm. The new key creates a new HA player/entity identity. Old entities are deliberately not transferred. An absent previously-created or invalidated Keystore key never triggers fallback to UUID-only or token-only device authorization. Reset is explicit. **Forget Home Assistant credentials** separately disconnects and clears encrypted credentials, pending OAuth, and the encryption key so sign-in can recover from an invalidated credential key without resetting the device identity.
 
 Revoked-key tombstones count against the finite identity quotas. There is no silent tombstone eviction or automatic trust reset. HA backup/configuration integrity matters: restoring an older HA backup can restore older revocation state. Android excludes preferences from backup/device transfer and disables application backup; Keystore private keys are not exportable or transferred.
