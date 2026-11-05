@@ -91,11 +91,11 @@ jobs:
       - name: Build debug APK
         run: bash ./gradlew --no-daemon assembleDebug
       - name: Name APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk HAMediaConnect-v1.0.1-debug.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk HAMediaConnect-v1.0.2-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: HAMediaConnect-v1.0.1-debug
-          path: HAMediaConnect-v1.0.1-debug.apk
+          name: HAMediaConnect-v1.0.2-debug
+          path: HAMediaConnect-v1.0.2-debug.apk
           if-no-files-found: error
           retention-days: 30
 
