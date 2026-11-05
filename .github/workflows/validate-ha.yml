@@ -5,20 +5,20 @@ on:
     paths:
       - 'custom_components/**'
       - 'tests/**'
-      - 'scripts/audit_runtime_dependencies.py'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
       - '.github/workflows/manual-release.yml'
+      - 'scripts/audit_runtime_dependencies.py'
   pull_request:
     paths:
       - 'custom_components/**'
       - 'tests/**'
-      - 'scripts/audit_runtime_dependencies.py'
       - 'requirements-test.txt'
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
       - '.github/workflows/manual-release.yml'
+      - 'scripts/audit_runtime_dependencies.py'
 
 jobs:
   python-checks:
