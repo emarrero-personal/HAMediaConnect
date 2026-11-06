@@ -1,4 +1,4 @@
-name: Release 1 · Tag approved commit
+name: Release 1 · Create Release Tag
 
 on:
   workflow_dispatch:

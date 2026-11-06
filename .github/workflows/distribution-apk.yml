@@ -1,4 +1,4 @@
-name: Release 2 · Sign and publish APK
+name: Release 2 · Sign and Publish APK
 
 on:
   push:
