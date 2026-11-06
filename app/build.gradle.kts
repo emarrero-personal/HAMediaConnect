@@ -1,6 +1,13 @@
 plugins {
     id("com.android.application")
+    id("dev.detekt")
     jacoco
+}
+
+detekt {
+    buildUponDefaultConfig = true
+    source.setFrom("src/main/java", "src/test/java", "src/androidTest/java")
+    baseline = file("detekt-baseline.xml")
 }
 
 android {

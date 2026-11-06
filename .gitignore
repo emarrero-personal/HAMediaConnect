@@ -1,5 +1,6 @@
 *.iml
 .gradle
+.kotlin/
 /local.properties
 /.idea/
 .DS_Store
@@ -17,3 +18,11 @@ __pycache__/
 .coverage.*
 htmlcov/
 coverage.xml
+
+# Local credentials and signing material
+.env
+.env.*
+*.jks
+*.keystore
+keystore.properties
+signing.properties
