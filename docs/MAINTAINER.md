@@ -29,7 +29,7 @@ Repository: https://github.com/emarrero-personal/HAMediaConnect
 
 ## Development and test checklist
 
-- Android Studio / JDK 17; run `./gradlew testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage securityCodeCoverageReport verifySecurityCodeCoverage assembleDebug`.
+- Android Studio / JDK 17; run `./gradlew detekt testDebugUnitTest appCodeCoverageReport verifyAppCodeCoverage securityCodeCoverageReport verifySecurityCodeCoverage assembleDebug`.
 - Python: `python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-fail-under=85`.
 - Run `connectedDebugAndroidTest securityDeviceCoverageReport` with a disposable emulator when available. Never run destructive Keystore reset tests on a real installation containing credentials.
 - Install the integration on a test HA instance, restart HA, configure it in Devices & services, and connect the paired client app.
@@ -49,3 +49,8 @@ Repository: https://github.com/emarrero-personal/HAMediaConnect
 ## Documentation history
 
 Pre-release implementation plans, obsolete event-bus protocols, and old test checkpoints were retired from the current docs tree. They remain available in Git history, but must not be used as current setup instructions. The canonical supported transport is the authenticated native WebSocket protocol documented in [DEVELOPERS.md](DEVELOPERS.md) and [SECURITY_PHASE_2.md](SECURITY_PHASE_2.md).
+
+## Public repository security
+
+See [the repository settings audit](REPOSITORY_SETTINGS.md) for the verified GitHub
+security settings, remaining protection gaps, and the order for enabling required CI.

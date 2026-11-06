@@ -1,0 +1,29 @@
+name: Bug report
+description: Report a reproducible client app or Home Assistant integration problem.
+body:
+  - type: markdown
+    attributes:
+      value: Remove tokens, signed media URLs, and personal data. Report vulnerabilities using the private security reporting link instead.
+  - type: textarea
+    id: versions
+    attributes:
+      label: Versions
+      description: Client app, integration, Android, and Home Assistant versions.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or screenshots

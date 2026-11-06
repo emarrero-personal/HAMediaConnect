@@ -167,6 +167,23 @@ class ConnectionServiceTest {
             assertEquals("corrected-refresh", h.credentials.get("refresh_token"))
         }
     }
+    @Test fun sameOriginCredentialReplacementInvalidatesAnInflightRefreshEvenWithTheSameRefreshToken() {
+        Harness("oauth").use { h ->
+            h.service.refreshCredentials = { _, _ ->
+                CredentialTransactions.change {
+                    h.credentials.clear()
+                    h.credentials.put("credential_origin", "https://remote.ui.nabu.casa")
+                    h.credentials.put("auth_method", "oauth")
+                    h.credentials.put("refresh_token", "fixture-refresh")
+                    h.credentials.put("access_token", "new-login-token")
+                }
+                JSONObject().put("access_token", "stale-token").put("expires_in", 1800)
+            }
+            h.start()
+            assertTrue(h.sockets.isEmpty())
+            assertEquals("new-login-token", h.credentials.get("access_token"))
+        }
+    }
     @Test fun permanentBlockSurvivesServiceRestartUntilExplicitCorrection() {
         Harness().use { h -> h.start(); h.fail(ConnectionFailureKind.DEVICE_REJECTED) }
         Harness(resetPrefs = false).use { h ->
