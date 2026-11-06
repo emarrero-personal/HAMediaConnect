@@ -1,5 +1,5 @@
 pytest>=8,<10
-pytest-cov>=5,<8
+pytest-cov>=7.1.0,<8
 pytest-asyncio>=0.24,<2
 voluptuous>=0.13,<1
 aiohttp>=3.10,<4
