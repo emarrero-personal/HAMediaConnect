@@ -16,7 +16,10 @@ data class OAuthCallback(val origin: String, val code: String?, val verifier: St
 /** Single encrypted transaction. Wrong-state intents cannot cancel a genuine browser login. */
 class OAuthAttempt(private val store: SecretStore) {
     companion object { private const val KEY = "oauth_pending" }
-    fun begin(origin: String, now: Long = System.currentTimeMillis()): Pair<String, String> = CredentialTransactions.change {
+    fun begin(
+        origin: String,
+        now: Long = System.currentTimeMillis()
+    ): Pair<String, String> = CredentialTransactions.change {
         TransportPolicy.base(origin, false)
         val state = HaOAuth.randomUrlSafe(32)
         val verifier = HaOAuth.randomUrlSafe(48)
@@ -40,7 +43,9 @@ class OAuthAttempt(private val store: SecretStore) {
         val state = uri.getQueryParameter("state") ?: return@read null
         if (!MessageDigest.isEqual(state.toByteArray(), pending.getString("state").toByteArray())) return@read null
         store.remove(KEY) // Matching response is consumed even on authorization error.
-        if (uri.getQueryParameter("error") != null) return@read OAuthCallback(pending.getString("origin"), null, "", state)
+        if (uri.getQueryParameter("error") != null) {
+            return@read OAuthCallback(pending.getString("origin"), null, "", state)
+        }
         val code = uri.getQueryParameter("code")?.takeIf { it.isNotBlank() } ?: return@read null
         OAuthCallback(pending.getString("origin"), code, pending.getString("verifier"), state)
     }

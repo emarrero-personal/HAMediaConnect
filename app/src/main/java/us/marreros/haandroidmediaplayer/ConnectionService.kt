@@ -153,11 +153,14 @@ class ConnectionService : Service() {
                 val refreshedToken = refreshed.getString("access_token")
                 val committed = CredentialTransactions.commit(snapshot.version, valid = {
                     !stopped && attempt == generation.get() &&
-                        prefs.getString(AppPrefs.KEY_URL, "") == baseUrl && secure.get("credential_origin") == baseUrl &&
+                        prefs.getString(AppPrefs.KEY_URL, "") == baseUrl &&
+                        secure.get("credential_origin") == baseUrl &&
                         secure.get("auth_method") == "oauth" && secure.get("refresh_token") == refreshToken
                 }, write = {
                     secure.put("access_token", refreshedToken)
-                    if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
+                    if (refreshed.has("refresh_token")) {
+                        secure.put("refresh_token", refreshed.getString("refresh_token"))
+                    }
                     prefs.edit().putLong("oauth_expiry",
                         System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
                 })

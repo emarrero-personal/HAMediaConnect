@@ -1,7 +1,11 @@
 package us.marreros.haandroidmediaplayer
 
 import android.content.Context
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -67,7 +71,9 @@ class CredentialTransactionsTest {
             second.clear() // Forgetting through another instance also invalidates a refresh snapshot.
             val forgottenVersion = CredentialTransactions.version()
             second.clear()
-            assertFalse(CredentialTransactions.commit(forgottenVersion, { true }) { first.put("access_token", "A-stale") })
+            assertFalse(CredentialTransactions.commit(forgottenVersion, { true }) {
+                first.put("access_token", "A-stale")
+            })
             assertNull(first.get("access_token"))
         } finally { continueCommit.countDown(); executor.shutdownNow(); first.clear() }
     }

@@ -9,6 +9,7 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
       - '.github/workflows/manual-release.yml'
+      - 'scripts/audit_runtime_dependencies.py'
   pull_request: {}
 
 permissions:
