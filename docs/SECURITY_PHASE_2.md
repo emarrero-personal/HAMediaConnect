@@ -168,7 +168,8 @@ or excessive hops are refused. No TLS bypass or additional public endpoint is in
 
 HA-generated TTS audio can be pulled over the authenticated device WebSocket instead
 of from a media URL ([design](diagnostics/TTS_DELIVERY.md)). The audio comes only
-from HA's in-process TTS manager; the device can't name a URL, path or foreign
+from HA's in-process TTS manager or the integration's fixed, bundled sonar-ping
+asset; the device can't name a URL, path or foreign
 transfer. Every `media_chunk`, `media_release` and `playback_report` request goes
 through the same `owned()` proof/owner/revocation check as `state`. Other devices of
 the same user and unproven connections can't read a transfer. Transfer errors
@@ -181,3 +182,10 @@ and the SHA-256 digest before playback. Temporary audio lives only under
 accepts only a verified file in that directory. Revocation drops the device's
 pending transfers. No HTTP endpoint, token or credential is added, and playback
 reports carry fixed enums, never URLs or exception text.
+
+The per-device sonar button uses the same device-bound transfer store and command
+rate limit. It is unavailable for disconnected, revoked, or non-negotiating clients,
+rechecks those conditions after off-thread file reading, and releases an unsent
+transfer on dispatch rejection or transport failure. Only the fixed package asset
+is read; the button accepts no URL, filename, or audio data from service callers.
+Its announcement does not override volume, mute, DND, or controller authorization.

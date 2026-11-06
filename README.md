@@ -53,6 +53,27 @@ To remove a phone or tablet and its `media_player` entity, open **Settings → D
 
 Deleting does not block the device. If the same app connects again with its original key, it enrolls again and gets a new entity. To permanently block a device key, revoke it first (see the [security guide](docs/SECURITY_PHASE_2.md#persistence-revocation-key-loss)), then delete it. A revoked device keeps its block after you delete it. After a Home Assistant restart, a revoked device's leftover entity shows as no longer provided, and you can delete it from the entity's settings.
 
+## Identify a device with a sonar ping
+
+Each HAMediaConnect device has a **identify** button alongside its media player.
+Open **Settings → Devices & services → HAMediaConnect**, select the device, and
+press **identify** to play the bundled sound on that device. You can also add the
+button entity to a dashboard or call it from an automation:
+
+```yaml
+action: button.press
+target:
+  entity_id: button.your_android_device_sonar_ping
+```
+
+Replace the example entity ID with your device's button. The ping is delivered
+over the device's authenticated connection as an announcement, so interrupted
+music resumes afterward. It uses the current volume and mute setting and respects
+Do Not Disturb. No separate media URL or Internet download is needed to play it.
+The button is unavailable while disconnected or if the client app does not support
+direct audio transfers; update an older client app before using it. After updating
+the integration, restart Home Assistant to create buttons for existing devices.
+
 ## Play audio, TTS, and Music Assistant
 
 After the app connects, find its `media_player` entity in Home Assistant. For a direct audio URL, use **Media player → Play media** or an action such as:

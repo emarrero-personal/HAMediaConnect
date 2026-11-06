@@ -22,6 +22,14 @@ The Kotlin runtime and transitive dependencies packaged into the APK also have t
 
 Guava is constrained to `33.7.2-android` or newer to address [GHSA-xxph-c9ww-hj94](https://github.com/google/guava/security/advisories/GHSA-xxph-c9ww-hj94). Guava retains its [Apache-2.0 license](https://github.com/google/guava/blob/master/COPYING). This constraint updates the existing runtime dependency rather than adding another playback component.
 
+## Bundled integration audio
+
+[`SamsterBirdies-Sonar-Ping.mp3`](custom_components/hamediaconnect/media/SamsterBirdies-Sonar-Ping.mp3)
+is the MP3 preview of [Sonar Ping by SamsterBirdies](https://freesound.org/people/SamsterBirdies/sounds/539957/),
+published under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/).
+It is bundled unchanged apart from its filename. Source and download details are
+included in the integration's [media attribution](custom_components/hamediaconnect/media/README.md).
+
 ## Project branding
 
 The authoritative HAMediaConnect icon is [`branding/HAMediaConnect.svg`](branding/HAMediaConnect.svg), derived from the maintainer-approved `/home/emarrero/HAMediaConnect.svg` with its path geometry unchanged. Android vector resources and the Home Assistant integration PNGs are derivatives of that source artwork. The icon retains its transparent background and uses the app background accent violet `#5540A0`, as directed by the maintainer.

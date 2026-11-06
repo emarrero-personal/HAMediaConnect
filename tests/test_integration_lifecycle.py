@@ -93,10 +93,10 @@ def test_setup_and_entry_lifecycle(modules):
     hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
     entry = Mock()
     assert asyncio.run(integration.async_setup_entry(hass, entry)) is True
-    hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(entry, ["media_player"])
+    hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(entry, ["media_player", "button"])
     hass.config_entries.async_unload_platforms.return_value = True
     assert asyncio.run(integration.async_unload_entry(hass, entry)) is True
-    hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, ["media_player"])
+    hass.config_entries.async_unload_platforms.assert_awaited_once_with(entry, ["media_player", "button"])
 
 
 def test_config_flow_form_and_entry(modules):

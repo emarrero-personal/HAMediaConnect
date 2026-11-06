@@ -56,6 +56,7 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `__init__.py` | Registers custom WebSocket API and config entry |
 | `config_flow.py` | Integration setup |
 | `media_player.py` | Home Assistant entity and media actions |
+| `button.py` | Per-device sonar button using the existing authenticated audio transfer |
 | `registry.py` | Connected-device registry, feature-gated command dispatch and delivery reports |
 | `transfer.py` | Bounded, device-bound store of in-process-rendered TTS audio served in chunks |
 | `websocket_api.py` | WebSocket registration, subscriptions and state messages |
@@ -212,6 +213,24 @@ media, for legacy clients, and when in-process rendering is unavailable or the a
 exceeds 4 MiB. Architecture, rejected alternatives, protocol, limits, security controls,
 troubleshooting and the physical acceptance procedure are in
 [TTS delivery](diagnostics/TTS_DELIVERY.md).
+
+## Sonar identification button
+
+The `button` platform creates a translated **identify** entity for every persisted
+or newly enrolled, non-revoked device, using the same device-registry identifiers as
+the media player. Its unique ID adds `_sonar_ping` to the media player's unique ID.
+Registration/state events keep availability current, and entity removal permits
+re-enrollment without duplicate entities. A live subscription must have negotiated
+`media_transfer_v1`; older clients keep their existing media player behavior and
+the button remains unavailable until they update.
+
+Pressing reads only `media/SamsterBirdies-Sonar-Ping.mp3` in an executor, bounded by
+the existing transfer size limit, then rechecks connection/revocation/capabilities
+after the await. The existing transfer store and `registry.dispatch` deliver it as
+an announcement, with a delivery request ID only when `playback_report_v1` was
+negotiated. Failed sends release only their own transfer. Playback, DND, mute, and
+music restoration use the client's existing announcement path. There is no new
+HTTP route, runtime external download, or device protocol command.
 
 ## Media endpoint selection and diagnostics
 
