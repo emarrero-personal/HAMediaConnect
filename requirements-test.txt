@@ -4,4 +4,4 @@ pytest-asyncio>=0.24,<2
 voluptuous>=0.16.0,<1
 aiohttp>=3.10,<4
 cryptography>=44
-awesomeversion>=24.6
+awesomeversion>=25.8.0
