@@ -1,4 +1,4 @@
-name: Tag approved release
+name: Release 1 · Tag approved commit
 
 on:
   workflow_dispatch:

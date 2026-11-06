@@ -1,4 +1,4 @@
-name: Audit Android runtime dependencies
+name: Security · Audit Android dependencies
 
 on:
   pull_request:

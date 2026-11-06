@@ -1,4 +1,4 @@
-name: Build HAMediaConnect APK
+name: CI · Build and test debug APK
 
 on:
   push:
