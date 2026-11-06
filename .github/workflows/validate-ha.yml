@@ -9,21 +9,19 @@ on:
       - 'pyproject.toml'
       - '.github/workflows/validate-ha.yml'
       - '.github/workflows/manual-release.yml'
-  pull_request:
-    paths:
-      - 'custom_components/**'
-      - 'tests/**'
-      - 'requirements-test.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/validate-ha.yml'
-      - '.github/workflows/manual-release.yml'
+  pull_request: {}
+
+permissions:
+  contents: read
 
 jobs:
   python-checks:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.13'
       - name: Compile Python modules
@@ -36,7 +34,7 @@ jobs:
         run: python -m pytest tests/ --cov=custom_components/hamediaconnect --cov-branch --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=85
       - name: Upload Python coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ha-integration-coverage
           path: coverage.xml

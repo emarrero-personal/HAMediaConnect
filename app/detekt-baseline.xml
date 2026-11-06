@@ -1,0 +1,367 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:ConnectionService.kt:ConnectionService$!refreshToken.isNullOrBlank() &amp;&amp; baseUrl.startsWith("https://") &amp;&amp; (token.isBlank() || System.currentTimeMillis() &gt;= prefs.getLong("oauth_expiry", 0) - 60_000)</ID>
+    <ID>ComplexCondition:ConnectionService.kt:ConnectionService$stopped || attempt != generation.get() || prefs.getString(AppPrefs.KEY_URL, "") != baseUrl || secure.get("credential_origin") != baseUrl || secure.get("auth_method") != "oauth" || secure.get("refresh_token") != refreshToken</ID>
+    <ID>ComplexCondition:DeliveryStatus.kt:DeliveryTracker$key == null || current == null || current.key != key || current.phase.terminal</ID>
+    <ID>ComplexCondition:MainActivity.kt:MainActivity$tokenChoice.isChecked &amp;&amp; token.isBlank() &amp;&amp; (secrets.get("long_lived_token").isNullOrBlank() || secrets.get("credential_origin") != url)</ID>
+    <ID>ComplexCondition:MediaRedirectPolicy.kt:MediaRedirectPolicy$!TransportPolicy.media(target.toString()) || target.scheme != origin.scheme || target.host != origin.host || target.port != origin.port</ID>
+    <ID>ComplexCondition:OAuthAttempt.kt:OAuthAttempt$raw.scheme != "haandroidmediaplayer" || raw.rawAuthority != "oauth" || raw.rawPath != "/callback" || raw.rawFragment != null</ID>
+    <ID>CyclomaticComplexMethod:ConnectionService.kt:ConnectionService$private fun connect</ID>
+    <ID>CyclomaticComplexMethod:ConnectionService.kt:ConnectionService$private fun dispatchCommand</ID>
+    <ID>CyclomaticComplexMethod:HaWebSocketClient.kt:HaWebSocketClient$private fun parseCommand: HaCommand</ID>
+    <ID>CyclomaticComplexMethod:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onMessage</ID>
+    <ID>CyclomaticComplexMethod:MainActivity.kt:MainActivity$override fun onCreate</ID>
+    <ID>CyclomaticComplexMethod:OAuthAttempt.kt:OAuthAttempt$fun consume: OAuthCallback?</ID>
+    <ID>CyclomaticComplexMethod:PlaybackDiagnostic.kt:PlaybackDiagnostic$fun endpoint: String</ID>
+    <ID>CyclomaticComplexMethod:PlaybackDiagnostic.kt:PlaybackDiagnostic$fun summary: String</ID>
+    <ID>CyclomaticComplexMethod:PlaybackFailure.kt:PlaybackFailure$fun describe: String</ID>
+    <ID>CyclomaticComplexMethod:PlaybackFailure.kt:PlaybackFailure$fun reason: DeliveryReason</ID>
+    <ID>CyclomaticComplexMethod:PlaybackService.kt:PlaybackService$override fun onStartCommand: Int</ID>
+    <ID>CyclomaticComplexMethod:PlaybackService.kt:PlaybackService$private fun playMedia</ID>
+    <ID>EmptyElseBlock:MediaHttpTest.kt:MediaHttpTest$if (line.isEmpty()) break</ID>
+    <ID>EmptyElseBlock:MediaTransfer.kt:TransferController$if (read &lt; 0) break</ID>
+    <ID>EmptyFunctionBlock:ConnectionServiceTest.kt:ConnectionServiceTest.FakeConnection${}</ID>
+    <ID>EmptyFunctionBlock:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest.&lt;no name provided&gt;${ }</ID>
+    <ID>EmptyFunctionBlock:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest.Fake${}</ID>
+    <ID>EmptyFunctionBlock:VirtualScheduler.kt:VirtualScheduler${}</ID>
+    <ID>EmptyWhileBlock:UrlPlaybackTest.kt:UrlPlaybackTest${}</ID>
+    <ID>LongMethod:ConnectionService.kt:ConnectionService$private fun connect</ID>
+    <ID>LongMethod:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onMessage</ID>
+    <ID>LongMethod:MainActivity.kt:MainActivity$override fun onCreate</ID>
+    <ID>LongMethod:PlaybackService.kt:PlaybackService$private fun playMedia</ID>
+    <ID>LoopWithTooManyJumpStatements:MediaHttpTest.kt:MediaHttpTest$while</ID>
+    <ID>LoopWithTooManyJumpStatements:MediaTransfer.kt:TransferController$for</ID>
+    <ID>MagicNumber:ConnectionService.kt:ConnectionService$1000</ID>
+    <ID>MagicNumber:ConnectionService.kt:ConnectionService$128</ID>
+    <ID>MagicNumber:ConnectionService.kt:ConnectionService$1800</ID>
+    <ID>MagicNumber:ConnectionService.kt:ConnectionService$6</ID>
+    <ID>MagicNumber:ConnectionService.kt:ConnectionService$60_000</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$15</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$16384</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$16385</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$25</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$400</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$401</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$403</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$8</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$8192</ID>
+    <ID>MagicNumber:HaOAuth.kt:HaOAuth$86400.0</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$1000</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$128</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$2048</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$4</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$45000</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$512</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient$8192</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient.Companion$8</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient.Listener$120</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient.Listener$128</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient.Listener$30</ID>
+    <ID>MagicNumber:HaWebSocketClient.kt:HaWebSocketClient.Listener$60000</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$1000</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$33</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$37</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$8192</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$2048</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$301</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$302</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$303</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$307</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$308</ID>
+    <ID>MagicNumber:MediaRedirectPolicy.kt:MediaRedirectPolicy$5</ID>
+    <ID>MagicNumber:MediaTransfer.kt:TransferController$16</ID>
+    <ID>MagicNumber:OAuthAttempt.kt:OAuthAttempt$2048</ID>
+    <ID>MagicNumber:OAuthAttempt.kt:OAuthAttempt$4096</ID>
+    <ID>MagicNumber:OAuthAttempt.kt:OAuthAttempt$600000</ID>
+    <ID>MagicNumber:PlaybackDiagnostic.kt:PlaybackDiagnostic$1000</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$12</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$300</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$399</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$401</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$403</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$404</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$410</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$500</ID>
+    <ID>MagicNumber:PlaybackFailure.kt:PlaybackFailure$599</ID>
+    <ID>MagicNumber:PlaybackService.kt:PlaybackService$0.5f</ID>
+    <ID>MagicNumber:PlaybackService.kt:PlaybackService$16</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$12</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$128</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$16384</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$256</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$28</ID>
+    <ID>MagicNumber:SecureTokenStore.kt:SecureTokenStore$32768</ID>
+    <ID>MagicNumber:TransportPolicy.kt:TransportPolicy$2048</ID>
+    <ID>MagicNumber:TransportPolicy.kt:TransportPolicy$65535</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, "Stopped").putString(AppPrefs.KEY_CONNECTION_PHASE, ConnectionPhase.DISCONNECTED.name).apply()</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$AppPrefs.prefs(this).edit().putString(AppPrefs.KEY_STATUS, status).putString(AppPrefs.KEY_CONNECTION_PHASE, event.phase.name).apply()</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$handleFailure(ConnectionFailure(if (e is OAuthRejected) ConnectionFailureKind.OAUTH_REJECTED else ConnectionFailureKind.OAUTH_UNAVAILABLE))</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$internal</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$internal var refreshCredentials: (String, String) -&gt; JSONObject = { origin, refresh -&gt; HaOAuth(origin).refresh(refresh) }</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$try { scheduler.submit { transfers.cancel(DeliveryReason.STOPPED) }.get(2, TimeUnit.SECONDS) } catch (_: Exception) {}</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$updateStatus(ConnectionEvent(if (network == null) ConnectionPhase.DISCONNECTED else ConnectionPhase.RECONNECTING))</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$val reason = if (command.command == PlaybackService.CMD_STOP) DeliveryReason.STOPPED else DeliveryReason.SUPERSEDED</ID>
+    <ID>MaxLineLength:ConnectionService.kt:ConnectionService$val status = if (event.phase == ConnectionPhase.RECONNECTING &amp;&amp; event.failure != null) "Reconnecting — ${event.message}" else event.message</ID>
+    <ID>MaxLineLength:ConnectionServiceTest.kt:ConnectionServiceTest$ConnectionService::class.java.getDeclaredMethod("networkChanged", Network::class.java).apply { isAccessible = true }.invoke(service, network)</ID>
+    <ID>MaxLineLength:ConnectionServiceTest.kt:ConnectionServiceTest$assertEquals("fixture-token", h.credentials.get(if (authMethod == "token") "long_lived_token" else "access_token"))</ID>
+    <ID>MaxLineLength:ConnectionServiceTest.kt:ConnectionServiceTest$for</ID>
+    <ID>MaxLineLength:ConnectionServiceTest.kt:ConnectionServiceTest$private fun field</ID>
+    <ID>MaxLineLength:ConnectionState.kt:ConnectionFailure.Companion$"device_auth_failed" -&gt; if (stage == FailureStage.SUBSCRIPTION) ConnectionFailureKind.TEMPORARY else ConnectionFailureKind.DEVICE_REJECTED</ID>
+    <ID>MaxLineLength:ConnectionState.kt:FailureStage</ID>
+    <ID>MaxLineLength:ConnectionStateTest.kt:ConnectionStateTest$for</ID>
+    <ID>MaxLineLength:DeliveryStatus.kt:DeliveryStatus$val methodLabel: String get() = if (method == DeliveryMethod.DIRECT) "Direct transfer · Home Assistant connection" else "Media URL"</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$500 to DeliveryReason.SERVER_ERROR</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$PlaybackDiagnostic.summary(idle, delivery = receiving.copy(phase = DeliveryPhase.FAILED, reason = DeliveryReason.INTERRUPTED))</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$PlaybackDiagnostic.summary(idle, delivery = receiving.copy(phase = DeliveryPhase.FAILED, reason = DeliveryReason.STOPPED))</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals("Failed — media unreachable", direct.copy(phase = DeliveryPhase.FAILED, reason = DeliveryReason.UNREACHABLE).label())</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals("Loading media", direct.copy(phase = DeliveryPhase.RETRIEVING, method = DeliveryMethod.URL).label())</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals("Receiving announcement\n${PlaybackDiagnostic.DIRECT}", PlaybackDiagnostic.summary(idle, delivery = receiving))</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals("Reconnecting — audio transfer will resume", direct.copy(phase = DeliveryPhase.RETRIEVING, resuming = true).label())</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals(DeliveryReason.DNS, PlaybackFailure.reason(error(java.io.IOException(java.net.UnknownHostException("secret")))))</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$assertEquals(listOf(DeliveryPhase.RECEIVED, DeliveryPhase.RETRIEVING, DeliveryPhase.COMPLETED, DeliveryPhase.RECEIVED), seen.map { it.phase })</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$for</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$private fun error</ID>
+    <ID>MaxLineLength:DeliveryStatusTest.kt:DeliveryStatusTest$receiving.copy(phase = DeliveryPhase.RETRIEVING, resuming = true)</ID>
+    <ID>MaxLineLength:DeviceIdentity.kt:DeviceIdentity$override fun sign: String</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$assertEquals(file.toURI().toString().removePrefix("file:"), player().currentMediaItem!!.localConfiguration!!.uri.path)</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$assertTrue(PlaybackDiagnostic.summary(PlayerStateBus.latest!!, delivery = DeliveryTracker.latest).startsWith("Failed"))</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$assertTrue(seen.toString(), seen.containsAll(listOf(DeliveryPhase.BUFFERING, DeliveryPhase.PLAYING, DeliveryPhase.COMPLETED)))</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$private fun player</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$put("fmt ".toByteArray())</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$runUntil { DeliveryTracker.latest?.key == "B".repeat(16) &amp;&amp; DeliveryTracker.latest?.phase == DeliveryPhase.COMPLETED }</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$runUntil { DeliveryTracker.latest?.key == "H".repeat(16) &amp;&amp; DeliveryTracker.latest?.phase == DeliveryPhase.COMPLETED }</ID>
+    <ID>MaxLineLength:DirectPlaybackTest.kt:DirectPlaybackTest$val partial = File(TransferFiles.dir(service.cacheDir), "D".repeat(22) + ".part").apply { writeBytes(wav('D', 100).readBytes()) }</ID>
+    <ID>MaxLineLength:DirectTransferDeviceTest.kt:DirectTransferDeviceTest$put("fmt ".toByteArray())</ID>
+    <ID>MaxLineLength:DirectTransferDeviceTest.kt:DirectTransferDeviceTest$val file = File(TransferFiles.dir(context.cacheDir).apply { mkdirs() }, "D".repeat(22) + ".audio").apply { writeBytes(wav) }</ID>
+    <ID>MaxLineLength:HaOAuth.kt:HaOAuth$if (tokens.has("refresh_token")) require(tokens.get("refresh_token") is String &amp;&amp; tokens.getString("refresh_token").length in 1..8192)</ID>
+    <ID>MaxLineLength:HaOAuth.kt:HaOAuth$require(tokens.get("token_type") is String &amp;&amp; tokens.getString("token_type").equals("Bearer", ignoreCase = true))</ID>
+    <ID>MaxLineLength:HaOAuthTest.kt:HaOAuthTest$assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", HaOAuth.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient$(if (FEATURE_TRANSFER in negotiated) setOf("transfer_id", "media_size", "media_sha256", "chunk_size") else emptySet())</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient$url</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient$val</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$check(payload.matches(Regex("HAMediaConnect/v1\\n[A-Za-z0-9_-]{43}\\n[A-Za-z0-9_-]{1,128}\\n$deviceId")))</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$fail(ConnectionFailure.response(json.optJSONObject("error")?.optString("code"), FailureStage.STATE))</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$if (error?.has("code") == true) require(error.get("code") is String &amp;&amp; error.getString("code").length in 1..128)</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$if (negotiated.isNotEmpty()) fields.put("features", org.json.JSONArray(negotiated.sorted()))</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$list.get(index).also { require(it is String &amp;&amp; it.length in 1..32) } as String</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onClosed</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onClosing</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onFailure</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$override fun onMessage</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$request(webSocket, "challenge", JSONObject().put("public_key", identity.publicKey).put("name", deviceName))</ID>
+    <ID>MaxLineLength:HaWebSocketClient.kt:HaWebSocketClient.Listener$stage = "ready"</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$"{\"type\":\"auth_required\",\"type\":\"auth_required\"}"</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$(HaWebSocketClient::class.java.getDeclaredField("timeout").apply { isAccessible = true }.get(timedOut.client) as Runnable).run()</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$.</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$assertEquals(HaCommand("play_media", "/song.mp3", "Song", "audio/mpeg", .4f, null, false, true), h.commands.single())</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$for</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$h.result(1, JSONObject().put("device_id", h.identity.deviceId).put("expires_in", 30).put("payload", payload))</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$initVerify(h.keys.pair!!.public); update("HAMediaConnect/v1\n${"a".repeat(43)}\nowner\n${h.identity.deviceId}".toByteArray()); verify(signed)</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(Duration.ofMillis(HaWebSocketClient.STATE_ACK_TIMEOUT_MS - 1))</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$try { method.invoke(h.client, "http://ha.example"); fail("HTTP must require opt-in") } catch (_: java.lang.reflect.InvocationTargetException) { }</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$val method = HaWebSocketClient::class.java.getDeclaredMethod("toWebSocketUrl", String::class.java).apply { isAccessible = true }</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest$val transport = HaWebSocketClient::class.java.getDeclaredField("client").apply { isAccessible = true }.get(h.client) as okhttp3.OkHttpClient</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$client = HaWebSocketClient("https://ha.example", "SECRET_TOKEN", "Pixel", identity, statuses::add, commands::add, onConnectionEvent = events::add)</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$fun event</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$fun result</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$fun set</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$listener = type.getDeclaredConstructor(HaWebSocketClient::class.java).apply { isAccessible = true }.newInstance(client) as WebSocketListener</ID>
+    <ID>MaxLineLength:HaWebSocketClientTest.kt:HaWebSocketClientTest.Harness$val</ID>
+    <ID>MaxLineLength:LauncherMaskTest.kt:LauncherMaskTest$for (y in 0 until bitmap.height) for (x in 0 until bitmap.width) if (Color.alpha(bitmap.getPixel(x, y)) &gt; 0) pixels++</ID>
+    <ID>MaxLineLength:LocalMediaDeviceTest.kt:LocalMediaDeviceTest$assertTrue("The short announcement must complete and restore idle", completed.await(10, TimeUnit.SECONDS))</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$.</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java).setAction(ConnectionService.ACTION_RECONNECT))</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$findViewById&lt;TextView&gt;(R.id.playbackStatus).text = "Local playback needs Local network permission in Android app settings"</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$if</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$if (generation != oauthGeneration || prefs.getString(AppPrefs.KEY_URL, "") != callback.origin) return@runOnUiThread</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$prefs.edit().putLong("oauth_expiry", System.currentTimeMillis() + tokens.getLong("expires_in") * 1000).apply()</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$runOnUiThread { if (generation == oauthGeneration) connectionStatus("OAuth exchange failed; sign in again") }</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emarrero-personal/HAMediaConnect#install-the-home-assistant-integration")))</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$try</ID>
+    <ID>MaxLineLength:MainActivity.kt:MainActivity$}</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$"Content-Length: 3\r\nLocation: http://127.0.0.1:1/leak\r\nConnection: close\r\n\r\nabc"</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$assertEquals(3, source.open(DataSpec(Uri.parse("http://127.0.0.1:${server.localPort}/start?authSig=fixture"))))</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$assertFalse(headers.flatten().any { it.startsWith("Authorization:", true) || it.startsWith("Cookie:", true) })</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$assertFalse(lines.any { it.startsWith("Authorization:", ignoreCase = true) || it.startsWith("Cookie:", ignoreCase = true) })</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$else</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$val</ID>
+    <ID>MaxLineLength:MediaHttpTest.kt:MediaHttpTest$val bytes = ByteArray(3)</ID>
+    <ID>MaxLineLength:MediaRedirectPolicyTest.kt:MediaRedirectPolicyTest$"https://ha.example:444/secret"</ID>
+    <ID>MaxLineLength:MediaRedirectPolicyTest.kt:MediaRedirectPolicyTest$.</ID>
+    <ID>MaxLineLength:MediaRedirectPolicyTest.kt:MediaRedirectPolicyTest$private</ID>
+    <ID>MaxLineLength:MediaRedirectPolicyTest.kt:MediaRedirectPolicyTest$val</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$MessageDigest.isEqual(digest.digest(), transfer.offer.sha256.chunked(2).map { it.toInt(16).toByte() }.toByteArray())</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$executor.execute { if (active === transfer &amp;&amp; generation == requestGeneration) handle(transfer, index, result) }</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$if (!transfer.part.renameTo(audio)) { transfer.part.delete(); return onStatus(transfer.key, DeliveryPhase.FAILED, DeliveryReason.OTHER, false) }</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$if (dir.usableSpace &lt; offer.size.toLong() * 2) return onStatus(key, DeliveryPhase.FAILED, DeliveryReason.TOO_LARGE, false)</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$transfer.retry = executor.schedule({ transfer.retry = null; if (active === transfer) pump() }, RETRY_MS, TimeUnit.MILLISECONDS)</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$val</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController$while (true) { val read = transfer.output.read(buffer); if (read &lt; 0) break; digest.update(buffer, 0, read) }</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferController.Active$private inner</ID>
+    <ID>MaxLineLength:MediaTransfer.kt:TransferOffer$data</ID>
+    <ID>MaxLineLength:MediaTransferTest.kt:MediaTransferTest$assertEquals(86, TransferOffer("A".repeat(22), TransferOffer.MAX_BYTES, digest, TransferOffer.CHUNK_SIZE, "audio/mpeg").chunks)</ID>
+    <ID>MaxLineLength:MediaTransferTest.kt:MediaTransferTest$private fun sha</ID>
+    <ID>MaxLineLength:MediaTransferTest.kt:MediaTransferTest${ TransferOffer("A".repeat(22), TransferOffer.MAX_BYTES + 1, digest, TransferOffer.CHUNK_SIZE, "audio/mpeg") }</ID>
+    <ID>MaxLineLength:MediaTransferTest.kt:MediaTransferTest.Source$callback(result ?: ChunkResult.Data(offset, data.copyOfRange(offset, minOf(data.size, offset + TransferOffer.CHUNK_SIZE))))</ID>
+    <ID>MaxLineLength:OAuthDiscoveryTest.kt:OAuthDiscoveryTest$"""{"code_challenge_methods_supported":"S256"}"""</ID>
+    <ID>MaxLineLength:OAuthDiscoveryTest.kt:OAuthDiscoveryTest$assertEquals(listOf("/.well-known/oauth-authorization-server", "/.well-known/oauth-authorization-server", "/auth/token"), paths)</ID>
+    <ID>MaxLineLength:OAuthDiscoveryTest.kt:OAuthDiscoveryTest$try</ID>
+    <ID>MaxLineLength:OAuthSecurityTest.kt:OAuthSecurityTest$for</ID>
+    <ID>MaxLineLength:OAuthSecurityTest.kt:OAuthSecurityTest$private fun callback</ID>
+    <ID>MaxLineLength:OAuthSecurityTest.kt:OAuthSecurityTest$val http = HaOAuth::class.java.getDeclaredField("http").apply { isAccessible = true }.get(oauth) as okhttp3.OkHttpClient</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_MEDIA_PLAY)</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$arrayOf(MediaNotification.ActionFactory::class.java)</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$for</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$provider</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$service.onStartCommand(Intent().setAction(PlaybackService.CMD_PLAY_MEDIA).putExtra(PlaybackService.EXTRA_URL, "http://example.com/a.mp3"), 0, 1)</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest$val player = PlaybackService::class.java.getDeclaredField("player").apply { isAccessible = true }.get(service) as ExoPlayer</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest.&lt;no name provided&gt;$override</ID>
+    <ID>MaxLineLength:PlaybackAuthorizationTest.kt:PlaybackAuthorizationTest.&lt;no name provided&gt;$override fun getNotificationChannelInfo</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$assertEquals("https://ha.example/api/tts_proxy/first", player(service).currentMediaItem!!.localConfiguration!!.uri.toString())</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$assertEquals("https://public.example/music.mp3", player(service).currentMediaItem!!.localConfiguration!!.uri.toString())</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$assertEquals("https://public.example/paused.mp3", player(service).currentMediaItem!!.localConfiguration!!.uri.toString())</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$assertEquals("https://public.example/replacement.mp3", player(service).currentMediaItem!!.localConfiguration!!.uri.toString())</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$failed.onPlayerError(PlaybackException("duplicate secret", null, PlaybackException.ERROR_CODE_IO_UNSPECIFIED))</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$failed.onPlayerError(PlaybackException("signed secret", null, PlaybackException.ERROR_CODE_DECODING_FAILED))</ID>
+    <ID>MaxLineLength:PlaybackDeliveryTest.kt:PlaybackDeliveryTest$old.onPlayerError(PlaybackException("secret", null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT))</ID>
+    <ID>MaxLineLength:PlaybackDiagnostic.kt:PlaybackDiagnostic$"${snapshot.positionMs / 1000}s / ${snapshot.durationMs / 1000}s"</ID>
+    <ID>MaxLineLength:PlaybackDiagnostic.kt:PlaybackDiagnostic$(delivery.phase == DeliveryPhase.FAILED || delivery.phase == DeliveryPhase.SUPPRESSED) &amp;&amp; snapshot.error == null -&gt; delivery.label()</ID>
+    <ID>MaxLineLength:PlaybackDiagnostic.kt:PlaybackDiagnostic$(host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("127.") || host.startsWith("169.254."))</ID>
+    <ID>MaxLineLength:PlaybackDiagnostic.kt:PlaybackDiagnostic$host == "localhost" || host.endsWith(".local") || host.endsWith(".home.arpa") || host.endsWith(".lan") || host == "::1" || host == "[::1]"</ID>
+    <ID>MaxLineLength:PlaybackDiagnosticTest.kt:PlaybackDiagnosticTest$assertEquals("HTTPS · External · /[redacted]", PlaybackDiagnostic.endpoint("https://example.com/private/secret.mp3"))</ID>
+    <ID>MaxLineLength:PlaybackDiagnosticTest.kt:PlaybackDiagnosticTest$assertEquals("HTTPS · External · /api/media_source/[redacted]", PlaybackDiagnostic.endpoint("https://example.com/api/media_source/secret?authSig=secret"))</ID>
+    <ID>MaxLineLength:PlaybackDiagnosticTest.kt:PlaybackDiagnosticTest$assertTrue(host, PlaybackDiagnostic.endpoint("http://$host/local/secret?token=hidden").contains("HTTP · Local · /local/[redacted]"))</ID>
+    <ID>MaxLineLength:PlaybackDiagnosticTest.kt:PlaybackDiagnosticTest$for</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$401, 403 -&gt; "Media access denied (HTTP ${current.responseCode}); regenerate media or check proxy authentication"</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -&gt; "Media connection failed; check Local network permission or configure external HTTPS in Home Assistant"</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT, PlaybackException.ERROR_CODE_TIMEOUT -&gt; DeliveryReason.TIMEOUT</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$PlaybackException.ERROR_CODE_IO_NO_PERMISSION -&gt; "Media permission denied; allow Local network access in Android app settings"</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$PlaybackException.ERROR_CODE_IO_NO_PERMISSION, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED -&gt; DeliveryReason.UNREACHABLE</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$in 500..599 -&gt; "Media server unavailable (HTTP ${current.responseCode}); check Home Assistant or proxy"</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$is HttpDataSource.InvalidContentTypeException -&gt; return "Unexpected media content type; check proxy login pages and audio response"</ID>
+    <ID>MaxLineLength:PlaybackFailure.kt:PlaybackFailure$is UnknownHostException -&gt; return "Media hostname unavailable; configure reachable external HTTPS in Home Assistant"</ID>
+    <ID>MaxLineLength:PlaybackFailureTest.kt:PlaybackFailureTest$410 to "expired"</ID>
+    <ID>MaxLineLength:PlaybackFailureTest.kt:PlaybackFailureTest$assertEquals(PlaybackFailure.TIMEOUT, PlaybackFailure.describe(error(null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT)))</ID>
+    <ID>MaxLineLength:PlaybackFailureTest.kt:PlaybackFailureTest$assertEquals(PlaybackFailure.TIMEOUT, PlaybackFailure.describe(error(null, PlaybackException.ERROR_CODE_TIMEOUT)))</ID>
+    <ID>MaxLineLength:PlaybackFailureTest.kt:PlaybackFailureTest$assertTrue(PlaybackFailure.describe(error(null, PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)).contains("external HTTPS"))</ID>
+    <ID>MaxLineLength:PlaybackFailureTest.kt:PlaybackFailureTest$assertTrue(PlaybackFailure.describe(error(null, PlaybackException.ERROR_CODE_IO_NO_PERMISSION)).contains("Local network"))</ID>
+    <ID>MaxLineLength:PlaybackNotifications.kt:PlaybackNotifications$)</ID>
+    <ID>MaxLineLength:PlaybackNotifications.kt:PlaybackNotifications.&lt;no name provided&gt;$override</ID>
+    <ID>MaxLineLength:PlaybackNotifications.kt:PlaybackNotifications.&lt;no name provided&gt;$return PendingIntent.getService(context, command, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)</ID>
+    <ID>MaxLineLength:PlaybackService.kt:PlaybackService$.</ID>
+    <ID>MaxLineLength:PlaybackService.kt:PlaybackService$if (player.playbackState == Player.STATE_BUFFERING) failPlayback(PlaybackFailure.TIMEOUT, DeliveryReason.TIMEOUT)</ID>
+    <ID>MaxLineLength:PlaybackService.kt:PlaybackService$private</ID>
+    <ID>MaxLineLength:PlaybackService.kt:PlaybackService.&lt;no name provided&gt;$if (!started) DeliveryTracker.update(currentKey, if (player.isPlaying) DeliveryPhase.PLAYING else DeliveryPhase.READY)</ID>
+    <ID>MaxLineLength:SecureTokenStore.kt:SecureTokenStore$prefs.edit().putString(name, Base64.encodeToString(cipher.iv + encrypted, Base64.NO_WRAP)).commit().also { check(it) }</ID>
+    <ID>MaxLineLength:SecureTokenStore.kt:SecureTokenStore.Companion$KeyStore.getInstance("AndroidKeyStore").apply { load(null); deleteEntry("ha_android_media_player_oauth_v1") }</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$context.startService(InternalPlayback.authorize(Intent(context, PlaybackService::class.java).setAction(PlaybackService.CMD_PAUSE)))</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$context.startService(InternalPlayback.authorize(Intent(context, PlaybackService::class.java).setAction(PlaybackService.CMD_PLAY)))</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$pending = MediaController.Builder(context, SessionToken(context, ComponentName(context, PlaybackService::class.java))).buildAsync()</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$try { DeviceIdentity(context); fail("Missing identity key must not regenerate") } catch (_: IllegalStateException) { }</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$try { store.put("access_token", "replacement"); fail("Cannot replace key over existing ciphertext") } catch (_: IllegalStateException) { }</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$val activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))</ID>
+    <ID>MaxLineLength:SecurityDeviceTest.kt:SecurityDeviceTest$val public = KeyFactory.getInstance("EC").generatePublic(X509EncodedKeySpec(Base64.decode(identity.publicKey, Base64.NO_WRAP)))</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$"https://ha.example:65536"</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$assertEquals("http://ha.local:8123/api/tts.mp3?sig=x", TransportPolicy.resolveMedia("http://ha.local:8123", "/api/tts.mp3?sig=x"))</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$assertEquals("https://example.com/song", TransportPolicy.resolveMedia("https://ha.local", "https://example.com/song"))</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$assertTrue(Signature.getInstance("SHA256withECDSA").run { initVerify(keys.pair!!.public); update("challenge".toByteArray()); verify(signed) })</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$for</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$fun info</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$try { DeviceIdentity(context, keys); fail("Missing key must not silently regenerate") } catch (_: IllegalStateException) { }</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$val</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:SecurityPolicyTest$val constructor = MediaSession.ControllerInfo::class.java.declaredConstructors.single().apply { isAccessible = true }</ID>
+    <ID>MaxLineLength:SecurityPolicyTest.kt:TestKeys$override fun create</ID>
+    <ID>MaxLineLength:SettingsContrastTest.kt:SettingsContrastTest$assertEquals("Hint must contrast with the light card", Color.rgb(101, 90, 122), field.hintTextColors.defaultColor)</ID>
+    <ID>MaxLineLength:SettingsContrastTest.kt:SettingsContrastTest$assertEquals("Input text must contrast with the light card", Color.rgb(41, 28, 82), field.currentTextColor)</ID>
+    <ID>MaxLineLength:StatusUiTest.kt:StatusUiTest$MainActivity::class.java.getDeclaredField("awaitingConnection").apply { isAccessible = true }.set(activity, true)</ID>
+    <ID>MaxLineLength:StatusUiTest.kt:StatusUiTest$PlayerStateBus.publish(PlayerSnapshot("idle", .5f, false, 0, 0, null, "https://ha.example/api/tts_proxy/secret", PlaybackFailure.TIMEOUT))</ID>
+    <ID>MaxLineLength:StatusUiTest.kt:StatusUiTest$PlayerStateBus.publish(PlayerSnapshot("playing", .5f, false, 1000, 2000, "Music", "https://public.example/song"))</ID>
+    <ID>MaxLineLength:StatusUiTest.kt:StatusUiTest$PlayerStateBus.publish(PlayerSnapshot(state, .5f, false, 0, 0, "Music", "https://ha.example/api/tts_proxy/secret", error))</ID>
+    <ID>MaxLineLength:StatusUiTest.kt:StatusUiTest$for</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$(ConnectionService::class.java.getDeclaredField("scheduler").apply { isAccessible = true }.get(service) as ScheduledExecutorService)</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$ConnectionService::class.java.getDeclaredMethod("networkChanged", android.net.Network::class.java).apply { isAccessible = true }.invoke(service, network)</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$private fun offer</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$put("credential_origin", "https://remote.ui.nabu.casa"); put("auth_method", "token"); put("long_lived_token", "fixture-token")</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$send(HaCommand(PlaybackService.CMD_PLAY_MEDIA, url = "https://public.example/a.mp3", requestId = "S".repeat(16)))</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$send(HaCommand(PlaybackService.CMD_PLAY_MEDIA, url = "https://public.example/music.mp3", requestId = "S".repeat(16)))</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$val network = android.net.Network::class.java.getDeclaredConstructor(Int::class.javaPrimitiveType).apply { isAccessible = true }.newInstance(77)</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest$val scheduler = ConnectionService::class.java.getDeclaredField("scheduler").apply { isAccessible = true }.get(service) as ScheduledExecutorService</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest.Fake$callback(ChunkResult.Data(offset, audio.copyOfRange(offset, minOf(audio.size, offset + TransferOffer.CHUNK_SIZE))))</ID>
+    <ID>MaxLineLength:TransferDeliveryServiceTest.kt:TransferDeliveryServiceTest.Fake$override fun close</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest$assertEquals(JSONArray(listOf("media_transfer_v1", "playback_report_v1")).toString(), h.sent[3].getJSONArray("features").toString())</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest$for</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest$h.event(JSONObject().put("action", "play_media").put("media_content_id", "https://e/a.mp3").put("request_id", "Q".repeat(16)))</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest$private</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest$stray.event(JSONObject().put("action", "play_media").put("media_content_id", "https://e/a.mp3").put("media_size", 10))</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$HaWebSocketClient::class.java.getDeclaredField("stage").apply { isAccessible = true }.set(client, "ha_required")</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$client = HaWebSocketClient("https://ha.example", "SECRET_TOKEN", "Pixel", identity, {}, commands::add, onConnectionEvent = events::add)</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$fun</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$fun event</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$fun result</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$listener = type.getDeclaredConstructor(HaWebSocketClient::class.java).apply { isAccessible = true }.newInstance(client) as WebSocketListener</ID>
+    <ID>MaxLineLength:TransferProtocolTest.kt:TransferProtocolTest.Harness$val</ID>
+    <ID>MaxLineLength:UrlPlaybackTest.kt:UrlPlaybackTest$assertTrue(phases.toString(), phases.indexOf(DeliveryPhase.PLAYING) in 2 until phases.indexOf(DeliveryPhase.COMPLETED))</ID>
+    <ID>MaxLineLength:UrlPlaybackTest.kt:UrlPlaybackTest$it.getOutputStream()</ID>
+    <ID>MaxLineLength:UrlPlaybackTest.kt:UrlPlaybackTest$private fun player</ID>
+    <ID>MaxLineLength:UrlPlaybackTest.kt:UrlPlaybackTest$put("fmt ".toByteArray())</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler$override fun &lt;V : Any?&gt; schedule: ScheduledFuture&lt;V&gt;</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler$override fun scheduleAtFixedRate</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler$override fun scheduleWithFixedDelay</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler$val next = tasks.filter { !it.cancelled &amp;&amp; it.at &lt;= now }.minByOrNull { it.at * 1_000_000 + it.order } ?: return</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler.Task$override fun cancel: Boolean</ID>
+    <ID>MaxLineLength:VirtualScheduler.kt:VirtualScheduler.Task$override fun compareTo</ID>
+    <ID>ReturnCount:BootReceiver.kt:BootReceiver$override fun onReceive</ID>
+    <ID>ReturnCount:ConnectionService.kt:ConnectionService$private fun connect</ID>
+    <ID>ReturnCount:DeliveryStatus.kt:DeliveryTracker$fun update: Boolean</ID>
+    <ID>ReturnCount:HaWebSocketClient.kt:HaWebSocketClient$@Synchronized override fun requestChunk: Boolean</ID>
+    <ID>ReturnCount:HaWebSocketClient.kt:HaWebSocketClient$private fun auxiliary: Int?</ID>
+    <ID>ReturnCount:MainActivity.kt:MainActivity$private fun handleOAuthCallback</ID>
+    <ID>ReturnCount:MediaRedirectPolicy.kt:MediaRedirectPolicy$override fun intercept: Response</ID>
+    <ID>ReturnCount:MediaTransfer.kt:TransferController$fun start</ID>
+    <ID>ReturnCount:MediaTransfer.kt:TransferController$private fun handle</ID>
+    <ID>ReturnCount:PlaybackFailure.kt:PlaybackFailure$fun describe: String</ID>
+    <ID>ReturnCount:PlaybackFailure.kt:PlaybackFailure$fun reason: DeliveryReason</ID>
+    <ID>ReturnCount:PlaybackService.kt:PlaybackService$override fun onStartCommand: Int</ID>
+    <ID>ReturnCount:PlaybackService.kt:PlaybackService$private fun playMedia</ID>
+    <ID>ReturnCount:SecureTokenStore.kt:SecureTokenStore$private fun key: java.security.Key</ID>
+    <ID>TooGenericExceptionCaught:BootReceiver.kt:BootReceiver$e: RuntimeException</ID>
+    <ID>TooGenericExceptionCaught:ConnectionService.kt:ConnectionService$e: Exception</ID>
+    <ID>TooManyFunctions:ConnectionService.kt:ConnectionService : Service</ID>
+    <ID>TooManyFunctions:HaWebSocketClient.kt:HaWebSocketClient : HaConnection</ID>
+    <ID>TooManyFunctions:PlaybackService.kt:PlaybackService : MediaSessionService</ID>
+    <ID>WildcardImport:AppPrefsTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:ConnectionServiceTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:ConnectionStateTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:DeliveryStatusTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:DirectPlaybackTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:DirectTransferDeviceTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:HaCommandTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:HaOAuthTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:HaWebSocketClient.kt:import okhttp3.*</ID>
+    <ID>WildcardImport:HaWebSocketClientTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:LauncherMaskTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:LocalMediaDeviceTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:MediaHttpTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:MediaRedirectPolicyTest.kt:import okhttp3.*</ID>
+    <ID>WildcardImport:MediaRedirectPolicyTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:MediaTransferTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:OAuthDiscoveryTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:OAuthSecurityTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:PlaybackAuthorizationTest.kt:import androidx.media3.session.*</ID>
+    <ID>WildcardImport:PlaybackAuthorizationTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:PlaybackDeliveryTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:PlaybackDiagnosticTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:PlaybackFailureTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:PlaybackNotifications.kt:import androidx.media3.session.*</ID>
+    <ID>WildcardImport:SecurityDeviceTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:SecurityPolicyTest.kt:import java.security.*</ID>
+    <ID>WildcardImport:SecurityPolicyTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:StatusUiTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:TransferDeliveryServiceTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:TransferProtocolTest.kt:import org.junit.Assert.*</ID>
+    <ID>WildcardImport:UrlPlaybackTest.kt:import org.junit.Assert.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

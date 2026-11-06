@@ -10,11 +10,6 @@ on:
       - 'custom_components/**'
   pull_request:
     branches: [main]
-    paths:
-      - '.github/workflows/hassfest.yml'
-      - '.github/workflows/manual-release.yml'
-      - 'docs/**'
-      - 'custom_components/**'
   workflow_dispatch:
 
 permissions:
@@ -28,8 +23,8 @@ jobs:
       contents: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
       - name: Run Hassfest
-        uses: home-assistant/actions/hassfest@master
+        uses: home-assistant/actions/hassfest@86d4564712fa02543c808e3a693dd04f9d3f8361 # master
