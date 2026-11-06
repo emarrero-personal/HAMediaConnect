@@ -1,4 +1,4 @@
-name: Publish signed distribution APK
+name: Release 2 · Sign and publish APK
 
 on:
   push:

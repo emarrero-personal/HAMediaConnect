@@ -1,4 +1,4 @@
-name: Validate Home Assistant integration
+name: CI · Validate Home Assistant integration
 on:
   push:
     branches: [main]
