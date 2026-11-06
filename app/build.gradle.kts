@@ -62,10 +62,15 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.18.0")
-    implementation("androidx.appcompat:appcompat:1.7.1")
+    constraints {
+        implementation("com.google.guava:guava:33.7.2-android") {
+            because("Fix GHSA-xxph-c9ww-hj94 in the transitive Android runtime dependency")
+        }
+    }
+    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("androidx.activity:activity-ktx:1.13.0")
-    implementation("androidx.browser:browser:1.8.0")
+    implementation("androidx.browser:browser:1.10.0")
     implementation("androidx.media3:media3-exoplayer:1.11.0")
     implementation("androidx.media3:media3-datasource-okhttp:1.11.0")
     implementation("androidx.media3:media3-session:1.11.0")
@@ -75,7 +80,7 @@ dependencies {
     androidTestImplementation("androidx.test.ext:junit:1.3.0")
 
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.robolectric:robolectric:4.16")
+    testImplementation("org.robolectric:robolectric:4.17")
 }
 
 // Robolectric loads app classes through its sandbox classloader without a code source.
@@ -187,4 +192,26 @@ tasks.register<JacocoReport>("securityDeviceCoverageReport") {
     classDirectories.setFrom(securityClasses(listOf("**/AndroidDeviceKeys*.class", "**/PlaybackService*.class", "**/SecureTokenStore*.class")))
     sourceDirectories.setFrom(files("src/main/java"))
     reports { xml.required.set(true); html.required.set(true) }
+}
+
+// Machine-readable resolved versions, including transitive runtime modules, for advisory checks.
+tasks.register("writeReleaseDependencyInventory") {
+    val inventory = layout.buildDirectory.file("reports/dependencies/release-runtime.json")
+    outputs.file(inventory)
+    // Re-resolve each invocation so advisory checks never consume a stale graph.
+    outputs.upToDateWhen { false }
+    doLast {
+        val result = configurations.getByName("releaseRuntimeClasspath").incoming.resolutionResult
+        check(result.allDependencies.none { it is org.gradle.api.artifacts.result.UnresolvedDependencyResult }) {
+            "Cannot audit unresolved release dependencies"
+        }
+        val modules = result.allComponents.mapNotNull {
+            it.id as? org.gradle.api.artifacts.component.ModuleComponentIdentifier
+        }.sortedBy { "${it.group}:${it.module}:${it.version}" }
+        check(modules.isNotEmpty()) { "Release dependency graph is empty" }
+        val queries = modules.map { mapOf("package" to mapOf("name" to "${it.group}:${it.module}", "ecosystem" to "Maven"), "version" to it.version) }
+        val output = inventory.get().asFile
+        output.parentFile.mkdirs()
+        output.writeText(groovy.json.JsonOutput.toJson(queries) + "\n")
+    }
 }

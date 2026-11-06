@@ -1,0 +1,54 @@
+name: Audit Android runtime dependencies
+
+on:
+  pull_request:
+    paths:
+      - 'app/build.gradle.kts'
+      - '*.gradle.kts'
+      - 'gradle/**'
+      - 'scripts/audit_runtime_dependencies.py'
+      - '.github/workflows/dependency-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'app/build.gradle.kts'
+      - '*.gradle.kts'
+      - 'gradle/**'
+      - 'scripts/audit_runtime_dependencies.py'
+      - '.github/workflows/dependency-audit.yml'
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit)"
+          test -n "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
+      - name: Resolve runtime inventory
+        run: bash ./gradlew --no-daemon :app:writeReleaseDependencyInventory
+      - name: Check resolved versions against OSV
+        run: python3 scripts/audit_runtime_dependencies.py app/build/reports/dependencies/release-runtime.json
+      - name: Archive resolved inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-runtime-dependency-inventory
+          path: app/build/reports/dependencies/release-runtime.json
+          if-no-files-found: error
