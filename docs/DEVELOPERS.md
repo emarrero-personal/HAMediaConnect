@@ -232,3 +232,17 @@ A manual corrected-configuration action resets a terminal block; network events 
 HA resource ownership is established before default URL conversion so an unrecognized
 LAN origin cannot suppress Cloud/external HTTPS selection. See the current device
 corrections for the failure-code matrix, tests and physical acceptance checklist.
+
+## Kotlin static analysis
+
+Run `./gradlew detekt` before submitting Kotlin changes; `check` also includes the
+analysis task. CI runs Detekt and archives its reports under
+`app/build/reports/detekt/`. Main, JVM test, and instrumentation test sources are
+included. Analysis failures fail the build.
+
+The build uses Detekt 2.0.0-alpha.6 because the 2.x line supports AGP 9 built-in
+Kotlin; see the [upstream compatibility table](https://detekt.dev/docs/introduction/compatibility/).
+The checked-in `app/detekt-baseline.xml` records pre-existing findings to allow
+incremental adoption without unrelated code changes. New findings are rejected.
+Remove baseline entries as the corresponding findings are fixed; do not regenerate
+the baseline to accept new findings. This baseline does not change test coverage.
