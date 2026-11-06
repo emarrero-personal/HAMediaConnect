@@ -44,7 +44,7 @@ jobs:
           fi
           
       - name: Checkout exact main commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -105,7 +105,7 @@ jobs:
 
       - name: Generate release bot token
         id: release-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

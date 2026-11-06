@@ -8,7 +8,14 @@
       }
     },
     "abort": {
-      "already_configured": "HAMediaConnect is already configured."
+      "already_configured": "HAMediaConnect is already configured.",
+      "unsupported_ha_version": "HAMediaConnect requires Home Assistant Core {required_version} or newer. This server is running {current_version}. Upgrade Home Assistant Core and restart Home Assistant, then add the integration again."
+    }
+  },
+  "issues": {
+    "unsupported_ha_version": {
+      "title": "Home Assistant Core upgrade required",
+      "description": "HAMediaConnect requires Home Assistant Core {required_version} or newer. This server is running {current_version}. Upgrade Home Assistant Core and restart Home Assistant to enable HAMediaConnect. The integration will not start on this version because secure OAuth requires S256 PKCE support."
     }
   }
 }

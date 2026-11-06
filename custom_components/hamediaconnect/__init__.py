@@ -1,10 +1,11 @@
 """Home Assistant integration for Android remote media players."""
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.storage import Store
 
-from .const import DOMAIN
+from .compatibility import async_check_ha_version
+from .const import DOMAIN, MIN_HA_VERSION
 from .oauth_view import OAuthClientView
 from .registry import DeviceConnectedError, PlayerRegistry
 from .websocket_api import REGISTRY_KEY, async_register_websocket_commands
@@ -15,6 +16,8 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Register OAuth page and authenticated WebSocket commands."""
+    if not async_check_ha_version(hass):
+        return False
     registry = PlayerRegistry(hass, Store(hass, 1, f"{DOMAIN}.identities", private=True, atomic_writes=True))
     await registry.async_load()
     hass.data[REGISTRY_KEY] = registry
@@ -25,6 +28,11 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
     """Load native media player entities."""
+    if not async_check_ha_version(hass):
+        raise ConfigEntryError(
+            f"HAMediaConnect requires Home Assistant Core {MIN_HA_VERSION} or newer. "
+            "Upgrade Home Assistant Core and restart Home Assistant."
+        )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

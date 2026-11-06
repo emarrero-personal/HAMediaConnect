@@ -21,6 +21,8 @@ class ConnectionService : Service() {
         private const val NOTIFICATION_ID = 1001
     }
 
+    private data class CredentialSnapshot(val version: Long, val token: String, val refreshToken: String?)
+
     internal var tokenStoreFactory: () -> SecretStore = { SecureTokenStore(this) }
     internal var refreshCredentials: (String, String) -> JSONObject = { origin, refresh -> HaOAuth(origin).refresh(refresh) }
     internal var identityFactory: () -> DeviceSigner = { DeviceIdentity(this) }
@@ -129,25 +131,41 @@ class ConnectionService : Service() {
             return
         }
         val secure = tokenStoreFactory()
-        if (secure.get("credential_origin") != baseUrl.trimEnd('/')) {
+        val snapshot = CredentialTransactions.read {
+            if (secure.get("credential_origin") != baseUrl.trimEnd('/')) null
+            else {
+                val tokenMode = secure.get("auth_method") == "token"
+                CredentialSnapshot(CredentialTransactions.version(),
+                    if (tokenMode) secure.get("long_lived_token").orEmpty() else secure.get("access_token").orEmpty(),
+                    if (tokenMode) null else secure.get("refresh_token"))
+            }
+        }
+        if (snapshot == null) {
             handleFailure(ConnectionFailure(ConnectionFailureKind.CONFIGURATION))
             return
         }
-        val tokenMode = secure.get("auth_method") == "token"
-        var token = if (tokenMode) secure.get("long_lived_token").orEmpty() else secure.get("access_token").orEmpty()
-        val refreshToken = if (tokenMode) null else secure.get("refresh_token")
+        var token = snapshot.token
+        val refreshToken = snapshot.refreshToken
         if (!refreshToken.isNullOrBlank() && baseUrl.startsWith("https://") &&
             (token.isBlank() || System.currentTimeMillis() >= prefs.getLong("oauth_expiry", 0) - 60_000)) {
             try {
                 val refreshed = refreshCredentials(baseUrl, refreshToken)
-                if (stopped || attempt != generation.get() ||
-                    prefs.getString(AppPrefs.KEY_URL, "") != baseUrl || secure.get("credential_origin") != baseUrl ||
-                    secure.get("auth_method") != "oauth" || secure.get("refresh_token") != refreshToken) return
-                token = refreshed.getString("access_token")
-                secure.put("access_token", token)
-                if (refreshed.has("refresh_token")) secure.put("refresh_token", refreshed.getString("refresh_token"))
-                prefs.edit().putLong("oauth_expiry",
-                    System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
+                val refreshedToken = refreshed.getString("access_token")
+                val committed = CredentialTransactions.commit(snapshot.version, valid = {
+                    !stopped && attempt == generation.get() &&
+                        prefs.getString(AppPrefs.KEY_URL, "") == baseUrl &&
+                        secure.get("credential_origin") == baseUrl &&
+                        secure.get("auth_method") == "oauth" && secure.get("refresh_token") == refreshToken
+                }, write = {
+                    secure.put("access_token", refreshedToken)
+                    if (refreshed.has("refresh_token")) {
+                        secure.put("refresh_token", refreshed.getString("refresh_token"))
+                    }
+                    prefs.edit().putLong("oauth_expiry",
+                        System.currentTimeMillis() + refreshed.optLong("expires_in", 1800) * 1000).apply()
+                })
+                if (!committed) return
+                token = refreshedToken
             } catch (e: Exception) {
                 if (stopped || attempt != generation.get()) return
                 handleFailure(ConnectionFailure(if (e is OAuthRejected) ConnectionFailureKind.OAUTH_REJECTED else ConnectionFailureKind.OAUTH_UNAVAILABLE))
