@@ -10,7 +10,7 @@ from .oauth_view import OAuthClientView
 from .registry import DeviceConnectedError, PlayerRegistry
 from .websocket_api import REGISTRY_KEY, async_register_websocket_commands
 
-PLATFORMS = ["media_player"]
+PLATFORMS = ["media_player", "button"]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 

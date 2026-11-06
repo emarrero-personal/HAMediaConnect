@@ -17,5 +17,12 @@
       "title": "Home Assistant Core upgrade required",
       "description": "HAMediaConnect requires Home Assistant Core {required_version} or newer. This server is running {current_version}. Upgrade Home Assistant Core and restart Home Assistant to enable HAMediaConnect. The integration will not start on this version because secure OAuth requires S256 PKCE support."
     }
+  },
+  "entity": {
+    "button": {
+      "sonar_ping": {
+        "name": "identify"
+      }
+    }
   }
 }

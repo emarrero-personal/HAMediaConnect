@@ -1,8 +1,9 @@
-"""Bounded, device-bound storage for in-band delivery of HA-generated TTS audio.
+"""Bounded, device-bound storage for in-band delivery of announcement audio.
 
-Audio is produced in-process by Home Assistant's TTS helper, never fetched from a
-caller-supplied URL. A transfer is readable only by an authenticated connection
-that proved the owning device identity, in fixed-size chunks, until it expires.
+Audio is produced in-process by Home Assistant's TTS helper or read from the fixed
+bundled sonar asset, never fetched from a caller-supplied URL. A transfer is readable
+only by an authenticated connection that proved the owning device identity, in
+fixed-size chunks, until it expires.
 """
 from __future__ import annotations
 
