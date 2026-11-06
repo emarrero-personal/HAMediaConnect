@@ -142,6 +142,7 @@ tasks.register<JacocoCoverageVerification>("verifyAppCodeCoverage") {
 
 // Explicit security targets, independent of the broad application-report exclusions.
 val securityPolicyTargets = listOf(
+    "**/CredentialTransactions*.class",
     "**/ConnectionFailure*.class", "**/ConnectionEvent*.class", "**/ConnectionPhase*.class", "**/FailureStage*.class",
     "**/DeviceIdentity*.class", "**/HaWebSocketClient*.class", "**/SecureTokenStore*.class",
     "**/HaOAuth*.class", "**/OAuthAttempt*.class", "**/OAuthCallback*.class",

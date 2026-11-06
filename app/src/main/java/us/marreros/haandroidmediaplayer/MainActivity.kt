@@ -216,13 +216,15 @@ class MainActivity : AppCompatActivity() {
             }
             oauthGeneration++
             try {
-                OAuthAttempt(secrets).cancel()
-                if (tokenChoice.isChecked) secrets.apply {
-                    if (get("auth_method") != "token" || get("credential_origin") != url) clear()
-                    if (token.isNotBlank()) put("long_lived_token", token)
-                    put("credential_origin", url)
-                    put("auth_method", "token")
-                    tokenInput.text.clear()
+                CredentialTransactions.read {
+                    OAuthAttempt(secrets).cancel()
+                    if (tokenChoice.isChecked) secrets.apply {
+                        if (get("auth_method") != "token" || get("credential_origin") != url) clear()
+                        if (token.isNotBlank()) put("long_lived_token", token)
+                        put("credential_origin", url)
+                        put("auth_method", "token")
+                        tokenInput.text.clear()
+                    }
                 }
             } catch (_: Exception) { connectionStatus("Credential storage unavailable; sign in again"); return@setOnClickListener }
             val name = nameInput.text.toString().trim().ifBlank { Build.MODEL }.take(128)
@@ -314,13 +316,19 @@ class MainActivity : AppCompatActivity() {
                     if (generation != oauthGeneration || prefs.getString(AppPrefs.KEY_URL, "") != callback.origin) return@runOnUiThread
                     try {
                         val store = SecureTokenStore(this)
-                        if (store.get("oauth_epoch") != callback.transaction) return@runOnUiThread
-                        store.clear()
-                        store.put("auth_method", "oauth")
-                        store.put("credential_origin", callback.origin)
-                        store.put("access_token", tokens.getString("access_token"))
-                        store.put("refresh_token", tokens.getString("refresh_token"))
-                        prefs.edit().putLong("oauth_expiry", System.currentTimeMillis() + tokens.getLong("expires_in") * 1000).apply()
+                        val stored = CredentialTransactions.read {
+                            if (store.get("oauth_epoch") != callback.transaction) false
+                            else {
+                                store.clear()
+                                store.put("auth_method", "oauth")
+                                store.put("credential_origin", callback.origin)
+                                store.put("access_token", tokens.getString("access_token"))
+                                store.put("refresh_token", tokens.getString("refresh_token"))
+                                prefs.edit().putLong("oauth_expiry", System.currentTimeMillis() + tokens.getLong("expires_in") * 1000).apply()
+                                true
+                            }
+                        }
+                        if (!stored) return@runOnUiThread
                         awaitingConnection = true
                         connectionStatus("Connecting — authenticating device")
                         stopService(Intent(this, ConnectionService::class.java))
