@@ -42,11 +42,12 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" "platforms;android-37.0" "build-tools;36.0.0"
       - name: Resolve runtime inventory
+        id: inventory
         run: bash ./gradlew --no-daemon :app:writeReleaseDependencyInventory
       - name: Check resolved versions against OSV
         run: python3 scripts/audit_runtime_dependencies.py app/build/reports/dependencies/release-runtime.json
       - name: Archive resolved inventory
-        if: always()
+        if: ${{ !cancelled() && steps.inventory.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: android-runtime-dependency-inventory
