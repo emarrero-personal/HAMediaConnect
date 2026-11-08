@@ -24,7 +24,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      # GitHub-hosted Ubuntu runners include the Android SDK; avoid redundant SDK setup.
       - name: Build Android App Bundle (no publishing credentials)
         run: ./gradlew :app:bundleRelease --stacktrace
       - name: Inspect bundle output
