@@ -2,6 +2,7 @@ package us.marreros.haandroidmediaplayer
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.util.Base64
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -98,6 +99,26 @@ class SecurityPolicyTest {
         assertFalse(InternalPlayback.allowed(Intent().setAction(PlaybackService.CMD_STOP)))
         assertFalse(InternalPlayback.allowed(Intent().putExtra("us.marreros.internal_playback", "forged")))
         assertTrue(InternalPlayback.allowed(InternalPlayback.authorize(Intent().setAction(PlaybackService.CMD_STOP))))
+    }
+    @Test fun androidAutoDescriptorDeclaredInManifest() {
+        val appInfo = context.packageManager.getApplicationInfo(
+            context.packageName, PackageManager.GET_META_DATA
+        )
+        val resId = appInfo.metaData.getInt("com.google.android.gms.car.application")
+        assertTrue("automotive_app_desc resource must be declared", resId != 0)
+        val parser = context.resources.getXml(resId)
+        var foundMedia = false
+        while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
+            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "uses") {
+                assertEquals("media", parser.getAttributeValue(null, "name"))
+                foundMedia = true
+            }
+            parser.next()
+        }
+        assertTrue("automotive_app_desc must declare media use", foundMedia)
+    }
+    @Test fun androidAutoControllerAcceptedAsTrustedSystemUid() {
+        assertTrue(ControllerPolicy.allowed(uid = 1000, trusted = true, ownUid = 99999))
     }
     @Test fun deviceIdentityPersistsAndMissingKeysRequireDeliberateReset() {
         AppPrefs.prefs(context).edit().clear().commit()
