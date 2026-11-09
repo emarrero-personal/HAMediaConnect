@@ -10,9 +10,16 @@ HAMediaConnect includes an Android app and a Home Assistant custom integration. 
 
 ## Install Home Assistant integration
 
-### With HACS
+### With Home Assistant Marketplace (2026.11 or newer)
 
-Once HAMediaConnect is available in the HACS default catalog, find it under **HACS → Integrations** and download it. Until then, add it as a custom repository:
+**After installing, restart Home Assistant if Marketplace prompts you or if HAMediaConnect is missing from Add integration.** Check **Settings → System → Repairs** for a restart notice. To restart manually, go to **Settings → System → power icon → Restart Home Assistant**.
+
+1. Open **Settings → Marketplace**, find **HAMediaConnect**, and install it. If it is missing from the catalog, add `https://github.com/emarrero-personal/HAMediaConnect` as a custom repository.
+2. Go to **Settings → Devices & services → Add integration** and select **HAMediaConnect**. If you had to restart, wait for Home Assistant to come back before completing setup.
+
+### With HACS (Home Assistant 2026.10)
+
+Find **HAMediaConnect** under **HACS → Integrations** and download it. If it is missing from the catalog, add it as a custom repository:
 
 1. In Home Assistant, open **HACS → ⋮ → Custom repositories**.
 2. Enter `https://github.com/emarrero-personal/HAMediaConnect` and select **Integration**.
@@ -95,7 +102,7 @@ To use Music Assistant, open **Music Assistant → Settings → Player Providers
 
 ## Updating
 
-Update HAMediaConnect in HACS (or replace the integration directory with the new release), restart Home Assistant, then install the matching signed Android APK from the release page. Keep both sides updated together, especially when a release documents a device protocol change. Back up your current installation before manual file replacement.
+Update HAMediaConnect in Marketplace or HACS, or replace the integration directory with the new release. Restart Home Assistant to load the update, then install the matching signed Android APK from the release page. Keep both sides updated together, especially when a release documents a device protocol change. Back up your current installation before manual file replacement.
 
 ## Troubleshooting
 
