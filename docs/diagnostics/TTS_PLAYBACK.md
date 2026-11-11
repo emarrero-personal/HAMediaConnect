@@ -72,8 +72,8 @@ WebSocket reconnection/backoff remains in effect after network loss. In-flight
 playback can fail during handover and is bounded by the loading deadline; seamless
 continuation across a lost socket is not guaranteed. No LAN probing or automatic
 HTTP fallback occurs. Local HTTP audio remains an independent, existing product
-capability, explicitly selected by the supplied media URL (not the HTTP-control
-opt-in); its audio bytes can be observed or modified on the LAN.
+capability, explicitly selected by the supplied media URL while control requires
+HTTPS; its audio bytes can be observed or modified on the LAN.
 
 The official Media3 OkHttp adapter uses a separate unauthenticated client, 10-second
 connect/read timeouts, normal TLS validation, and no redirects. This deliberately
@@ -114,7 +114,7 @@ version, app/integration revision and permission grant state, without tokens/URL
    resumes at its saved position. Repeat with paused music and no prior media.
 2. On Android 17, deny Local network permission and repeat LAN playback. Confirm
    an actionable error within 30 seconds; grant it in app settings and retry.
-   Also verify local HTTP control still requires its separate explicit opt-in.
+   Also verify HTTP control is rejected, including with the legacy insecure-HTTP preference enabled; HTTPS control and HTTP media remain separate.
 3. Configure Cloud remote access (or the independent external HTTPS endpoint),
    connect control using that HTTPS origin, and repeat TTS over Wi-Fi. Turn Wi-Fi
    off, wait for authenticated control reconnection, then generate fresh TTS on

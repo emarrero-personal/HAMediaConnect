@@ -30,7 +30,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tokenInput: EditText
     private lateinit var nameInput: EditText
     private lateinit var startOnBootCheck: CheckBox
-    private lateinit var allowHttpCheck: CheckBox
     private lateinit var deviceIdText: TextView
     private var oauthGeneration = 0
     private var awaitingConnection = false
@@ -125,11 +124,19 @@ class MainActivity : AppCompatActivity() {
         findViewById<android.view.View>(R.id.helpBack).setOnClickListener { showScreen(homeScreen) }
         findViewById<View>(R.id.authHelpLink).setOnClickListener {
             AlertDialog.Builder(this).setTitle("OAuth or long-lived token?")
-                .setMessage("OAuth is recommended when Home Assistant is available over HTTPS. It uses account sign-in and refreshable credentials. A long-lived access token works for local HTTP installations without HTTPS. HTTP does not encrypt your token in transit: use it only on a trusted local network, never over the public internet.")
+                .setMessage("OAuth is recommended and uses account sign-in with refreshable credentials. A long-lived access token is also supported. Both methods require an HTTPS Home Assistant URL with a valid certificate. HTTP audio playback is supported separately.")
                 .setPositiveButton("Close", null).show()
         }
         findViewById<View>(R.id.integrationInstallLink).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/emarrero-personal/HAMediaConnect#install-the-home-assistant-integration")))
+        }
+        findViewById<View>(R.id.privacyPolicyLink).setOnClickListener {
+            AlertDialog.Builder(this).setTitle("HAMediaConnect Privacy Policy")
+                .setMessage(getString(R.string.privacy_policy))
+                .setPositiveButton("Close", null)
+                .setNeutralButton("Open public policy") { _, _ ->
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.privacy_policy_url))))
+                }.show()
         }
         val oauthChoice = findViewById<RadioButton>(R.id.oauthChoice)
         val tokenChoice = findViewById<RadioButton>(R.id.tokenChoice)
@@ -146,7 +153,6 @@ class MainActivity : AppCompatActivity() {
         tokenInput.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         nameInput = findViewById(R.id.nameInput)
         startOnBootCheck = findViewById(R.id.startOnBootCheck)
-        allowHttpCheck = findViewById(R.id.allowHttpCheck)
         deviceIdText = findViewById(R.id.deviceIdText)
 
         val prefs = AppPrefs.prefs(this)
@@ -156,17 +162,10 @@ class MainActivity : AppCompatActivity() {
         if (SecureTokenStore(this).get("auth_method") == "token") tokenChoice.isChecked = true
         nameInput.setText(prefs.getString(AppPrefs.KEY_NAME, Build.MODEL))
         startOnBootCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)
-        allowHttpCheck.isChecked = prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false)
         connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected",
                 authenticated = playbackConnection() == ConnectionPhase.CONNECTED)
         deviceIdText.text = "Device ID: $deviceId"
         prefs.registerOnSharedPreferenceChangeListener(prefListener)
-        allowHttpCheck.setOnCheckedChangeListener { _, checked ->
-            if (checked) AlertDialog.Builder(this).setTitle("Unencrypted control connection")
-                .setMessage("HTTP exposes your Home Assistant token, commands, and device authentication to anyone able to intercept this network. Use only on a trusted local network.")
-                .setPositiveButton("Allow HTTP", null)
-                .setNegativeButton("Cancel") { _, _ -> allowHttpCheck.isChecked = false }.show()
-        }
         findViewById<Button>(R.id.forgetCredentialsButton).setOnClickListener {
             AlertDialog.Builder(this).setTitle("Forget Home Assistant credentials?")
                 .setMessage("Disconnect and remove saved tokens and pending sign-in. Your device identity remains registered. Sign in again to reconnect.")
@@ -199,8 +198,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<Button>(R.id.saveStartButton).setOnClickListener {
             val url = urlInput.text.toString().trim().trimEnd('/')
             val token = tokenInput.text.toString().trim()
-            if (!AppPrefs.isAllowedUrl(url, allowHttpCheck.isChecked)) {
-                urlInput.error = "Use HTTPS or explicitly allow insecure HTTP"
+            if (!AppPrefs.isAllowedUrl(url)) {
+                urlInput.error = "Use an HTTPS Home Assistant URL; HTTP control is no longer supported"
                 return@setOnClickListener
             }
             if (token.length > 8192) { tokenInput.error = "Token is too long"; return@setOnClickListener }
@@ -232,7 +231,6 @@ class MainActivity : AppCompatActivity() {
                 .putString(AppPrefs.KEY_URL, url)
                 .putString(AppPrefs.KEY_NAME, name)
                 .putBoolean(AppPrefs.KEY_START_BOOT, startOnBootCheck.isChecked)
-                .putBoolean(AppPrefs.KEY_ALLOW_HTTP, allowHttpCheck.isChecked)
                 .apply()
 
             awaitingConnection = true
@@ -261,7 +259,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun startOAuth() {
         val url = urlInput.text.toString().trim().trimEnd('/')
-        if (!AppPrefs.isAllowedUrl(url, false)) {
+        if (!AppPrefs.isAllowedUrl(url)) {
             connectionStatus("OAuth requires a valid HTTPS Home Assistant URL")
             return
         }

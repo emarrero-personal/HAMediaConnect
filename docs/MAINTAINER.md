@@ -35,7 +35,7 @@ Repository: https://github.com/emarrero-personal/HAMediaConnect
 - Install the integration on a test HA instance, restart HA, configure it in Devices & services, and connect the paired client app.
 - Verify play, pause, stop, volume, mute, HTTP/HTTPS media, TTS announcement/resume, DND, disconnect availability, restart recovery, Bluetooth and lock-screen controls.
 - Test OAuth PKCE with a reachable HTTPS client identification endpoint; check state mismatch, expired callback, refresh, token revocation, and no credentials in logs.
-- For local HTTP-only HA, use the explicitly opt-in insecure HTTP setting with a least-privilege long-lived token on a trusted LAN; never expose it publicly.
+- Require HTTPS/WSS for HA control, including long-lived tokens. Verify an old HTTP URL and saved insecure-HTTP preference cannot connect after upgrade. Verify local HTTP media still plays.
 - For OAuth client metadata, confirm `/api/hamediaconnect/oauth-client` is reachable from the HA host as well as Android and advertises `haandroidmediaplayer://oauth/callback`.
 - Check [security architecture](SECURITY_PHASE_2.md) and [developer guide](DEVELOPERS.md) before protocol/security changes.
 
@@ -54,3 +54,13 @@ Pre-release implementation plans, obsolete event-bus protocols, and old test che
 
 See [the repository settings audit](REPOSITORY_SETTINGS.md) for the verified GitHub
 security settings, remaining protection gaps, and the order for enabling required CI.
+
+## Google Play preparation
+
+See [foreground-service declarations and reviewer access](PLAY_SUBMISSION.md). The Android client has no Android Auto declaration. Store forms, reviewer hosting, and videos must be completed before submission; repository documentation is not a Play Console submission.
+
+The public privacy policy is https://emarrero-personal.github.io/HAMediaConnect/.
+Edit `PRIVACY.md`, run `python3 scripts/render_privacy_policy.py`, and check with
+`python3 scripts/render_privacy_policy.py --check`. This updates the offline Android
+policy and `docs/privacy-policy.html`. Publish that HTML as `index.html` on the
+policy-only `gh-pages` branch; do not publish the application or credentials there.

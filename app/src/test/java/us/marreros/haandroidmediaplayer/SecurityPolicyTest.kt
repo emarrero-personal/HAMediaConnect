@@ -36,19 +36,18 @@ class SecurityPolicyTest {
     private fun rejects(block: () -> Unit) {
         try { block(); fail("Expected rejection") } catch (_: IllegalArgumentException) { }
     }
-    @Test fun controlUrlsRequireExplicitHttpAndRejectParserAmbiguity() {
-        assertTrue(AppPrefs.isAllowedUrl("https://ha.example/", false))
-        assertTrue(AppPrefs.isAllowedUrl("http://192.168.1.2:8123", true))
-        assertFalse(AppPrefs.prefs(context).getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))
-        assertFalse(AppPrefs.isAllowedUrl("http://ha.example", false))
+    @Test fun controlUrlsRequireHttpsAndRejectParserAmbiguity() {
+        assertTrue(AppPrefs.isAllowedUrl("https://ha.example/"))
+        assertFalse(AppPrefs.isAllowedUrl("http://192.168.1.2:8123"))
+        assertFalse(AppPrefs.isAllowedUrl("http://ha.example"))
         for (url in listOf("ftp://ha.example", "wss://ha.example", "https://u:p@ha.example", "https://@ha.example",
             "https://ha.example?token=x", "https://ha.example#x", "https://ha.example/path", "https://ha.example:0",
             "https://ha.example:65536", "https://ha.example\\@evil", "https:///evil", "https://ha.example\n", "ha.example")) {
-            assertFalse(url, AppPrefs.isAllowedUrl(url, true))
+            assertFalse(url, AppPrefs.isAllowedUrl(url))
         }
-        assertTrue(AppPrefs.isAllowedUrl("https://[::1]:8123", false))
+        assertTrue(AppPrefs.isAllowedUrl("https://[::1]:8123"))
     }
-    @Test fun mediaHttpIsIndependentOfControlSetting() {
+    @Test fun mediaHttpRemainsSupportedWithHttpsControl() {
         assertTrue(TransportPolicy.media("http://ha.example:8123/api/tts_proxy/a.mp3?authSig=signed"))
         assertTrue(TransportPolicy.media("https://example.com/song.mp3"))
         for (url in listOf("file:///secret", "content://secret", "http://u:p@example.com", "//example.com/song",
@@ -56,7 +55,8 @@ class SecurityPolicyTest {
             assertFalse(url, TransportPolicy.media(url))
     }
     @Test fun relativeMediaCannotEscapeToUnsupportedSchemesOrAuthorities() {
-        assertEquals("http://ha.local:8123/api/tts.mp3?sig=x", TransportPolicy.resolveMedia("http://ha.local:8123", "/api/tts.mp3?sig=x"))
+        assertEquals("https://ha.local:8123/api/tts.mp3?sig=x",
+            TransportPolicy.resolveMedia("https://ha.local:8123", "/api/tts.mp3?sig=x"))
         assertEquals("https://example.com/song", TransportPolicy.resolveMedia("https://ha.local", "https://example.com/song"))
         assertEquals("https://ha.local/song.mp3", TransportPolicy.resolveMedia("https://ha.local", "song.mp3"))
         for (url in listOf("file:///secret", "content://secret", "//evil.example/song", "http://u:p@host/a", "a#fragment")) {
@@ -100,24 +100,13 @@ class SecurityPolicyTest {
         assertFalse(InternalPlayback.allowed(Intent().putExtra("us.marreros.internal_playback", "forged")))
         assertTrue(InternalPlayback.allowed(InternalPlayback.authorize(Intent().setAction(PlaybackService.CMD_STOP))))
     }
-    @Test fun androidAutoDescriptorDeclaredInManifest() {
+    @Test fun androidAutoIsNotDeclared() {
         val appInfo = context.packageManager.getApplicationInfo(
             context.packageName, PackageManager.GET_META_DATA
         )
-        val resId = appInfo.metaData.getInt("com.google.android.gms.car.application")
-        assertTrue("automotive_app_desc resource must be declared", resId != 0)
-        val parser = context.resources.getXml(resId)
-        var foundMedia = false
-        while (parser.eventType != org.xmlpull.v1.XmlPullParser.END_DOCUMENT) {
-            if (parser.eventType == org.xmlpull.v1.XmlPullParser.START_TAG && parser.name == "uses") {
-                assertEquals("media", parser.getAttributeValue(null, "name"))
-                foundMedia = true
-            }
-            parser.next()
-        }
-        assertTrue("automotive_app_desc must declare media use", foundMedia)
+        assertFalse(appInfo.metaData?.containsKey("com.google.android.gms.car.application") == true)
     }
-    @Test fun androidAutoControllerAcceptedAsTrustedSystemUid() {
+    @Test fun trustedSystemControllerRemainsAccepted() {
         assertTrue(ControllerPolicy.allowed(uid = 1000, trusted = true, ownUid = 99999))
     }
     @Test fun deviceIdentityPersistsAndMissingKeysRequireDeliberateReset() {

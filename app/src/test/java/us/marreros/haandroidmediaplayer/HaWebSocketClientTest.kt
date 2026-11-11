@@ -246,13 +246,16 @@ class HaWebSocketClientTest {
         assertTrue(ConnectionFailureKind.TRANSPORT.retryable)
         assertTrue(ConnectionFailureKind.HANDSHAKE_TIMEOUT.retryable)
     }
-    @Test fun controlUrlsUseExplicitHttpPolicyAndDisableRedirects() {
+    @Test fun controlUrlsRequireTlsAndDisableRedirects() {
         val h = Harness()
         val method = HaWebSocketClient::class.java.getDeclaredMethod("toWebSocketUrl", String::class.java).apply { isAccessible = true }
         assertEquals("wss://ha.example/api/websocket", method.invoke(h.client, "https://ha.example/"))
-        try { method.invoke(h.client, "http://ha.example"); fail("HTTP must require opt-in") } catch (_: java.lang.reflect.InvocationTargetException) { }
-        val httpClient = HaWebSocketClient("http://ha.local:8123", "token", "Pixel", h.identity, {}, {}, true)
-        assertEquals("ws://ha.local:8123/api/websocket", method.invoke(httpClient, "http://ha.local:8123"))
+        try {
+            method.invoke(h.client, "http://ha.example")
+            fail("HTTP must be rejected")
+        } catch (error: java.lang.reflect.InvocationTargetException) {
+            assertTrue(error.cause is IllegalArgumentException)
+        }
         val transport = HaWebSocketClient::class.java.getDeclaredField("client").apply { isAccessible = true }.get(h.client) as okhttp3.OkHttpClient
         assertFalse(transport.followRedirects); assertFalse(transport.followSslRedirects)
     }

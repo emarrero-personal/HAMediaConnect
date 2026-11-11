@@ -9,11 +9,11 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class AppPrefsTest {
- @Test fun doesNotEnableHttpImplicitly() {
+ @Test fun legacyHttpPreferenceCannotEnablePlaintextControl() {
   val context = RuntimeEnvironment.getApplication() as android.content.Context
   AppPrefs.prefs(context).edit().clear().commit()
-  assertFalse(AppPrefs.prefs(context).getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))
-  assertFalse(AppPrefs.isAllowedUrl("http://ha.local:8123", false))
-  assertTrue(AppPrefs.isAllowedUrl("https://ha.local:8123", false))
+  AppPrefs.prefs(context).edit().putBoolean("allow_insecure_http", true).commit()
+  assertFalse(AppPrefs.isAllowedUrl("http://ha.local:8123"))
+  assertTrue(AppPrefs.isAllowedUrl("https://ha.local:8123"))
  }
 }

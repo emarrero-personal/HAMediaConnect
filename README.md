@@ -40,9 +40,9 @@ Only install APKs from this project's GitHub Releases. GitHub Actions debug APKs
 
 ## Connect and enroll a device
 
-1. Open HAMediaConnect and enter your Home Assistant base URL, such as `https://example.ui.nabu.casa` or `http://homeassistant.local:8123`.
-2. Leave **Allow insecure HTTP connections** off when Home Assistant is available over HTTPS. To use HTTP for Home Assistant control, enable the setting explicitly and review its warning. HTTPS/WSS always works; HTTP media playback, including local TTS audio, is independent of this setting.
-3. Sign in with OAuth on an HTTPS Home Assistant URL, or use a Home Assistant long-lived access token on a trusted local network if needed. OAuth is HTTPS-only. Do not send an HTTP token connection over an untrusted network or the public internet.
+1. Open HAMediaConnect and enter an HTTPS Home Assistant base URL, such as `https://example.ui.nabu.casa`.
+2. Home Assistant control requires HTTPS/WSS with a valid certificate. If your installation previously used HTTP, configure HTTPS (for example, through Home Assistant Cloud or a TLS reverse proxy) and update the saved URL. The old insecure-HTTP preference no longer enables control connections. HTTP audio playback, including local TTS audio, remains supported separately.
+3. Sign in with OAuth or a Home Assistant long-lived access token. Both methods require HTTPS; credentials saved for an HTTP origin are not automatically sent to a different HTTPS origin. Sign in again or enter a token for the new URL.
 4. Save the connection and keep the app running until it reports **Connected**. On first connection, Android creates an installation-specific key in Android Keystore and proves possession to Home Assistant. The key is not uploaded. The integration then creates the device's `media_player` entity.
 
 Version 0.10.0 introduced a new device authentication protocol. Version 1.0.0 updates the project branding and version while retaining that protocol. Keep the Android app and Home Assistant integration on matching versions; update both sides together and sign in again after the 0.10.0 protocol upgrade. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
@@ -87,7 +87,7 @@ data:
   media_content_id: https://example.com/audio.mp3
 ```
 
-Replace the example entity and URL with your own. The URL must be reachable from the Android device. Home Assistant media-source content and generated TTS are resolved by the integration; local HTTP media remains available even when HTTP control is disabled.
+Replace the example entity and URL with your own. The URL must be reachable from the Android device. Home Assistant media-source content and generated TTS are resolved by the integration; local HTTP media remains available while control uses HTTPS.
 
 To send speech, use your configured Home Assistant text-to-speech provider's **Speak** action and select the HAMediaConnect player as the media player target.
 
@@ -103,7 +103,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No HAMediaConnect integration in Add integration:** Confirm the integration is installed under `custom_components/hamediaconnect/`, restart Home Assistant, then refresh the browser.
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
-- **HTTP connection is refused:** Enable **Allow insecure HTTP connections** in Android Settings only if your Home Assistant URL is HTTP. HTTPS/WSS does not require this setting.
+- **HTTP connection is refused:** Configure an HTTPS Home Assistant endpoint with a valid certificate, update the saved URL, and sign in again. Plain HTTP control is no longer supported. HTTP audio URLs remain supported.
 - **No sound or TTS:** Check Android media volume and mute. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `received`/`retrieving` followed by `failed` means the command arrived but the audio did not; `playing` then `completed` means the device played it. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
@@ -113,6 +113,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - [Developer guide](docs/DEVELOPERS.md)
 - [Phase 2 authentication and transport design](docs/SECURITY_PHASE_2.md)
 - [HACS submission readiness and checklist](docs/HACS_SUBMISSION.md)
+- [Privacy policy](https://emarrero-personal.github.io/HAMediaConnect/) ([source](PRIVACY.md))
 - [Third-party licenses and attribution](THIRD_PARTY_NOTICES.md)
 
 ## License

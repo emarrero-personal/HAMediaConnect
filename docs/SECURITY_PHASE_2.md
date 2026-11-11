@@ -114,13 +114,15 @@ OAuth authorization, exchange, and refresh require valid HTTPS origins. Token re
 
 Tokens, temporary OAuth state, and credential origin are AES-256-GCM encrypted using Android Keystore. Each write uses a random IV and authenticates the field name as associated data, preventing ciphertext substitution between fields. Decryption or key errors return no usable credential; writes never fall back to plaintext. Missing credential keys are not regenerated over existing ciphertext. Explicit forgetting permits a new encryption key and fresh sign-in.
 
-## HTTP product behavior and residual risks
+## HTTPS control, HTTP media, and residual risks
 
-**Allow insecure HTTP connections** defaults to disabled, is changed only through explicit settings, and displays an interception warning when enabled. HTTPS/WSS remains available either way; HTTP/WS control requires the saved opt-in. Control URLs reject userinfo, unsupported schemes, invalid ports, whitespace/backslashes, query/fragment, and non-root paths. The supported configuration is the HA origin, including a port; reverse-proxy subpaths are not supported. Control connections do not follow redirects.
+Home Assistant control requires HTTPS/WSS with normal certificate validation, for both OAuth and long-lived tokens. The insecure HTTP setting has been removed. Saved HTTP configurations are rejected before reading credentials or opening a WebSocket, including installations with the old `allow_insecure_http` preference enabled. The boot and reconnect paths use the same validation. Users must configure HTTPS, update the origin, and explicitly sign in again; credentials are never silently rebound to another origin. There is no downgrade or certificate bypass.
 
-HTTP audio URLs, including HA TTS, remain enabled independently of this switch. Media URLs accept only HTTP(S) without embedded credentials or malformed authorities; relative media paths resolve against the configured HA origin. App cleartext capability remains enabled for this purpose. Media3's default HTTP data source does not enable cross-protocol redirects.
+Control URLs reject userinfo, unsupported schemes, invalid ports, whitespace/backslashes, query/fragment, and non-root paths. The supported configuration is the HA origin, including a port; reverse-proxy subpaths are not supported. Control connections do not follow redirects.
 
-HTTP is not made secure by device signatures: an on-path attacker can steal HA bearer tokens, observe/alter traffic, or actively relay a live challenge. The signatures prevent offline replay and unauthorized device claims without possession of the key; TLS is required against active network attackers. Rooted/compromised Android, compromised HA, malicious trusted notification listeners, and a stolen unlocked device remain outside this protection. No certificate pinning, self-signed-certificate bypass, external service, or plaintext migration is introduced.
+HTTP audio URLs, including HA TTS, remain supported independently. Media URLs accept only HTTP(S) without embedded credentials or malformed authorities; relative media paths resolve against the configured HTTPS HA origin. App cleartext capability remains enabled for media. The separate media client does not attach HA bearer tokens and allows only bounded same-origin, same-scheme redirects. HTTP media content and any URL access signatures remain visible to network observers; prefer HTTPS media when possible.
+
+Device signatures do not encrypt traffic or replace TLS. Rooted/compromised Android, compromised HA, malicious trusted notification listeners, and a stolen unlocked device remain outside this protection. No certificate pinning, self-signed-certificate bypass, or plaintext credential migration is introduced.
 
 
 ### Runtime dependency advisories

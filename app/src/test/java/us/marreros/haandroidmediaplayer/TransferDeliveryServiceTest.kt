@@ -73,7 +73,7 @@ class TransferDeliveryServiceTest {
         val signer = DeviceIdentity(context, TestKeys().apply { create() })
         service.tokenStoreFactory = { credentials }
         service.identityFactory = { signer }
-        service.createConnection = { _, _, _, _, status, command, _ -> Fake(status, command).also { sockets += it } }
+        service.createConnection = { _, _, _, _, status, command -> Fake(status, command).also { sockets += it } }
         service.onStartCommand(Intent(), 0, 1); drain()
         sockets.last().connected(); drain()
     }
