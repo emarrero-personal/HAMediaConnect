@@ -69,10 +69,10 @@ class ConnectionServiceTest {
                 refreshCount++
                 JSONObject().put("access_token", "fixture-token").put("expires_in", 1800)
             }
-            service.createConnection = { url, token, _, identity, status, _, allowHttp ->
+            service.createConnection = { url, token, _, identity, status, _ ->
                 assertEquals("https://remote.ui.nabu.casa", url)
                 assertEquals(credentials.get(if (authMethod == "token") "long_lived_token" else "access_token"), token)
-                assertSame(signer, identity); assertFalse(allowHttp)
+                assertSame(signer, identity)
                 FakeConnection(status).also { sockets += it }
             }
         }
@@ -80,6 +80,17 @@ class ConnectionServiceTest {
         fun connected() { sockets.last().connected(); drain(service) }
         fun fail(kind: ConnectionFailureKind) { sockets.last().fail(kind); drain(service) }
         override fun close() { controller.destroy() }
+    }
+    @Test fun savedHttpOriginIsRejectedBeforeReadingCredentialsOrOpeningSocket() {
+        Harness().use { h ->
+            h.prefs.edit().putString(AppPrefs.KEY_URL, "http://ha.local:8123")
+                .putBoolean("allow_insecure_http", true).commit()
+            h.service.tokenStoreFactory = { throw AssertionError("Must reject HTTP before accessing secrets") }
+            h.start()
+            assertTrue(h.sockets.isEmpty())
+            assertEquals(ConnectionFailureKind.CONFIGURATION.name,
+                h.prefs.getString(AppPrefs.KEY_BLOCKED_FAILURE, null))
+        }
     }
     @Test fun tokenNetworkTransitionsReuseCredentialsAndKeyCancelStaleSocketsAndRecover() = transitions("token")
     @Test fun oauthNetworkTransitionsRefreshOnceAndReuseCredentialsAndKey() = transitions("oauth")

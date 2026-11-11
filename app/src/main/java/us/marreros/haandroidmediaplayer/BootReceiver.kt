@@ -17,7 +17,7 @@ class BootReceiver : BroadcastReceiver() {
 
         val prefs = AppPrefs.prefs(context)
         if (!prefs.getBoolean(AppPrefs.KEY_START_BOOT, true)) return
-        if (prefs.getString(AppPrefs.KEY_URL, "").isNullOrBlank()) return
+        if (!AppPrefs.isAllowedUrl(prefs.getString(AppPrefs.KEY_URL, "").orEmpty())) return
 
         // Credentials now live in Keystore-backed storage, not SharedPreferences.
         // ConnectionService handles OAuth refresh, including temporary network failures.

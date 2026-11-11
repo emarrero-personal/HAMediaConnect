@@ -26,7 +26,6 @@ class HaWebSocketClient(
     private val identity: DeviceSigner,
     private val onStatus: (String) -> Unit,
     private val onCommand: (HaCommand) -> Unit,
-    private val allowHttp: Boolean = false,
     private val onConnectionEvent: (ConnectionEvent) -> Unit = {}
 ) : HaConnection {
     companion object {
@@ -326,9 +325,9 @@ class HaWebSocketClient(
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { fail(ConnectionFailure(ConnectionFailureKind.TRANSPORT)) }
     }
-    private fun toWebSocketUrl(base: String): String = TransportPolicy.base(base, allowHttp).newBuilder()
+    private fun toWebSocketUrl(base: String): String = TransportPolicy.base(base).newBuilder()
         .addPathSegments("api/websocket").build().toString().let {
-            if (it.startsWith("https:")) "wss:" + it.removePrefix("https:") else "ws:" + it.removePrefix("http:")
+            "wss:" + it.removePrefix("https:")
         }
     private fun parseCommand(data: JSONObject): HaCommand {
         val allowed = setOf("action", "media_content_id", "media_title", "media_content_type", "volume_level", "is_volume_muted", "announce") +

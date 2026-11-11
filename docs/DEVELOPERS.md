@@ -91,13 +91,13 @@ Security requirements: challenges must be unpredictable, one-time-use, and time-
 
 
 
-The client app connects to the instance's `/api/websocket` endpoint, using `wss://` for HTTPS and `ws://` for HTTP. It waits for `auth_required`, then sends:
+The client app connects to the instance's `/api/websocket` endpoint, using HTTPS/WSS only. HTTP/WS control is rejected before credentials are read or a socket is opened. It waits for `auth_required`, then sends:
 
 ```json
 {"type":"auth","access_token":"REDACTED"}
 ```
 
-OAuth is recommended for HTTPS deployments; long-lived access tokens are supported for trusted local HTTP networks. Never print credentials in logs or include them in bug reports.
+OAuth is recommended; long-lived access tokens also require HTTPS. HTTP audio URLs remain supported through the separate media client. Never print credentials in logs or include them in bug reports.
 
 After `auth_ok`, the client app requests a P-256 challenge, signs it with its installation Keystore key, and authenticates that exact connection before subscribing. The device ID is the SHA-256 fingerprint of its public key. Reconnect always requires a fresh proof; HA user authentication alone cannot claim a registered device, including another installation belonging to the same HA user.
 
