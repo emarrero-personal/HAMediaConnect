@@ -58,6 +58,9 @@ class PlaybackAuthorizationTest {
         val serviceController = Robolectric.buildService(PlaybackService::class.java).create()
         val service = serviceController.get()
         try {
+            val session = PlaybackService::class.java.getDeclaredField("mediaSession")
+                .apply { isAccessible = true }.get(service) as MediaSession
+            assertTrue("Direct HA commands need Media3 session lifecycle management", service.isSessionAdded(session))
             val urlField = PlaybackService::class.java.getDeclaredField("currentUrl").apply { isAccessible = true }
             service.onStartCommand(Intent().setAction(PlaybackService.CMD_PLAY_MEDIA).putExtra(PlaybackService.EXTRA_URL, "http://example.com/a.mp3"), 0, 1)
             assertNull(urlField.get(service))

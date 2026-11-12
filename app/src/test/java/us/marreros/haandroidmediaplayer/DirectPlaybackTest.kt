@@ -91,6 +91,17 @@ class DirectPlaybackTest {
         assertFalse("temporary audio must be deleted after the announcement", file.exists())
     }
 
+    @Test @Config(sdk = [37]) fun android17WithoutActivationSuppressesAndDeletesAudioBeforePlayback() {
+        BackgroundAudio.stopped()
+        val file = wav('B', 300)
+        play(file, "B".repeat(16), announce = true)
+        assertEquals(DeliveryPhase.SUPPRESSED, DeliveryTracker.latest!!.phase)
+        assertEquals(DeliveryReason.UNAVAILABLE, DeliveryTracker.latest!!.reason)
+        assertFalse(file.exists())
+        assertNull(player().currentMediaItem)
+        assertEquals(BackgroundAudio.NOTICE, PlayerStateBus.latest!!.notice)
+    }
+
     @Test fun announcementInterruptsTransferredMusicAndRestoresItsPosition() {
         val music = wav('M', 60_000)
         play(music, "M".repeat(16), announce = false)

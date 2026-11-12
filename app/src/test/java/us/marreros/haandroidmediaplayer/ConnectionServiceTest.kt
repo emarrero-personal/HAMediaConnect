@@ -93,7 +93,56 @@ class ConnectionServiceTest {
         }
     }
     @Test fun tokenNetworkTransitionsReuseCredentialsAndKeyCancelStaleSocketsAndRecover() = transitions("token")
+    @Test fun bootConnectDoesNotEnableAudioButExplicitReconnectDoesUntilServiceStops() {
+        BackgroundAudio.stopped()
+        Harness().use { h ->
+            h.start()
+            assertFalse(BackgroundAudio.allowed(37))
+            h.start(ConnectionService.ACTION_RECONNECT)
+            assertTrue(BackgroundAudio.allowed(37))
+            h.connected()
+            change(h.service, network(101))
+            assertTrue(BackgroundAudio.allowed(37))
+        }
+        assertFalse(BackgroundAudio.allowed(37))
+    }
     @Test fun oauthNetworkTransitionsRefreshOnceAndReuseCredentialsAndKey() = transitions("oauth")
+    @Test @Config(sdk = [37]) fun notificationEnablesAudioWithoutReplacingTheAuthenticatedConnection() {
+        Harness().use { h ->
+            h.start(); h.connected()
+            val action = shadowOf(h.service).lastForegroundNotification.actions.single()
+            assertEquals("Enable audio", action.title.toString())
+            assertTrue(action.actionIntent.isImmutable)
+            val pending = shadowOf(action.actionIntent)
+            assertTrue(pending.isForegroundService)
+            val intent = pending.savedIntent
+            assertEquals(ConnectionService.ACTION_ENABLE_AUDIO, intent.action)
+            assertEquals(ConnectionService::class.java.name, intent.component!!.className)
+            assertTrue(intent.extras == null || intent.extras!!.isEmpty)
+            val socket = h.sockets.single()
+            h.start(intent.action)
+            assertTrue(BackgroundAudio.allowed(37))
+            assertFalse(socket.closed)
+            assertEquals(1, h.sockets.size)
+            assertEquals("fixture-token", h.credentials.get("long_lived_token"))
+            assertTrue(shadowOf(h.service).lastForegroundNotification.actions.isNullOrEmpty())
+        }
+    }
+    @Test fun notificationActivationDoesNotClearAuthenticationFailures() {
+        Harness().use { h ->
+            h.start(); h.fail(ConnectionFailureKind.HA_REJECTED)
+            h.start(ConnectionService.ACTION_ENABLE_AUDIO)
+            assertTrue(field(h.service, "authenticationBlocked") as Boolean)
+            assertEquals(1, h.sockets.size)
+            assertNull(field(h.service, "reconnectFuture"))
+        }
+    }
+    @Test fun olderAndroidDoesNotShowTheActivationAction() {
+        Harness().use { h ->
+            h.start()
+            assertTrue(shadowOf(h.service).lastForegroundNotification.actions.isNullOrEmpty())
+        }
+    }
     private fun transitions(authMethod: String) {
         Harness(authMethod).use { h ->
             h.start(); h.connected()

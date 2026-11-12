@@ -48,6 +48,7 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `PlaybackService.kt` | Media3 playback, announcements, volume, mute and DND |
 | `PlayerStateBus.kt` | In-process playback state updates |
 | `BootReceiver.kt` | Optional reconnect after reboot |
+| `BackgroundAudio.kt` | Process-local Android 17 user activation; boot reconnect never grants audio readiness |
 
 ### Home Assistant code map
 

@@ -4,21 +4,21 @@
 
 # HAMediaConnect
 
-Turn an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
+Turns an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
 HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
 
+# How does it work?
+It's an Android app with an accompanying Home Assistant integration. The app connects to Home Assistant and registers with the integration. The integration creates entities you can use to send audio, identify the device, etc.
+
+# Installation
+You need both parts for things to work correctly. It's better if you install the HA integration before the app so that the app can register itself when it first connects to HA.
 ## Install Home Assistant integration
 
-### With HACS
-
-Once HAMediaConnect is available in the HACS default catalog, find it under **HACS → Integrations** and download it. Until then, add it as a custom repository:
-
-1. In Home Assistant, open **HACS → ⋮ → Custom repositories**.
-2. Enter `https://github.com/emarrero-personal/HAMediaConnect` and select **Integration**.
-3. Add the repository, find **HAMediaConnect** in HACS, and choose **Download**.
-4. Restart Home Assistant.
-5. Go to **Settings → Devices & services → Add integration**, search for **HAMediaConnect**, and complete setup.
+### With Marketplace
+1. In Home Assistant, open **Settings → Marketplace**.
+2. Find HAMediaConnect and click Install
+3. Restart Home Assistant.
 
 ### Manual installation
 
@@ -28,33 +28,50 @@ Once HAMediaConnect is available in the HACS default catalog, find it under **HA
 4. Add **HAMediaConnect** from **Settings → Devices & services → Add integration**.
 
 ## Install Android app
+I'd love to publish it in the Google Play store but they require me to provide a running instance of HA for reviewers to use. For now you'll have to side-load a pre-built APK or clone the repo and roll your own to be sure there are no nasty bits buried in there.
+
+**Whatever you do, please don't side load an HAMediaConnect APK you didn't get yourself from the releases section on this repo!**
 
 Download the signed APK from the [latest GitHub Release](https://github.com/emarrero-personal/HAMediaConnect/releases/latest):
-
 - [Download HAMediaConnect.apk](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk)
 - [Download its SHA-256 checksum](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk.sha256)
 
 On an Android 10 or newer phone or tablet, open the downloaded APK and follow Android's installer prompts. If Android asks, allow your browser or file manager to install apps from that source. Disable that permission again after installation if you do not need it.
+## Connect your device
+1. Optionally but recommended - create a HA user for HAMediaConnect. The user should be a HA administrator for initial connections but can then be downgraded after the device registers itself.
+2. Open HAMediaConnect and enter an HTTPS Home Assistant base URL, such as `https://example.ui.nabu.casa`.
+3. Home Assistant control requires HTTPS/WSS with a valid certificate. The easiest way to do that and support HA is to use [Home Assistant Link](https://www.nabucasa.com/link/)
+4. Sign in with OAuth or a long lived token.
+5. Save the connection and keep the app running until it reports **Connected**. On first connection, Android creates an installation-specific key in Android Keystore and proves possession to Home Assistant. The key is not uploaded. The integration then creates the device's `media_player` entity.
 
-Only install APKs from this project's GitHub Releases. GitHub Actions debug APKs are for testing and are not the signed distribution build.
+### Enable background audio on Android 17 and newer
 
-## Connect and enroll a device
+Tap **Save & connect** while HAMediaConnect is open to enable announcements when
+the screen is locked or another app is open. Leave the connection notification
+running. If audio needs enabling, tap **Enable audio** directly in the
+HAMediaConnect connection notification. You do not need to open the app. You can
+also tap **Enable background audio** in the app's Playback card. Your saved
+credentials and existing device identity are preserved.
 
-1. Open HAMediaConnect and enter an HTTPS Home Assistant base URL, such as `https://example.ui.nabu.casa`.
-2. Home Assistant control requires HTTPS/WSS with a valid certificate. If your installation previously used HTTP, configure HTTPS (for example, through Home Assistant Cloud or a TLS reverse proxy) and update the saved URL. The old insecure-HTTP preference no longer enables control connections. HTTP audio playback, including local TTS audio, remains supported separately.
-3. Sign in with OAuth or a Home Assistant long-lived access token. Both methods require HTTPS; credentials saved for an HTTP origin are not automatically sent to a different HTTPS origin. Sign in again or enter a token for the new URL.
-4. Save the connection and keep the app running until it reports **Connected**. On first connection, Android creates an installation-specific key in Android Keystore and proves possession to Home Assistant. The key is not uploaded. The integration then creates the device's `media_player` entity.
+After reboot, an app update, or Android stopping and recreating the connection
+service, background audio must be enabled again. 
 
-Version 0.10.0 introduced a new device authentication protocol. Version 1.0.0 updates the project branding and version while retaining that protocol. Keep the Android app and Home Assistant integration on matching versions; update both sides together and sign in again after the 0.10.0 protocol upgrade. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
+**Why it does not survive reboot:** Android 17 restricts background audio to a
+service started with user interaction. A service launched automatically at boot
+can reconnect to Home Assistant but does not receive the same audio capability.
+Saving an "enabled" setting cannot restore that capability; tapping **Enable
+audio** provides the user interaction Android requires. **Start connection after
+reboot** therefore restores the network connection, not background audio. A
+**Connected** status alone does not mean audio is enabled. See
+[Android's background audio requirements](https://developer.android.com/about/versions/17/changes/bg-audio).
+
 
 ### Remove a device
-
 To remove a phone or tablet and its `media_player` entity, open **Settings → Devices & services → HAMediaConnect**, select the device, and choose **⋮ → Delete**. Delete works only while the device is disconnected. If it is still connected, Home Assistant shows an error. Before deleting, use **Forget Home Assistant credentials** in the app's Settings, uninstall the app, or revoke the device.
 
 Deleting does not block the device. If the same app connects again with its original key, it enrolls again and gets a new entity. To permanently block a device key, revoke it first (see the [security guide](docs/SECURITY_PHASE_2.md#persistence-revocation-key-loss)), then delete it. A revoked device keeps its block after you delete it. After a Home Assistant restart, a revoked device's leftover entity shows as no longer provided, and you can delete it from the entity's settings.
 
-## Identify a device with a sonar ping
-
+## Identify a device
 Each HAMediaConnect device has a **identify** button alongside its media player.
 Open **Settings → Devices & services → HAMediaConnect**, select the device, and
 press **identify** to play the bundled sound on that device. You can also add the
@@ -94,7 +111,6 @@ To send speech, use your configured Home Assistant text-to-speech provider's **S
 To use Music Assistant, open **Music Assistant → Settings → Player Providers**, add or open **Home Assistant Media Players**, select the HAMediaConnect entity, and save. Music Assistant does not automatically expose every Home Assistant player.
 
 ## Updating
-
 Update HAMediaConnect in HACS (or replace the integration directory with the new release), restart Home Assistant, then install the matching signed Android APK from the release page. Keep both sides updated together, especially when a release documents a device protocol change. Back up your current installation before manual file replacement.
 
 ## Troubleshooting
@@ -104,7 +120,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
 - **HTTP connection is refused:** Configure an HTTPS Home Assistant endpoint with a valid certificate, update the saved URL, and sign in again. Plain HTTP control is no longer supported. HTTP audio URLs remain supported.
-- **No sound or TTS:** Check Android media volume and mute. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `received`/`retrieving` followed by `failed` means the command arrived but the audio did not; `playing` then `completed` means the device played it. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
+- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
 ## Documentation

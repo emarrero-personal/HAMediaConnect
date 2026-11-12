@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 class ConnectionService : Service() {
     companion object {
         const val ACTION_RECONNECT = "reconnect_corrected_configuration"
+        const val ACTION_ENABLE_AUDIO = "enable_background_audio"
         private const val CHANNEL_ID = "ha_connection"
         private const val NOTIFICATION_ID = 1001
     }
@@ -76,6 +77,7 @@ class ConnectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        BackgroundAudio.stopped()
         createChannel()
         val blockedKind = AppPrefs.prefs(this).getString(AppPrefs.KEY_BLOCKED_FAILURE, null)?.let {
             runCatching { ConnectionFailureKind.valueOf(it) }.getOrNull()
@@ -101,6 +103,14 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopped = false
+        if (intent?.action == ACTION_RECONNECT || intent?.action == ACTION_ENABLE_AUDIO) {
+            BackgroundAudio.startedByUser()
+            // A notification interaction can upgrade the existing boot-started FGS.
+            // Promote again so Android reevaluates its while-in-use capability.
+            val status = AppPrefs.prefs(this).getString(AppPrefs.KEY_STATUS, "Starting…") ?: "Starting…"
+            startForeground(NOTIFICATION_ID, buildNotification(status))
+        }
+        notifyAudioActivation()
         scheduler.execute {
             if (intent?.action == ACTION_RECONNECT) {
                 authenticationBlocked = false
@@ -337,14 +347,30 @@ class ConnectionService : Service() {
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val audioAllowed = BackgroundAudio.allowed(android.os.Build.VERSION.SDK_INT)
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentTitle("HAMediaConnect")
-            .setContentText(status)
+            .setContentText(if (audioAllowed) status else getString(R.string.background_audio_disabled))
             .setContentIntent(pending)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .apply {
+                if (!audioAllowed) {
+                    val enable = PendingIntent.getForegroundService(
+                        this@ConnectionService, 1,
+                        Intent(this@ConnectionService, ConnectionService::class.java).setAction(ACTION_ENABLE_AUDIO),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                    )
+                    addAction(android.R.drawable.ic_media_play, getString(R.string.enable_audio), enable)
+                }
+            }
             .build()
+    }
+
+    private fun notifyAudioActivation() {
+        // A timestamp only refreshes the UI. Readiness itself remains process-local.
+        AppPrefs.prefs(this).edit().putLong(BackgroundAudio.PREF_CHANGED, System.nanoTime()).apply()
     }
 
     private fun createChannel() {
@@ -359,6 +385,8 @@ class ConnectionService : Service() {
     }
 
     @Synchronized override fun onDestroy() {
+        BackgroundAudio.stopped()
+        notifyAudioActivation()
         stopped = true
         generation.incrementAndGet()
         connectivity.unregisterNetworkCallback(networkCallback)

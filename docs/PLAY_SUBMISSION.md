@@ -58,6 +58,13 @@ Recording sequence:
 6. Show how to turn off start-on-boot and forget credentials.
 
 The manifest includes a specific `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` explanation.
+On Android 17+, boot reconnect restores command reception only. The user taps
+**Enable audio** in the connection notification, or opens the app and taps
+**Enable background audio** (or **Save & connect**), to give the connection service
+while-in-use capabilities. Include that step in setup
+instructions and the recording; verify playback again after a long locked-screen
+idle. The app prompts again after service recreation instead of claiming audio
+readiness from a stored preference.
 Special use remains subject to Google's review; this document does not establish
 approval. Keep the submitted description and recordings consistent with the build.
 
