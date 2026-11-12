@@ -9,10 +9,14 @@ import androidx.media3.common.Player
 import androidx.media3.session.*
 import com.google.common.collect.ImmutableList
 
+// ConnectionService owns 1001; Media3's default is also 1001.
+private const val PLAYBACK_NOTIFICATION_ID = 1002
+
 /** Immutable, narrowly-scoped notification capabilities; raw exported service intents do nothing. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackNotifications(private val context: Context,
-    private val delegate: MediaNotification.Provider = DefaultMediaNotificationProvider(context)
+    private val delegate: MediaNotification.Provider = DefaultMediaNotificationProvider.Builder(context)
+        .setNotificationId(PLAYBACK_NOTIFICATION_ID).build()
 ) : MediaNotification.Provider {
     override fun getNotificationChannelInfo() = delegate.notificationChannelInfo
     override fun handleCustomCommand(session: MediaSession, action: String, extras: android.os.Bundle) = false

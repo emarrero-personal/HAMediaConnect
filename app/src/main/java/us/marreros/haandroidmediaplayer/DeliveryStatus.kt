@@ -52,8 +52,11 @@ data class DeliveryStatus(
         DeliveryPhase.PLAYING -> "Playing"
         DeliveryPhase.COMPLETED -> "Completed"
         DeliveryPhase.FAILED -> "Failed — ${(reason ?: DeliveryReason.OTHER).message}"
-        DeliveryPhase.SUPPRESSED -> "Suppressed — Do Not Disturb"
+        DeliveryPhase.SUPPRESSED -> suppressedLabel()
     }
+    private fun suppressedLabel(): String = if (reason == DeliveryReason.UNAVAILABLE)
+        "Suppressed — Enable background audio in HAMediaConnect"
+        else "Suppressed — ${(reason ?: DeliveryReason.DND).message}"
     val methodLabel: String get() = if (method == DeliveryMethod.DIRECT) "Direct transfer · Home Assistant connection" else "Media URL"
 }
 

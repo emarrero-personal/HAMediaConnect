@@ -206,6 +206,9 @@ class PlaybackService : MediaSessionService() {
             override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo) =
                 ControllerPolicy.result(session, controller)
         }).build()
+        // HA starts this service directly; no controller may call onGetSession.
+        // Register explicitly so Media3 manages the playback notification and FGS.
+        addSession(mediaSession)
         ContextCompat.registerReceiver(this, dndReceiver,
             IntentFilter(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED),
             ContextCompat.RECEIVER_NOT_EXPORTED)
@@ -296,6 +299,13 @@ class PlaybackService : MediaSessionService() {
             Log.i(TAG, "Suppressing announcement while DND is active")
             DeliveryTracker.update(key, DeliveryPhase.SUPPRESSED, DeliveryReason.DND)
             if (file != null) TransferFiles.delete(cacheDir, file)
+            return
+        }
+        if (!BackgroundAudio.allowed(android.os.Build.VERSION.SDK_INT)) {
+            DeliveryTracker.update(key, DeliveryPhase.SUPPRESSED, DeliveryReason.UNAVAILABLE)
+            playbackNotice = BackgroundAudio.NOTICE
+            if (file != null) TransferFiles.delete(cacheDir, file)
+            publishState()
             return
         }
         handler.removeCallbacks(bufferingTimeout)

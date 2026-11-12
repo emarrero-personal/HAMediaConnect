@@ -22,6 +22,7 @@
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="♫  Playback" android:textColor="#291C52" android:textStyle="bold" android:textSize="21sp" />
                     <TextView android:id="@+id/playbackStatus" android:textIsSelectable="true" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Ready — Waiting for audio from Home Assistant" android:textColor="#51436D" android:textSize="17sp" />
+                    <Button android:id="@+id/enableBackgroundAudio" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="Enable background audio" android:visibility="gone" />
                 </LinearLayout>
                 <LinearLayout android:id="@+id/gettingStartedCard" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@drawable/card_surface" android:orientation="vertical" android:padding="22dp">
                     <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="ⓘ  Getting started" android:textColor="#291C52" android:textStyle="bold" android:textSize="20sp" />

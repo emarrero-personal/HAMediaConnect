@@ -5,3 +5,14 @@ HAMediaConnect has one custom integration in `custom_components/hamediaconnect/`
 The integration and client app work together. For version 1.0.0, update both sides and sign in again if migrating from an installation without device-key enrollment because device enrollment now uses a per-installation Android Keystore key. See the [README](../README.md) for the complete installation, connection, and update steps and the [Phase 2 security design](SECURITY_PHASE_2.md) for enrollment, lost-key recovery, and revocation.
 
 The repository uses the standard HACS layout: root `hacs.json` and a single integration under `custom_components/hamediaconnect/`. Its `content_in_root` value is `false`. HACS validation and Hassfest run in GitHub Actions; official catalog inclusion has not yet been submitted.
+
+## Android 17 background announcements
+
+After installing or updating the Android app, tap **Enable audio** in the
+HAMediaConnect connection notification if shown. You can also open the app and
+tap **Save & connect** or **Enable background audio**. On Android 17+, repeat this
+after reboot or after Android recreates the connection service. Unlock once after
+reboot and allow the connection notification to return. The network connection
+can return automatically while background audio still requires a user action.
+Keep the connection notification running, then test a TTS announcement with the
+screen locked. This requires no additional Home Assistant permissions or ADB setup.

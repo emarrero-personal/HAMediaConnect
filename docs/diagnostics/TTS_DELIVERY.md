@@ -122,7 +122,7 @@ latest request, and only Media3 transitions in `PlaybackService` advance it past
 | playing | `isPlaying` first becomes true | Playing |
 | completed | `STATE_ENDED` after READY | Completed (and "Last delivery: Completed" when idle) |
 | failed | transfer failure, Media3 error, buffering watchdog, Stop | Failed — *reason* |
-| suppressed | DND at start, or DND during an announcement | Suppressed — Do Not Disturb |
+| suppressed | DND, or Android 17 background audio not enabled | Suppressed — Do Not Disturb, or Enable background audio in HAMediaConnect |
 
 Terminal phases are final for that request, and updates for any older request are
 ignored. Each phase is reported to HA at most once per request. A phase that
@@ -217,9 +217,90 @@ Read the app's **Status** and **Playback** cards together with the entity attrib
 3. **Audio retrieved, playback failed:** phases reach `buffering`/`ready` and then
    `failed/decode` or `failed/timeout`. Check the TTS format and engine.
 4. **Played:** `playing` then `completed`. If nothing was audible, check Android
-   media volume, the app's mute state, and Bluetooth routing.
+   media volume, the app's mute state, and Bluetooth routing. Older builds can
+   report these phases even when Android 17 silently mutes background playback.
 5. **Suppressed:** `suppressed/dnd` means Android Do Not Disturb blocked the
-   announcement, as designed.
+   announcement, as designed. `suppressed/unavailable` means the Android 17
+   background-audio activation is missing. Tap **Enable audio** in the connection
+   notification, or **Enable background audio** in the app, then retry the request.
+   Audio is not queued for later playback.
+
+### Android 17 background audio
+
+The connection foreground service can be restored at boot without the while-in-use
+capabilities Android 17 requires for audio. During the November 12 Pixel 10
+investigation, `dumpsys audio` explicitly recorded `AudioHardening background
+playback muted` with `level: full`; Home Assistant still received `playing` and
+`completed`. Bringing the app to the foreground made the test audible.
+
+Save & connect and Enable background audio start the persistent connection service
+from the visible activity. The app keeps activation only in process memory and
+clears it when the connection service stops or is recreated. Network reconnects
+within that service retain activation. Boot and package-replacement reconnects do
+not activate audio. The persistent notification offers **Enable audio** when
+activation is required. Its immutable foreground-service PendingIntent re-promotes
+the existing connection service in response to the user's tap, without replacing
+the authenticated socket or clearing an authentication failure. The action is
+removed once enabled. Playback rejects an unactivated request with the
+existing `suppressed/unavailable` wire values and deletes its transferred file.
+No protocol feature or new permission is required.
+
+The playback service explicitly adds its session to Media3 because HA commands
+start it directly without a controller connection. Media3 can then manage the
+playback foreground notification. The separate user-started connection service
+keeps the user-enabled receiver alive between announcements. DND and controller
+authorization remain enforced. No silent keep-alive audio is played.
+
+Physical acceptance: enable from the app, background it, lock the screen, then
+test TTS and sonar after a long idle and a network reconnect. Check the connection
+service has while-in-use capabilities and no new hardening-mute record appears.
+After reboot or service recreation, verify the enable prompt, the suppressed
+delivery report before activation, and successful background playback after
+activation. Do not disable Android audio hardening to validate the fix.
+
+See [Android's background-audio requirements](https://developer.android.com/about/versions/17/changes/bg-audio).
+
+#### Pixel 10 validation — November 12, 2026
+
+Tested the local 1.0.7 debug build on a physical Pixel 10 running Android 17
+(API 37), paired with Babcock Home Assistant. Installed as an update using the
+same debug certificate, retaining the existing credentials and device identity.
+
+- Before activation, a direct TTS request ended with
+  `delivery_phase: suppressed`, `delivery_reason: unavailable`.
+- The user tapped **Enable background audio**, then locked the phone.
+- Android reported the connection foreground service had while-in-use
+  capabilities (`PROC_STATE_TOP` from its user-started lifecycle).
+- At approximately 9:34 a.m. Eastern, a new direct TTS request completed while
+  keyguard was showing and the screen was asleep. No new HAMediaConnect
+  audio-hardening mute record appeared. The user confirmed hearing the speech.
+- Left the phone untouched, locked and asleep for over 15 minutes (9:35–9:50 a.m.
+  Eastern). The next direct TTS request completed, Android recorded no new
+  hardening-mute event, and the user confirmed hearing it. USB/ADB remained
+  connected; this does not establish deep-Doze or unplugged battery behavior.
+- Rebooted the phone. After first unlock, Android delivered the boot receiver
+  after a queue delay and the app reconnected automatically without opening its
+  activity. The connection service lacked while-in-use capabilities (`DENIED`).
+  A direct TTS request correctly reported `suppressed/unavailable`.
+- The user enabled background audio again and locked the phone. The connection
+  service then had while-in-use capabilities, the next direct TTS request
+  completed with no new hardening-mute record, and the user confirmed hearing it.
+- Updated the debug build with the notification action and separate playback
+  notification ID. The user enabled audio from the connection notification and
+  locked the phone. A direct TTS request completed, Android recorded no
+  hardening-mute event, and the user confirmed hearing the speech.
+- Final local validation passed: 126 Android unit/Robolectric tests, detekt,
+  debug APK assembly, application coverage 97.45%, and security coverage 93.10%.
+
+This confirms immediate and 15-minute-idle locked-screen TTS after user activation,
+plus boot reconnection, suppression before reactivation, and audible locked-screen
+TTS after reactivation. Network-transition, Bluetooth, DND, and music-resume acceptance
+checks for this build remain outstanding. No release has been published.
+
+The service dump during the idle retest also exposed a notification ID collision:
+both services used 1001. Playback now uses 1002 so Media3's notification does not
+replace the persistent connection notification. The subsequent notification-action
+smoke test used this correction; the long-idle and reboot tests preceded it.
 
 ## Validation
 
@@ -290,6 +371,10 @@ audible result. Never copy tokens or signed URLs into reports.
     delivery. With this APK and the previous integration, the app connects without
     protocol errors.
 11. **Restart:** Restart HA and reboot the phone. Confirm reconnection and a
-    successful announcement.
+    successful announcement. On Android 17+, after phone reboot first verify
+    `suppressed/unavailable`, then open the app and enable background audio before
+    verifying a successful locked-screen announcement. Restarting HA alone should
+    reconnect without requiring activation while the Android connection service
+    remains alive.
 12. **Redaction:** Copy the Playback card. Confirm it contains no hostnames, tokens,
     file paths, or query strings.
