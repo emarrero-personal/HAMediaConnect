@@ -86,6 +86,8 @@ dependencies {
 // Robolectric loads app classes through its sandbox classloader without a code source.
 // Include those classes so the gate measures the security tests rather than only plain JVM tests.
 tasks.withType<Test>().configureEach {
+    // Android 17's Robolectric shared-memory setup calls SharedSecrets on JDK 25.
+    jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     extensions.configure<JacocoTaskExtension> {
         isIncludeNoLocationClasses = true
         excludes = listOf("jdk.internal.*")

@@ -56,8 +56,11 @@ class MainActivity : AppCompatActivity() {
     }
     private fun renderPlayback(snapshot: PlayerSnapshot? = PlayerStateBus.latest) {
         val idle = PlayerSnapshot("idle", 0f, false, 0, 0, null, null)
+        val needsActivation = !BackgroundAudio.allowed(Build.VERSION.SDK_INT)
+        findViewById<View>(R.id.enableBackgroundAudio).visibility = if (needsActivation) View.VISIBLE else View.GONE
         findViewById<TextView>(R.id.playbackStatus).text =
-            PlaybackDiagnostic.summary(snapshot ?: idle, playbackConnection(), DeliveryTracker.latest)
+            if (needsActivation) BackgroundAudio.NOTICE
+            else PlaybackDiagnostic.summary(snapshot ?: idle, playbackConnection(), DeliveryTracker.latest)
     }
     private val playbackObserver: (PlayerSnapshot) -> Unit = { snapshot ->
         runOnUiThread { renderPlayback(snapshot) }
@@ -73,7 +76,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, key ->
-        if (key == AppPrefs.KEY_STATUS || key == AppPrefs.KEY_CONNECTION_PHASE) {
+        if (key == AppPrefs.KEY_STATUS || key == AppPrefs.KEY_CONNECTION_PHASE || key == BackgroundAudio.PREF_CHANGED) {
             connectionStatus(prefs.getString(AppPrefs.KEY_STATUS, "Disconnected") ?: "Disconnected",
                 authenticated = playbackConnection() == ConnectionPhase.CONNECTED)
             renderPlayback()
@@ -113,6 +116,19 @@ class MainActivity : AppCompatActivity() {
         }
         returnHome = { showScreen(homeScreen) }
         openSettings = { showScreen(settingsScreen) }
+        findViewById<Button>(R.id.enableBackgroundAudio).setOnClickListener {
+            if (playbackConnection() == ConnectionPhase.DISCONNECTED ||
+                !AppPrefs.isAllowedUrl(AppPrefs.prefs(this).getString(AppPrefs.KEY_URL, "").orEmpty())) {
+                showScreen(settingsScreen)
+            } else {
+                // Restart from the visible activity so the persistent connection FGS
+                // receives Android 17 while-in-use capabilities. Do not change credentials.
+                stopService(Intent(this, PlaybackService::class.java))
+                stopService(Intent(this, ConnectionService::class.java))
+                ContextCompat.startForegroundService(this, Intent(this, ConnectionService::class.java)
+                    .setAction(ConnectionService.ACTION_RECONNECT))
+            }
+        }
         if (awaitingConnection) showScreen(settingsScreen)
         PlayerStateBus.observer = playbackObserver
         DeliveryTracker.observe(deliveryObserver)

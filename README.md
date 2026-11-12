@@ -45,6 +45,36 @@ Only install APKs from this project's GitHub Releases. GitHub Actions debug APKs
 3. Sign in with OAuth or a Home Assistant long-lived access token. Both methods require HTTPS; credentials saved for an HTTP origin are not automatically sent to a different HTTPS origin. Sign in again or enter a token for the new URL.
 4. Save the connection and keep the app running until it reports **Connected**. On first connection, Android creates an installation-specific key in Android Keystore and proves possession to Home Assistant. The key is not uploaded. The integration then creates the device's `media_player` entity.
 
+### Enable background audio on Android 17 and newer
+
+Tap **Save & connect** while HAMediaConnect is open to enable announcements when
+the screen is locked or another app is open. Leave the connection notification
+running. If audio needs enabling, tap **Enable audio** directly in the
+HAMediaConnect connection notification. You do not need to open the app. You can
+also tap **Enable background audio** in the app's Playback card. Your saved
+credentials and existing device identity are preserved.
+
+After reboot, an app update, or Android stopping and recreating the connection
+service, background audio must be enabled again if prompted. After reboot, unlock
+the phone once and allow the connection notification to return, then tap its
+**Enable audio** action. If the action is hidden, expand the notification. Android
+may ask you to unlock before completing the action. The action disappears once
+audio is enabled. Wi-Fi/cellular reconnects within the same running connection
+service do not require this step.
+
+**Why it does not survive reboot:** Android 17 restricts background audio to a
+service started with user interaction. A service launched automatically at boot
+can reconnect to Home Assistant but does not receive the same audio capability.
+Saving an "enabled" setting cannot restore that capability; tapping **Enable
+audio** provides the user interaction Android requires. **Start connection after
+reboot** therefore restores the network connection, not background audio. A
+**Connected** status alone does not mean audio is enabled. See
+[Android's background audio requirements](https://developer.android.com/about/versions/17/changes/bg-audio).
+
+Test setup by leaving the app, locking the screen, and sending a sonar ping or TTS
+announcement from Home Assistant. Media volume, mute, and Do Not Disturb still
+apply. No ADB commands or developer settings are required.
+
 Version 0.10.0 introduced a new device authentication protocol. Version 1.0.0 updates the project branding and version while retaining that protocol. Keep the Android app and Home Assistant integration on matching versions; update both sides together and sign in again after the 0.10.0 protocol upgrade. Existing UUID-only registrations cannot be reused. Keep the app's device key intact for reconnects. If that key is lost or invalidated, use the integration's administrator revocation process before resetting the Android device identity; resetting creates a new Home Assistant player identity. See the [security and re-registration guide](docs/SECURITY_PHASE_2.md).
 
 ### Remove a device
@@ -104,7 +134,7 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
 - **HTTP connection is refused:** Configure an HTTPS Home Assistant endpoint with a valid certificate, update the saved URL, and sign in again. Plain HTTP control is no longer supported. HTTP audio URLs remain supported.
-- **No sound or TTS:** Check Android media volume and mute. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `received`/`retrieving` followed by `failed` means the command arrived but the audio did not; `playing` then `completed` means the device played it. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
+- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
 ## Documentation

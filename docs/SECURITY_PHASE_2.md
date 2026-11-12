@@ -104,6 +104,13 @@ Live lock-screen and Bluetooth controls use the authorized platform session; not
 
 References: [Media3 controller identity and trust](https://developer.android.com/reference/androidx/media3/session/MediaSession.ControllerInfo), [Media3 connection authorization](https://developer.android.com/reference/androidx/media3/session/MediaSession.Callback), and [HA WebSocket subscriptions](https://contributors.home-assistant.io/core/internals/websocket-api/).
 
+The connection notification's **Enable audio** action uses an immutable, explicit
+foreground-service PendingIntent targeting the non-exported `ConnectionService`.
+It only activates audio and re-promotes the existing service; it does not change
+credentials, device identity, or clear a permanent authentication failure. It
+cannot choose media, a URL, or an arbitrary service action. Readiness remains
+process-local and is cleared when the connection service is recreated.
+
 ## OAuth and credential storage
 
 State and PKCE verifier use `SecureRandom` (256-bit state, 384-bit verifier); PKCE uses S256. A pending login is one encrypted transaction containing origin, state, verifier, and issuance time. Callbacks must exactly match `haandroidmediaplayer://oauth/callback`, including raw authority and path, with no userinfo, port, fragment, duplicate parameters, or unsupported parameters. State comparisons use constant-time byte comparison. A pending transaction expires after ten minutes, rejects clock rollback, and is consumed once on a matching response, including denial. Wrong-state intents do not cancel a legitimate browser login. A transaction epoch prevents an older token exchange from overwriting a later login or explicit credential removal, including across activity instances. All credential storage methods, full account replacements, OAuth attempts, refresh commits and key resets share a process-wide transaction lock. Refresh captures a credential generation before network I/O, then rechecks generation, origin, auth method and refresh token under that same lock before writing. Concurrent replacement or forgetting invalidates the response; another store instance cannot interleave between validation and commit.
