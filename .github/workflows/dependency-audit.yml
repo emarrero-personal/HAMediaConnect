@@ -27,10 +27,10 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -48,7 +48,7 @@ jobs:
         run: python3 scripts/audit_runtime_dependencies.py app/build/reports/dependencies/release-runtime.json
       - name: Archive resolved inventory
         if: ${{ !cancelled() && steps.inventory.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-runtime-dependency-inventory
           path: app/build/reports/dependencies/release-runtime.json
