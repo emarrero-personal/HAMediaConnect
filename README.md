@@ -4,6 +4,13 @@
 
 # HAMediaConnect
 
+<p align="center">
+  <a href="https://github.com/emarrero-personal/HAMediaConnect/stargazers"><img src="https://img.shields.io/github/stars/emarrero-personal/HAMediaConnect?style=for-the-badge&amp;label=Stars&amp;color=d6a102" alt="Stars"></a>
+  <a href="https://github.com/emarrero-personal/HAMediaConnect/releases"><img src="https://img.shields.io/github/downloads/emarrero-personal/HAMediaConnect/total?style=for-the-badge&amp;label=Downloads&amp;color=e8604c" alt="Downloads"></a>
+  <a href="https://github.com/emarrero-personal/HAMediaConnect/releases/latest"><img src="https://img.shields.io/github/v/release/emarrero-personal/HAMediaConnect?style=for-the-badge&amp;label=Version&amp;color=5da3a6" alt="Version"></a>
+  <a href="https://github.com/emarrero-personal/HAMediaConnect/actions/workflows/distribution-apk.yml"><img src="https://img.shields.io/github/actions/workflow/status/emarrero-personal/HAMediaConnect/distribution-apk.yml?style=for-the-badge&amp;label=Build&amp;color=3fbf5f" alt="Build"></a>
+</p>
+
 Turns an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
 HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
