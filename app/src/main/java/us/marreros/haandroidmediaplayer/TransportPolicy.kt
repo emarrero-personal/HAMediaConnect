@@ -4,10 +4,10 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 object TransportPolicy {
-    fun base(url: String, allowHttp: Boolean): HttpUrl {
+    fun base(url: String): HttpUrl {
         require(url.length in 1..2048 && url.none { it.isWhitespace() || it == '\\' })
         val parsed = java.net.URI(url) // Reject lenient parser repairs and userinfo, including empty @.
-        require(parsed.scheme == "https" || (allowHttp && parsed.scheme == "http"))
+        require(parsed.scheme == "https") { "Home Assistant control requires HTTPS" }
         require(parsed.rawUserInfo == null && parsed.rawQuery == null && parsed.rawFragment == null)
         require(parsed.host != null && parsed.port in -1..65535 && parsed.port != 0)
         require(parsed.rawPath.isNullOrEmpty() || parsed.rawPath == "/")
@@ -26,7 +26,7 @@ object TransportPolicy {
         require(value.length in 1..2048 && value.none { it.isWhitespace() || it == '\\' })
         val uri = java.net.URI(value)
         require(uri.scheme == null && uri.rawAuthority == null && uri.rawFragment == null)
-        val resolved = base(baseUrl, true).resolve(value)?.toString()
+        val resolved = base(baseUrl).resolve(value)?.toString()
         require(resolved != null && media(resolved))
         return resolved
     }

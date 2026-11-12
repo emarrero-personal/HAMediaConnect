@@ -20,7 +20,7 @@ class OAuthAttempt(private val store: SecretStore) {
         origin: String,
         now: Long = System.currentTimeMillis()
     ): Pair<String, String> = CredentialTransactions.change {
-        TransportPolicy.base(origin, false)
+        TransportPolicy.base(origin)
         val state = HaOAuth.randomUrlSafe(32)
         val verifier = HaOAuth.randomUrlSafe(48)
         store.put("oauth_epoch", state)

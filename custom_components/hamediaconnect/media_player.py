@@ -61,6 +61,7 @@ class AndroidMediaPlayer(MediaPlayerEntity):
 
     _attr_has_entity_name = False
     _attr_name = None
+    _attr_should_poll = False
     _attr_supported_features = SUPPORTED
 
     def __init__(self, registry, device_id):

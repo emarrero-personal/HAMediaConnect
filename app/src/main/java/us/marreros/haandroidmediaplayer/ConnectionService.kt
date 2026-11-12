@@ -26,9 +26,9 @@ class ConnectionService : Service() {
     internal var tokenStoreFactory: () -> SecretStore = { SecureTokenStore(this) }
     internal var refreshCredentials: (String, String) -> JSONObject = { origin, refresh -> HaOAuth(origin).refresh(refresh) }
     internal var identityFactory: () -> DeviceSigner = { DeviceIdentity(this) }
-    internal var createConnection: (String, String, String, DeviceSigner, (ConnectionEvent) -> Unit, (HaCommand) -> Unit, Boolean) -> HaConnection =
-        { url, token, name, signer, status, command, allowHttp ->
-            HaWebSocketClient(url, token, name, signer, {}, command, allowHttp, status)
+    internal var createConnection: (String, String, String, DeviceSigner, (ConnectionEvent) -> Unit, (HaCommand) -> Unit) -> HaConnection =
+        { url, token, name, signer, status, command ->
+            HaWebSocketClient(url, token, name, signer, {}, command, status)
         }
     private val scheduler = Executors.newSingleThreadScheduledExecutor()
     private var reconnectFuture: ScheduledFuture<*>? = null
@@ -126,7 +126,7 @@ class ConnectionService : Service() {
         updateStatus(ConnectionEvent(if (recovering) ConnectionPhase.RECONNECTING else ConnectionPhase.CONNECTING))
         val prefs = AppPrefs.prefs(this)
         val baseUrl = prefs.getString(AppPrefs.KEY_URL, "")?.trim().orEmpty()
-        if (!AppPrefs.isAllowedUrl(baseUrl, prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false))) {
+        if (!AppPrefs.isAllowedUrl(baseUrl)) {
             handleFailure(ConnectionFailure(ConnectionFailureKind.CONFIGURATION))
             return
         }
@@ -207,8 +207,8 @@ class ConnectionService : Service() {
             client = createConnection(baseUrl, token,
                 (prefs.getString(AppPrefs.KEY_NAME, android.os.Build.MODEL) ?: android.os.Build.MODEL).take(128),
                 identity, statusCallback,
-                { command -> if (!stopped && attempt == generation.get()) dispatchCommand(command) },
-                prefs.getBoolean(AppPrefs.KEY_ALLOW_HTTP, false)).also { it.connect() }
+                { command -> if (!stopped && attempt == generation.get()) dispatchCommand(command) }
+            ).also { it.connect() }
         }
     }
 

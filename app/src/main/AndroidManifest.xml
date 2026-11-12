@@ -51,7 +51,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Maintains a persistent user-configured Home Assistant connection to receive remote media playback commands." />
+                android:value="Keeps the user-enabled Home Assistant media player reachable over an authenticated encrypted connection for immediate playback and announcement commands, including while idle. Shows connection status in a persistent notification; the user can stop it in the app." />
         </service>
 
         <receiver

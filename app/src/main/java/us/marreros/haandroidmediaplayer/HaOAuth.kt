@@ -28,7 +28,7 @@ class HaOAuth(base: String, private val http: OkHttpClient = OkHttpClient.Builde
         )
     }
 
-    private val baseUrl = TransportPolicy.base(base, false).toString().trimEnd('/')
+    private val baseUrl = TransportPolicy.base(base).toString().trimEnd('/')
     private val clientId: String = baseUrl.trimEnd('/') + CLIENT_PATH
 
     /** Check the configured HTTPS origin; never follow discovery redirects or trust cached support. */
