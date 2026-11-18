@@ -127,15 +127,14 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
 - **HTTP connection is refused:** Configure an HTTPS Home Assistant endpoint with a valid certificate, update the saved URL, and sign in again. Plain HTTP control is no longer supported. HTTP audio URLs remain supported.
-- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
+- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [local and remote media delivery](#local-and-remote-media-delivery).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
 ## Documentation
 
-- [Home Assistant integration installation notes](docs/HA_INTEGRATION_INSTALL.md)
 - [Developer guide](docs/DEVELOPERS.md)
-- [Phase 2 authentication and transport design](docs/SECURITY_PHASE_2.md)
-- [HACS submission readiness and checklist](docs/HACS_SUBMISSION.md)
+- [Authentication, registration, and transport security](docs/SECURITY_PHASE_2.md)
+- [Maintainer handbook](docs/MAINTAINER.md)
 - [Privacy policy](https://emarrero-personal.github.io/HAMediaConnect/) ([source](PRIVACY.md))
 - [Third-party licenses and attribution](THIRD_PARTY_NOTICES.md)
 
@@ -177,12 +176,10 @@ When an announcement fails and music is restored, Home Assistant receives the
 restored music state and, separately, the announcement's `failed` delivery report with
 a sanitized reason (see the player's `delivery_*` attributes and `hamediaconnect_playback` events).
 
-See [TTS delivery](docs/diagnostics/TTS_DELIVERY.md) for the current architecture and
-physical acceptance tests, and the earlier [TTS investigation](docs/diagnostics/TTS_PLAYBACK.md)
-for the history.
-
-For the v1.0.1 corrections, sanitized Playback diagnostics, and the pending Pixel 10
-acceptance checklist, see [device corrections](docs/diagnostics/V1_0_1_FINAL_CORRECTIONS.md).
+See the [developer guide](docs/DEVELOPERS.md#tts-delivery) for TTS delivery,
+the [security guide](docs/SECURITY_PHASE_2.md#reconnect-and-failure-recovery) for
+reconnect behavior, and the [maintainer checklist](docs/MAINTAINER.md#development-and-test-checklist)
+for device validation.
 
 Network changes retry immediately with the saved credentials and device key.
 Temporary transport, server and subscription failures back off automatically; confirmed

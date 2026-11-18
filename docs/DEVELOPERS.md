@@ -1,5 +1,5 @@
 # HAMediaConnect — Developer Guide
-This document describes the implementation and wire protocol
+Here’s how the app and integration fit together, where to find the code, and what they send over the WebSocket.
 
 ## Architecture
 
@@ -28,7 +28,7 @@ Android PlaybackService (Media3 ExoPlayer + MediaSession)
            ConnectionService → Home Assistant state
 ```
 
-The companion integration provides the Home Assistant `media_player` entity and resolves `media-source://` URLs. The current Android client app manages connectivity, decoding incoming commands, playback and state reporting. The Android package and integration domain still use historical names for compatibility.
+The companion integration provides the Home Assistant `media_player` entity and resolves `media-source://` URLs. The Android client app keeps the connection open, reads incoming commands, plays audio, and reports playback state. The Android package and integration domain still use historical names for compatibility.
 
 ### Android code map
 
@@ -40,15 +40,15 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `HaOAuth.kt` | OAuth authorization-code flow with PKCE and refresh |
 | `ConnectionService.kt` | Foreground WebSocket connection, reconnect, command routing |
 | `ConnectionState.kt` | Typed connection failures, stages and retry policy |
-| `MediaRedirectPolicy.kt` | Bounded same-origin media redirects |
-| `MediaTransfer.kt` | In-band TTS transfer: offer validation, chunk pulling, resume, integrity, temporary files |
-| `DeliveryStatus.kt` | Typed delivery phases/reasons, the latest-request tracker and sanitized card labels |
+| `MediaRedirectPolicy.kt` | Media redirects: up to five hops within the same origin |
+| `MediaTransfer.kt` | TTS over WebSocket: check offers, download chunks, resume, verify audio, manage temporary files |
+| `DeliveryStatus.kt` | Delivery status enums, latest-request tracking, and UI labels that leave out sensitive details |
 | `HaWebSocketClient.kt` | Native Home Assistant WebSocket protocol |
 | `HaCommand.kt` | Parsed command model |
 | `PlaybackService.kt` | Media3 playback, announcements, volume, mute and DND |
 | `PlayerStateBus.kt` | In-process playback state updates |
 | `BootReceiver.kt` | Optional reconnect after reboot |
-| `BackgroundAudio.kt` | Process-local Android 17 user activation; boot reconnect never grants audio readiness |
+| `BackgroundAudio.kt` | Android 17 audio activation; lasts for the process, and needs user interaction after boot |
 
 ### Home Assistant code map
 
@@ -58,8 +58,8 @@ The companion integration provides the Home Assistant `media_player` entity and 
 | `config_flow.py` | Integration setup |
 | `media_player.py` | Home Assistant entity and media actions |
 | `button.py` | Per-device sonar button using the existing authenticated audio transfer |
-| `registry.py` | Connected-device registry, feature-gated command dispatch and delivery reports |
-| `transfer.py` | Bounded, device-bound store of in-process-rendered TTS audio served in chunks |
+| `registry.py` | Tracks devices, sends commands supported by each client, and handles delivery reports |
+| `transfer.py` | Stores TTS audio generated inside HA, limits memory use, and serves chunks only to the intended device |
 | `websocket_api.py` | WebSocket registration, subscriptions and state messages |
 | `oauth_view.py` | OAuth support endpoint |
 
@@ -67,7 +67,7 @@ The companion integration provides the Home Assistant `media_player` entity and 
 
 ### Device authentication sequence
 
-The device fingerprint is derived from a canonical encoding of the installation's public key; it is an identifier, **not** a secret. Authentication relies on a fresh challenge signed by the Android Keystore private key. No salt is needed for the public-key fingerprint.
+The device fingerprint is the SHA-256 hash of the installation’s public key in DER SubjectPublicKeyInfo format. It identifies the device; it isn’t a secret. Authentication relies on a fresh challenge signed by the Android Keystore private key. No salt is needed for the public-key fingerprint.
 
 ```mermaid
 sequenceDiagram
@@ -88,7 +88,7 @@ sequenceDiagram
     Note over A,H: Reconnect requires a new challenge and proof
 ```
 
-Security requirements: challenges must be unpredictable, one-time-use, and time-limited; verification must bind the proof to the requesting connection and the authorized Home Assistant user. SHA-256 of the public key is a stable identifier, not an authentication substitute. See [security architecture](SECURITY_PHASE_2.md) for the authoritative protocol and limits.
+Each challenge must be random, usable only once, and have an expiry time. HA must check that the signed response belongs to the connection and user that requested it. SHA-256 of the public key is a stable identifier, not an authentication substitute. See [security architecture](SECURITY_PHASE_2.md) for the full protocol and limits.
 
 
 
@@ -102,11 +102,11 @@ OAuth is recommended; long-lived access tokens also require HTTPS. HTTP audio UR
 
 After `auth_ok`, the client app requests a P-256 challenge, signs it with its installation Keystore key, and authenticates that exact connection before subscribing. The device ID is the SHA-256 fingerprint of its public key. Reconnect always requires a fresh proof; HA user authentication alone cannot claim a registered device, including another installation belonging to the same HA user.
 
-See [Phase 2 authentication and transport design](SECURITY_PHASE_2.md) for the complete message flow, strict schemas, limits, persistence, revocation/re-registration, MediaSession authorization, OAuth decisions, and remaining risks. Update the integration and client app together: the UUID-only registration protocol is no longer supported.
+See [Authentication, registration, and transport security](SECURITY_PHASE_2.md) for the complete message flow, strict schemas, limits, persistence, revocation/re-registration, MediaSession authorization, OAuth decisions, and remaining risks. Update the integration and client app together: the UUID-only registration protocol is no longer supported.
 
 ## Commands sent to the client app
 
-The **native** interface uses the companion integration. These are command event payloads dispatched through the custom WebSocket subscription (not direct Home Assistant `fire_event` calls).
+The integration sends these commands as events on the device’s WebSocket subscription. To control playback, use the media-player actions shown below; these messages aren’t HA `fire_event` calls.
 
 | `action` | Additional fields | Behavior |
 | --- | --- | --- |
@@ -133,7 +133,8 @@ Example command event data:
 
 Transfer offers and `request_id` are sent only to clients that negotiated
 `media_transfer_v1` / `playback_report_v1` when subscribing; see
-[TTS delivery](diagnostics/TTS_DELIVERY.md) for the chunk, release and report messages.
+[in-band TTS transfer security](SECURITY_PHASE_2.md#in-band-tts-transfer) for
+how HA restricts audio chunks and playback reports to the right device.
 
 **Important:** `PlaybackService` contains a `seek` intent action, but the native WebSocket command decoder currently **does not expose seek**. Do not advertise it as a working remote command until implemented end-to-end. The legacy event-based protocol is not supported.
 
@@ -170,7 +171,7 @@ Supported Home Assistant entity features currently include PLAY, PAUSE, STOP, PL
 
 ## State reporting
 
-The client app sends a native WebSocket state message resembling:
+The client app reports state over the WebSocket like this:
 
 ```json
 {
@@ -187,9 +188,9 @@ The client app sends a native WebSocket state message resembling:
 }
 ```
 
-The `state` object may omit media metadata when unavailable. Supported playback states include `idle`, `buffering`, `playing` and `paused`; the current Android client implementation normalizes `error` to `idle` before publishing.
+The `state` object leaves out media metadata when it isn’t available. Playback states include `idle`, `buffering`, `playing`, and `paused`. The Android client reports `error` as `idle`.
 
-Playback progress for a dispatched request is reported separately with
+The app reports progress for each playback request separately with
 `hamediaconnect/playback_report` (phase plus an enum reason). HA exposes the last report
 as `delivery_phase`, `delivery_reason`, `delivery_method` and `delivery_request_id`
 entity attributes and fires `hamediaconnect_playback` events. State `media_content_id`
@@ -199,7 +200,7 @@ is omitted while playing transferred audio.
 
 When the companion integration receives a TTS media-source URL (`media-source://tts/...`), it resolves it to a playable URL and sets `announce=true`. For an announcement, the current Android client player saves its own current media item, playback position and playing/paused status, then restores them when the announcement finishes. Audio from another Android app is not directly controlled by this playback service.
 
-The app suppresses announcements when Android's interruption filter indicates Do Not Disturb. If DND activates during an announcement, the service ends it and restores previously interrupted playback. This behavior should be tested on target devices because Android audio policy and OEM behavior vary.
+The app skips announcements while Android’s Do Not Disturb setting is active. If DND activates during an announcement, the service ends it and restores previously interrupted playback. Test this on the devices you plan to support: Android audio rules and manufacturer behavior vary.
 
 For maintainer build, test, signing, and release instructions, see [Maintainer handbook](MAINTAINER.md).
 
@@ -211,23 +212,24 @@ already-authenticated WebSocket. No media URL has to be reachable from the phone
 announcements behave the same on Wi-Fi and cellular and resume across network changes.
 HA selects one delivery method per command. URL delivery (below) remains for all other
 media, for legacy clients, and when in-process rendering is unavailable or the audio
-exceeds 4 MiB. Architecture, rejected alternatives, protocol, limits, security controls,
-troubleshooting and the physical acceptance procedure are in
-[TTS delivery](diagnostics/TTS_DELIVERY.md).
+exceeds 4 MiB. See [in-band TTS transfer security](SECURITY_PHASE_2.md#in-band-tts-transfer)
+for authorization and integrity checks, [transport limits](SECURITY_PHASE_2.md#transport-limits)
+for size and request limits, and the [maintainer checklist](MAINTAINER.md#development-and-test-checklist)
+for device validation.
 
 ## Sonar identification button
 
-The `button` platform creates a translated **identify** entity for every persisted
-or newly enrolled, non-revoked device, using the same device-registry identifiers as
+The `button` platform creates a translated **identify** entity for each saved
+or newly registered device that hasn’t been revoked, using the same device-registry identifiers as
 the media player. Its unique ID adds `_sonar_ping` to the media player's unique ID.
 Registration/state events keep availability current, and entity removal permits
 re-enrollment without duplicate entities. A live subscription must have negotiated
 `media_transfer_v1`; older clients keep their existing media player behavior and
 the button remains unavailable until they update.
 
-Pressing reads only `media/SamsterBirdies-Sonar-Ping.mp3` in an executor, bounded by
-the existing transfer size limit, then rechecks connection/revocation/capabilities
-after the await. The existing transfer store and `registry.dispatch` deliver it as
+Pressing the button reads only `media/SamsterBirdies-Sonar-Ping.mp3` on a worker thread,
+using the same 4 MiB transfer limit as TTS. After the read finishes, HA checks again
+that the device is connected, hasn’t been revoked, and supports audio transfers. The existing transfer store and `registry.dispatch` deliver it as
 an announcement, with a delivery request ID only when `playback_report_v1` was
 negotiated. Failed sends release only their own transfer. Playback, DND, mute, and
 music restoration use the client's existing announcement path. There is no new
@@ -239,30 +241,22 @@ HA signs/resolves media through its standard media helpers, identifies HA-owned
 origins with `is_hass_url`, and prefers Cloud HTTPS, then configured external HTTPS, via `get_url`.
 The Android client keeps public absolute URLs and resolves relative paths using
 its configured control origin. Production Media3 loading uses a separate OkHttp
-client, validates TLS, allows only bounded same-origin redirects and bounds buffering. Announcement errors
-are recorded before restoring prior playback. There are no new command/state
-fields. See the [TTS investigation](diagnostics/TTS_PLAYBACK.md) for the historical trace. See [v1.0.1 device corrections](diagnostics/V1_0_1_FINAL_CORRECTIONS.md) for the current live UI, reconnect error classification, security review and physical acceptance procedure.
+client, validates TLS, follows at most five redirects within the same origin, and
+stops continuous buffering after 30 seconds. It records announcement errors before
+restoring the interrupted playback. There are no new command/state
+fields. See [media delivery and provenance](SECURITY_PHASE_2.md#media-delivery-and-provenance)
+for security controls and the [maintainer checklist](MAINTAINER.md#development-and-test-checklist)
+for device validation.
 
 
-Default-network changes cancel old generations and retry immediately. Subsequent
-recoverable failures use bounded equal-jitter backoff indefinitely. The connection
-service consumes `ConnectionEvent`/`ConnectionFailure`, persists a typed phase for
-live UI rendering, and never parses display text to decide retry or authorization.
-A manual corrected-configuration action resets a terminal block; network events do not.
-HA resource ownership is established before default URL conversion so an unrecognized
-LAN origin cannot suppress Cloud/external HTTPS selection. See the current device
-corrections for the failure-code matrix, tests and physical acceptance checklist.
-
-## Kotlin static analysis
-
-Run `./gradlew detekt` before submitting Kotlin changes; `check` also includes the
-analysis task. CI runs Detekt and archives its reports under
-`app/build/reports/detekt/`. Main, JVM test, and instrumentation test sources are
-included. Analysis failures fail the build.
-
-The build uses Detekt 2.0.0-alpha.6 because the 2.x line supports AGP 9 built-in
-Kotlin; see the [upstream compatibility table](https://detekt.dev/docs/introduction/compatibility/).
-The checked-in `app/detekt-baseline.xml` records pre-existing findings to allow
-incremental adoption without unrelated code changes. New findings are rejected.
-Remove baseline entries as the corresponding findings are fixed; do not regenerate
-the baseline to accept new findings. This baseline does not change test coverage.
+When the default network changes, the service cancels the old connection attempt
+and retries immediately. If that fails, it keeps retrying with randomized delays
+that grow up to 150–300 seconds. The service uses `ConnectionEvent` and
+`ConnectionFailure` enums to decide what to do and save status for the UI; it never
+makes retry or authorization decisions by reading display text. Errors that need
+user attention stay blocked until an explicit Settings connection action; network
+changes don’t clear them. HA checks whether it owns a media resource before
+converting its URL, so a LAN address it doesn’t recognize won’t prevent selection
+of Cloud or external HTTPS. See
+[reconnect and failure recovery](SECURITY_PHASE_2.md#reconnect-and-failure-recovery)
+for failure classification and retry behavior.
