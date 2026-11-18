@@ -63,7 +63,7 @@ android {
 
 dependencies {
     constraints {
-        implementation("com.google.guava:guava:33.7.2-android") {
+        implementation("com.google.guava:guava:33.8.0-android") {
             because("Fix GHSA-xxph-c9ww-hj94 in the transitive Android runtime dependency")
         }
     }
