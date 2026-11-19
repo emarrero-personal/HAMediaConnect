@@ -4,9 +4,9 @@ Effective date: November 11, 2026
 
 ## Our commitment
 
-The whole idea behind Home Assistant is to keep your data. We at emarrero-personal don't want your data. We don't want to collect, keep, or sell it.
+The whole idea behind Home Assistant is to keep your data in your hands. We at emarrero-personal (which is just really me at emarrero-personal) don't want your data. We don't want to collect, keep, fold, spindle, mutilate, or sell it. It's not that we don't like your days, we're sure it's great, but we have enough headaches managing our own.
 
-HAMediaConnect is developed by emarrero-personal. We do not operate an app telemetry or account service, receive your normal app activity, or sell your data. The app has no advertising, analytics, or crash-reporting service. The processing below lets your device work with the Home Assistant instance you choose.
+HAMediaConnect is developed by emarrero-personal. We do not operate an app telemetry or account service, receive your app activity, or sell your data. The app has no advertising, analytics, or crash-reporting service. The processing below lets your device work with the Home Assistant instance you choose.
 
 ## What stays on your device
 

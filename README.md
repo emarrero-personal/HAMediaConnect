@@ -11,12 +11,12 @@
   <a href="https://github.com/emarrero-personal/HAMediaConnect/actions/workflows/distribution-apk.yml"><img src="https://img.shields.io/github/actions/workflow/status/emarrero-personal/HAMediaConnect/distribution-apk.yml?style=for-the-badge&amp;label=Build&amp;color=3fbf5f&amp;event=push" alt="Build"></a>
 </p>
 
-Turns an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
+Turns an Android phone or tablet into a native [Home Assistant](https://www.home-assistant.io) media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
-HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
+HAMediaConnect includes an Android app and a Home Assistant custom integration. You need both. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint.
 
 # How does it work?
-It's an Android app with an accompanying Home Assistant integration. The app connects to Home Assistant and registers with the integration. The integration creates entities you can use to send audio, identify the device, etc.
+The app (Android) connects to your Home Assistant server using web sockets. The integration (Python) sends commands and sometimes media to the app. Et voila.
 
 # Installation
 You need both parts for things to work correctly. It's better if you install the HA integration before the app so that the app can register itself when it first connects to HA.
@@ -44,6 +44,7 @@ Download the signed APK from the [latest GitHub Release](https://github.com/emar
 - [Download its SHA-256 checksum](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk.sha256)
 
 On an Android 10 or newer phone or tablet, open the downloaded APK and follow Android's installer prompts. If Android asks, allow your browser or file manager to install apps from that source. Disable that permission again after installation if you do not need it.
+
 ## Connect your device
 1. Optionally but recommended - create a HA user for HAMediaConnect. The user should be a HA administrator for initial connections but can then be downgraded after the device registers itself.
 2. Open HAMediaConnect and enter an HTTPS Home Assistant base URL, such as `https://example.ui.nabu.casa`.
@@ -127,15 +128,14 @@ Update HAMediaConnect in HACS (or replace the integration directory with the new
 - **No media player entity:** Check that the integration finished setup and the Android app reports **Connected**. Review Home Assistant logs and the app's connection status.
 - **Device registration or reauthentication fails after upgrading:** Update both components to compatible versions, sign in again, and keep the original Android device key. If the key was lost, an administrator must revoke its old registration before the app identity is reset.
 - **HTTP connection is refused:** Configure an HTTPS Home Assistant endpoint with a valid certificate, update the saved URL, and sign in again. Plain HTTP control is no longer supported. HTTP audio URLs remain supported.
-- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [TTS delivery troubleshooting](docs/diagnostics/TTS_DELIVERY.md#troubleshooting-connection-retrieval-or-playback).
+- **No sound or TTS:** On Android 17+, open HAMediaConnect and tap **Enable background audio** if shown, especially after reboot. Check Android media volume, mute, Do Not Disturb, and the selected output device. For TTS, read the player's `delivery_phase`, `delivery_reason` and `delivery_method` attributes. `suppressed/unavailable` means background audio needs enabling; `received`/`retrieving` followed by `failed` means delivery or playback failed. `playing` then `completed` reports decoder playback, which cannot establish that sound was audible. For non-TTS media, confirm the media URL is reachable from the phone. See [local and remote media delivery](#local-and-remote-media-delivery).
 - **Player missing from Music Assistant:** Select the entity in Music Assistant's **Home Assistant Media Players** provider settings.
 
 ## Documentation
 
-- [Home Assistant integration installation notes](docs/HA_INTEGRATION_INSTALL.md)
 - [Developer guide](docs/DEVELOPERS.md)
-- [Phase 2 authentication and transport design](docs/SECURITY_PHASE_2.md)
-- [HACS submission readiness and checklist](docs/HACS_SUBMISSION.md)
+- [Authentication, registration, and transport security](docs/SECURITY_PHASE_2.md)
+- [Maintainer handbook](docs/MAINTAINER.md)
 - [Privacy policy](https://emarrero-personal.github.io/HAMediaConnect/) ([source](PRIVACY.md))
 - [Third-party licenses and attribution](THIRD_PARTY_NOTICES.md)
 
@@ -177,12 +177,10 @@ When an announcement fails and music is restored, Home Assistant receives the
 restored music state and, separately, the announcement's `failed` delivery report with
 a sanitized reason (see the player's `delivery_*` attributes and `hamediaconnect_playback` events).
 
-See [TTS delivery](docs/diagnostics/TTS_DELIVERY.md) for the current architecture and
-physical acceptance tests, and the earlier [TTS investigation](docs/diagnostics/TTS_PLAYBACK.md)
-for the history.
-
-For the v1.0.1 corrections, sanitized Playback diagnostics, and the pending Pixel 10
-acceptance checklist, see [device corrections](docs/diagnostics/V1_0_1_FINAL_CORRECTIONS.md).
+See the [developer guide](docs/DEVELOPERS.md#tts-delivery) for TTS delivery,
+the [security guide](docs/SECURITY_PHASE_2.md#reconnect-and-failure-recovery) for
+reconnect behavior, and the [maintainer checklist](docs/MAINTAINER.md#development-and-test-checklist)
+for device validation.
 
 Network changes retry immediately with the saved credentials and device key.
 Temporary transport, server and subscription failures back off automatically; confirmed

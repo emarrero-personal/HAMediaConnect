@@ -1,14 +1,14 @@
 # Google Play foreground services and reviewer access
 
-Prepared November 11, 2026. These declarations describe the updated Android client.
-Manifest declarations and copy are ready; Play Console submission and demonstration
-videos are still outstanding. No app has been submitted by preparing this document.
-Other store forms and Data safety are deferred until these tasks are complete.
+Prepared November 11, 2026. The Android manifest and the text below are ready.
+We still need to record the demo videos and submit through Play Console; preparing
+this document hasn’t submitted the app. Finish those tasks before the remaining
+store forms and Data safety section.
 
 ## Foreground-service declarations
 
 Enter both types in Play Console's App content foreground-service declaration.
-Use the following text for the corresponding functionality and impact fields.
+Use the text below in the matching functionality and impact fields.
 Google requires a demonstration video for each declared type; upload actual
 recordings and paste their URLs in the Console. Do not submit placeholder URLs.
 
@@ -20,7 +20,7 @@ Functionality:
 
 Impact of deferral or interruption:
 
-> Deferring the service delays playback requested by the user or their configured Home Assistant automation. Interrupting it cuts off music or announcements and can prevent interrupted music from resuming after an announcement. Playback must continue for the duration of the active media request, subject to the user's Stop and pause controls and Android's service lifecycle.
+> Delaying the service delays audio requested by the user or a Home Assistant automation. Stopping it cuts off music or announcements and can prevent music from resuming after an announcement. The service needs to run while audio is playing, while still respecting the user’s Stop and pause controls and Android’s service lifecycle.
 
 Use case: Media playback / background audio playback.
 
@@ -36,17 +36,17 @@ Recording sequence:
 
 Functionality:
 
-> After the user selects Save and Connect, HAMediaConnect maintains an authenticated HTTPS/WSS connection to the user's chosen Home Assistant instance. It keeps the Android media player reachable for immediate remote playback, volume, mute, and announcement commands, including between playback requests. Connection status is shown in a persistent notification. The user can terminate the connection and playback with Disconnect in the app, disable start-on-boot, or forget credentials. If start-on-boot is enabled, it reconnects after reboot. The current setting defaults to enabled and is visible in Settings.
+> After the user selects Save and Connect, HAMediaConnect maintains an authenticated HTTPS/WSS connection to the user's chosen Home Assistant instance. It keeps the Android media player reachable for immediate remote playback, volume, mute, and announcement commands, including between playback requests. Connection status is shown in a persistent notification. The user can stop the connection and playback with Disconnect in the app, disable start-on-boot, or forget credentials. If start-on-boot is enabled, it reconnects after reboot. The current setting defaults to enabled and is visible in Settings.
 
 Impact of deferral or interruption:
 
-> If the connection is deferred or suspended while idle, Home Assistant cannot immediately deliver music or time-sensitive announcements to the device. The device would appear unavailable or miss the requested playback until the connection returns. A connection is needed while the user wants this device available as a Home Assistant player, including when no audio is currently playing. The app reconnects after transient network interruptions.
+> If Android delays or stops the connection while no audio is playing, Home Assistant cannot immediately deliver music or time-sensitive announcements to the device. The device would appear unavailable or miss the requested playback until the connection returns. A connection is needed while the user wants this device available as a Home Assistant player, including when no audio is currently playing. The app reconnects after temporary network interruptions.
 
 Use case: Special use / other — persistent, user-enabled Home Assistant media-player command reception.
 
 Explanation of service type and alternatives:
 
-> This service receives commands between playback requests; actual audio playback uses a separate mediaPlayback service. The user's self-hosted Home Assistant instance delivers commands through its authenticated WebSocket API. Scheduled jobs cannot provide continuous command reception or immediate delivery. The app does not operate a developer push relay. We request review of specialUse for maintaining this user-enabled media-player availability, with visible connection status and an in-app Disconnect control.
+> This service receives commands between playback requests; actual audio playback uses a separate mediaPlayback service. The user's self-hosted Home Assistant instance delivers commands through its authenticated WebSocket API. Scheduled jobs cannot provide continuous command reception or immediate delivery. The app does not operate a developer push relay. We’re requesting specialUse approval so the player can stay available when the user enables it. Connection status stays visible, and the user can disconnect in the app.
 
 Recording sequence:
 
@@ -65,8 +65,8 @@ while-in-use capabilities. Include that step in setup
 instructions and the recording; verify playback again after a long locked-screen
 idle. The app prompts again after service recreation instead of claiming audio
 readiness from a stored preference.
-Special use remains subject to Google's review; this document does not establish
-approval. Keep the submitted description and recordings consistent with the build.
+Google still needs to approve specialUse. Keep the submitted description and
+recordings consistent with the build reviewers will install.
 
 Sources: [Google's declaration requirements](https://support.google.com/googleplay/android-developer/answer/13392821),
 [foreground-service policy](https://support.google.com/googleplay/android-developer/answer/16559646).
@@ -80,8 +80,8 @@ instance to a real home, personal media library, production accounts, or devices
 Use an isolated test account and licensed/bundled sample audio, and prepare a
 dashboard for playback, volume/mute, announcement, and identify actions. Verify the
 dashboard can target the reviewer's newly enrolled player rather than a fixed old
-entity ID. Reviewers must be able to exercise the features without maintainer
-intervention. Test the instructions from a fresh app installation on an external
+entity ID. Reviewers need to try the features without waiting for a maintainer
+to help. Test the instructions from a fresh app installation on an external
 network before providing them in Play Console.
 
 Provide the HTTPS URL, reusable test sign-in, and English instructions in Play
@@ -92,17 +92,17 @@ maintenance. Ordinary test access should not require MFA, invitations, or a
 maintainer to approve each sign-in. Do not change the app's authentication or
 device-possession checks for reviewers.
 
-Hosting options checked against provider documentation:
+Here’s how the hosting options compare, based on the providers’ documentation:
 
 | Option | Suitability |
 | --- | --- |
-| Oracle Cloud Always Free VM | Feasible free Linux host with persistent storage. The documented Arm allocation is currently 2 OCPUs / 12 GB total; provision only resources marked eligible and stay within all quotas. Capacity is not guaranteed, and Oracle may reclaim idle VMs after a seven-day low-usage period. A lightly used review instance is therefore not guaranteed to remain available. |
+| Oracle Cloud Always Free VM | Can host Linux with persistent storage for free. The documented Arm allocation is currently 2 OCPUs / 12 GB total; provision only resources marked eligible and stay within all quotas. Capacity is not guaranteed, and Oracle may reclaim idle VMs after a seven-day low-usage period. A lightly used review instance is therefore not guaranteed to remain available. |
 | Render free web service | Poor fit: services sleep after inactivity and the free tier has no persistent disk. Home Assistant needs persistent configuration and device identity records. |
 | Existing spare hardware running a separate instance | No additional VM rental if hardware and a suitable HTTPS endpoint already exist; uptime, isolation, and external reachability are your responsibility. Never expose a production home for review. |
 
-Oracle is a practical free candidate, with an uptime caveat. A small paid VM is
-more predictable if free-tier reclamation or capacity prevents reliable reviewer
-access. No hosting account, paid resource, or reviewer instance has been created.
+Oracle can work for a free review instance, but you’ll need to watch uptime.
+A small paid VM is more predictable if Oracle reclaims the free VM or has no
+capacity. We haven’t created a hosting account, paid resource, or reviewer instance.
 
 Sources: [Oracle Always Free resources and reclamation](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm),
 [Render free-service limits](https://render.com/docs/free),
