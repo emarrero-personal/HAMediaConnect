@@ -6,7 +6,7 @@ target the latest release; older releases are not maintained separately.
 ## Report a vulnerability
 
 Use [GitHub private vulnerability reporting](https://github.com/emarrero-personal/HAMediaConnect/security/advisories/new).
-Do not open a public issue with vulnerability details or working exploits.
+**PLEASE do not open a public issue with vulnerability details or working exploits.**
 
 Include the affected versions, impact, prerequisites, and steps to reproduce with
 test credentials. Remove access tokens, authorization codes, private keys, signed

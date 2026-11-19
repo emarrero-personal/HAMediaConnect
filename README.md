@@ -11,12 +11,12 @@
   <a href="https://github.com/emarrero-personal/HAMediaConnect/actions/workflows/distribution-apk.yml"><img src="https://img.shields.io/github/actions/workflow/status/emarrero-personal/HAMediaConnect/distribution-apk.yml?style=for-the-badge&amp;label=Build&amp;color=3fbf5f&amp;event=push" alt="Build"></a>
 </p>
 
-Turns an Android phone or tablet into a native Home Assistant media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
+Turns an Android phone or tablet into a native [Home Assistant](https://www.home-assistant.io) media player. Play music and other audio, control playback and volume, and send Home Assistant TTS announcements to the device. Music Assistant can use the player through Home Assistant's Media Players provider.
 
-HAMediaConnect includes an Android app and a Home Assistant custom integration. Both are required. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint advertising S256 PKCE.
+HAMediaConnect includes an Android app and a Home Assistant custom integration. You need both. Home Assistant 2026.10 or newer is required. OAuth also requires HTTPS and a reachable `/.well-known/oauth-authorization-server` endpoint.
 
 # How does it work?
-It's an Android app with an accompanying Home Assistant integration. The app connects to Home Assistant and registers with the integration. The integration creates entities you can use to send audio, identify the device, etc.
+The app (Android) connects to your Home Assistant server using web sockets. The integration (Python) sends commands and sometimes media to the app. Et voila.
 
 # Installation
 You need both parts for things to work correctly. It's better if you install the HA integration before the app so that the app can register itself when it first connects to HA.
@@ -44,6 +44,7 @@ Download the signed APK from the [latest GitHub Release](https://github.com/emar
 - [Download its SHA-256 checksum](https://github.com/emarrero-personal/HAMediaConnect/releases/latest/download/HAMediaConnect.apk.sha256)
 
 On an Android 10 or newer phone or tablet, open the downloaded APK and follow Android's installer prompts. If Android asks, allow your browser or file manager to install apps from that source. Disable that permission again after installation if you do not need it.
+
 ## Connect your device
 1. Optionally but recommended - create a HA user for HAMediaConnect. The user should be a HA administrator for initial connections but can then be downgraded after the device registers itself.
 2. Open HAMediaConnect and enter an HTTPS Home Assistant base URL, such as `https://example.ui.nabu.casa`.
